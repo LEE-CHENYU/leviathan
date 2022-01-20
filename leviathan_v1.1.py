@@ -267,9 +267,12 @@ class Game:
 			self.like[self.leader.id, i] += (i.cargo - avg_share) * INEQUALITY_AVERSION
 
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> Leviathan/chenyu
 	def check(self):
 		print("-回合结束-")
 		for player in self.player_list:
