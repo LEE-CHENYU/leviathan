@@ -218,13 +218,6 @@ class Game:
 			# elif dice() < 4:
 			# 	pass
 			# i += 1
-
-	def distribute(self):
-		cargo_pool = 0
-		for i in player_list:
-			cargo_pool += i.cargo
-		if self.leader
-		print("-分配-")
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
