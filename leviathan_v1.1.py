@@ -103,7 +103,7 @@ class Game:
 
 		self.like = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)  	#	第i行代表第i个人 被 其他人的喜欢程度
 		self.respect = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)
-		self.leader = self.elect()
+		self.leader = None
 
 
 	def map(self):
@@ -206,14 +206,15 @@ class Game:
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
-		respect_sum[3] += 2
-		respect_sum[5] += 2
 		respect_sum_max = np.max(respect_sum)
-		respect_maxium_index = np.where(list(respect_sum) == respect_sum_max)
-		print(respect_maxium_index)
+		respect_maximum_index = np.where(respect_sum == respect_sum_max)
+		leader_id = np.random.choice(respect_maximum_index, 1)
 
-	
-		return leader
+		if self.leader is not None:
+			self.leader.is_leader = False
+		
+		self.leader = self.player_list0[leader_id]
+		self.leader.is_leader = True
 
 	def distribute():
 		
