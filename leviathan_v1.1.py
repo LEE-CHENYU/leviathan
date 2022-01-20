@@ -7,12 +7,14 @@ import numpy as np
 
 
 NAME_LIST = ['Abraham', 'Biden', 'Charles', 'David', 'Elizabeth', 'Franklin', 'George']
-TACTIC_LIST = ['随机', "平均", "政党", "寡头", "独裁"]
+TACTIC_LIST = ['随机', "平均", "政党"]
 
 # Fight
 SPECTATOR_HELP = 0.1
 MIN_ATTACK = 0.3
 MAX_ATTACK = 0.7
+# Distribute
+INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
 
 def dice():
 	return random.randint(0,5)
@@ -103,7 +105,7 @@ class Game:
 
 		self.like = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)  	#	第i行代表第i个人 被 其他人的喜欢程度
 		self.respect = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)
-		self.leader = self.elect()
+		self.leader = None
 
 
 	def map(self):
@@ -199,28 +201,55 @@ class Game:
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
-		respect_sum[3] += 2
-		respect_sum[5] += 2
 		respect_sum_max = np.max(respect_sum)
-		respect_maxium_index = np.where(list(respect_sum) == respect_sum_max)
-		print(respect_maxium_index)
+		respect_maximum_index = np.where(respect_sum == respect_sum_max)
+		leader_id = np.random.choice(respect_maximum_index, 1)
 
-		return leader
+		if self.leader is not None:
+			self.leader.is_leader = False
+		
+		self.leader = self.player_list0[leader_id]
+		self.leader.is_leader = True
 
 	def distribute(self, killer_list):
 		print("-分配-")
 		cargo_pool = 0
+		share_list = []
 		for i in self.player_list:
+			if i not in killer_list:
+				share_list.append(i)
+		for i in share_list:
 			cargo_pool += i.cargo
 			i.cargo = 0
-		avg_share = cargo_pool / self.player_list 
-		if self.leader.id != self.player_id not in killer_list:
-			if self.leader.tactic == "随机":
-				for i in self.player_list:
-					i.cargo += random.randint(avg_share)
+		avg_share = cargo_pool / share_list
+		if self.leader.id != self.player_id:
+			if self.leader.tactic == "平均":
+				for i in share_list:
+					i.cargo += avg_share
 					cargo_pool -= i.cargo
-
-
+			if self.leader.tactic == "随机":
+				for i in range(len(share_list)):
+					divider = np.sort(np.random.rand(self.current_counts - len()) * cargo_pool)
+					cargo_splitted = np.concatenate([[0], divider, [cargo_pool]])
+					share_list[i].cargo += cargo_splitted[i+1] - cargo_splitted[i]
+					cargo_pool -= share_list[i].cargo
+			if self.leader.tactic == "政党":
+				party_number = int(len(share_list) / 2) + 1
+				id_list = np.argsort(self.like[self.leader.id], True)
+				party_member = []
+				j = 0
+				for i in id_list:
+					if self.player_list0[i] in share_list:
+						party_member.append(self.player_list0[i])
+						j += 1
+					if j == party_number:
+						break
+			if self.leader.tactic == "寡头":
+				pass
+			if self.leader.tactic == "独裁":
+				pass 
+		for i in share_list:
+			self.like[self.leader.id, i] += (i.cargo - avg_share) * INEQUALITY_AVERSION
 
 
 
