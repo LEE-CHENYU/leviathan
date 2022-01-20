@@ -6,7 +6,7 @@ from tkinter.tix import MAX
 import numpy as np
 
 
-NAME_LIST = ['Abraham', 'Biden', 'Charles', 'David', 'Elizabeth', 'Franklin', 'George']
+NAME_LIST = np.loadtxt("./name_list.txt")[:, 0]
 TACTIC_LIST = ['随机', "平均", "政党", "寡头", "独裁"]
 
 # Fight
@@ -224,11 +224,9 @@ class Game:
 	def distribute():
 		
 
-# def data(N):	
-# 	like_mat = np.zeros((N, N))
-# 	respect_mat = np.zeros((N, N))
-
-# 	return like_mat, respect_mat
+	def check(self):
+		for player in self.player_list:
+			player.check()
 
 
 class Info:
