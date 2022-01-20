@@ -185,7 +185,7 @@ class Game:
 			# 	pass
 			# i += 1
 
-	def distribuasfsdfds():
+	def dist():
 		
 
 # def data(N):	
