@@ -6,8 +6,8 @@ from tkinter.tix import MAX
 import numpy as np
 
 
-NAME_LIST = ['Abraham', 'Biden', 'Charles', 'David', 'Elizabeth', 'Franklin', 'George']
 TACTIC_LIST = ['随机', "平均", "政党"]
+NAME_LIST = np.loadtxt("./name_list.txt")[:, 0]
 
 # Fight
 SPECTATOR_HELP = 0.1
@@ -157,6 +157,10 @@ class Game:
 
 			self.respect[victim.id, :] += 2
 			self.current_counts -= 1
+		else:
+			killer.eat()
+			killer.destroy()
+
 
 	def collect(self):
 		print("-采集-")
@@ -189,15 +193,8 @@ class Game:
 		for i in range(len(killer_list)):
 			self.fight(killer_list[i], victim_list[i])
 
-			# adj = (i+1) % (len(ring))
-			# l, m, r = ring[i-1], ring[i], ring[(adj)]
-			# if dice() < 2:
-			# 	fight(l, m, ring, info)
-			# elif dice() > 2 and dice() < 4:
-			# 	fight(m, r, ring, info)
-			# elif dice() < 4:
-			# 	pass
-			# i += 1
+		return killer_list
+
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
@@ -255,11 +252,9 @@ class Game:
 
 
 
-# def data(N):	
-# 	like_mat = np.zeros((N, N))
-# 	respect_mat = np.zeros((N, N))
-
-# 	return like_mat, respect_mat
+	def check(self):
+		for player in self.player_list:
+			player.check()
 
 
 class Info:
