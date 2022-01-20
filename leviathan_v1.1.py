@@ -7,6 +7,7 @@ import numpy as np
 
 
 NAME_LIST = ['Abraham', 'Biden', 'Charles', 'David', 'Elizabeth', 'Franklin', 'George']
+TACTIC_LIST = ['随机', "平均", "政党", "寡头", "独裁"]
 
 # Fight
 SPECTATOR_HELP = 0.1
@@ -23,6 +24,7 @@ class Members:
 		self.vitality = 50
 		self.cargo = 0
 		self.productivity = int(np.random.rand() * 20 + 40)
+		self.tactic = np.random.choice(TACTIC_LIST)
 		# countsList = list(range(counts))
 		# del countsList[id] 
 		# for i in countsList:
@@ -185,7 +187,12 @@ class Game:
 			# 	pass
 			# i += 1
 
-	def distr():
+	def distribute(self):
+		cargo_pool = 0
+		for i in player_list:
+			cargo_pool += i.cargo
+		if self.leader
+		print("-分配-")
 		
 
 # def data(N):	
