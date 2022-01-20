@@ -185,7 +185,7 @@ class Game:
 			# 	pass
 			# i += 1
 
-	def distribute():
+	def distribu():
 		
 
 # def data(N):	
