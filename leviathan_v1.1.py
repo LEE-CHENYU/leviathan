@@ -63,6 +63,14 @@ def staring(name_list, player_list, player_id, counts):
 
 	return player_list
 
+def elect(info):
+	respect_sum = np.sum(info.respect.mat, 1)
+	respect_sum[3] += 2
+	respect_sum[5] += 2
+	respect_sum_max = np.max(respect_sum)
+	respect_maxium_index = np.where(list(respect_sum) == respect_sum_max)
+	print(respect_maxium_index)
+
 
 def index(player):
 	name_list = ['Abraham', 'Biden', 'Charles', 'David', 'Elizabeth', 'Franklin', 'George']
@@ -180,6 +188,7 @@ def engine():
 	print("\n")
 	print(like.mat, "\n\n", respect.mat)
 	info = Info(counts, name_list, player_id, player_list, player_list0, like, respect)
+	elect(info)
 
 	while True:
 		print("\n")
