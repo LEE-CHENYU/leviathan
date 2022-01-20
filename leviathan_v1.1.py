@@ -196,13 +196,6 @@ class Game:
 			# elif dice() < 4:
 			# 	pass
 			# i += 1
-
-	def distribute(self):
-		cargo_pool = 0
-		for i in player_list:
-			cargo_pool += i.cargo
-		if self.leader
-		print("-分配-")
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
@@ -212,11 +205,26 @@ class Game:
 		respect_maxium_index = np.where(list(respect_sum) == respect_sum_max)
 		print(respect_maxium_index)
 
-	
 		return leader
 
-	def distribute():
-		
+	def distribute(self, killer_list):
+		print("-分配-")
+		cargo_pool = 0
+		for i in self.player_list:
+			cargo_pool += i.cargo
+			i.cargo = 0
+		avg_share = cargo_pool / self.player_list 
+		if self.leader.id != self.player_id not in killer_list:
+			if self.leader.tactic == "随机":
+				for i in self.player_list:
+					i.cargo += random.randint(avg_share)
+					cargo_pool -= i.cargo
+
+
+
+
+
+
 
 # def data(N):	
 # 	like_mat = np.zeros((N, N))
