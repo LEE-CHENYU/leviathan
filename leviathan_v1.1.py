@@ -155,6 +155,11 @@ class Game:
 
 			self.respect[victim.id, :] += 2
 			self.current_counts -= 1
+		else:
+			killer.eat()
+			killer.destroy()
+
+		return killer_list
 
 	def collect(self):
 		print("-采集-")
