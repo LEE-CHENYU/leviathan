@@ -25,6 +25,7 @@ class Members:
 		self.cargo = 0
 		self.productivity = int(np.random.rand() * 20 + 40)
 		self.tactic = np.random.choice(TACTIC_LIST)
+		self.is_leader = False
 		# countsList = list(range(counts))
 		# del countsList[id] 
 		# for i in countsList:
@@ -32,12 +33,16 @@ class Members:
 		# 	setattr(self,str('hate' + str(i)), 0)
 
 	def load(self):
-		self.cargo += int(random.rand() * self.productivity)
+		if not self.is_leader:
+			self.cargo += int(random.rand() * self.productivity)
 
 	def consume(self):
 		self.vitality -= 25
 
 	def kill_decision(self, other, game):
+		if self.is_leader or other.is_leader:
+			return False
+
 		killer_bonus = int(np.average([game.like[self.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP) \
 			- int(np.average([game.like[other.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP)
 		self_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality) + killer_bonus / 2
@@ -96,8 +101,9 @@ class Game:
 
 		self.player_list0 = self.player_list # backup array for original player list
 
-		self.like = Matrix(counts)  	#	第i行代表第i个人 被 其他人的喜欢程度
-		self.respect = Matrix(counts)
+		self.like = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)  	#	第i行代表第i个人 被 其他人的喜欢程度
+		self.respect = np.random.randint(-1, 2, size=(counts, counts), dtype=np.int)
+		self.leader = self.elect()
 
 
 	def map(self):
@@ -132,17 +138,21 @@ class Game:
 		elif killer.vitality > 0 and victim.vitality <= 0:
 			print("正当防卫者" + str(victim.name) + " killed by " + str(killer.name))
 			self.player_list.remove(victim)
+
 			killer.cargo += victim.cargo
 			killer.eat()
 			killer.destroy()
+			
 			self.respect[killer.id, :] += 1
 			self.current_counts -= 1
 			# print(self.respect, "\n")
 		elif killer.vitality <= 0 and victim.vitality > 0:
 			print("犯罪者" + str(killer.name) + " killed by " + str(victim.name))
 			self.player_list.remove(killer)
+
 			victim.cargo += killer.cargo
 			victim.eat()
+
 			self.respect[victim.id, :] += 2
 			self.current_counts -= 1
 
@@ -193,6 +203,19 @@ class Game:
 			cargo_pool += i.cargo
 		if self.leader
 		print("-分配-")
+		
+	def elect(self):
+		respect_sum = np.sum(self.respect, 1)
+		respect_sum[3] += 2
+		respect_sum[5] += 2
+		respect_sum_max = np.max(respect_sum)
+		respect_maxium_index = np.where(list(respect_sum) == respect_sum_max)
+		print(respect_maxium_index)
+
+	
+		return leader
+
+	def distribute():
 		
 
 # def data(N):	
