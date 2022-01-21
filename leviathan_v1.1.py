@@ -6,8 +6,11 @@ from tkinter.tix import MAX
 import numpy as np
 
 
-TACTIC_LIST = ['随机', "平均", "政党"]
+
 NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
+
+# Survive
+VIT_CONSUME = 20
 
 # Fight
 SPECTATOR_HELP = 0.2	# 参战加成的比例
@@ -22,6 +25,7 @@ MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
 
 # Distribute
+TACTIC_LIST = ['随机', "平均", "政党"]
 INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
 PARTY_SHARE = 0.7
 
@@ -49,7 +53,7 @@ class Members:
 			self.cargo += int(np.random.rand() * self.productivity)
 
 	def consume(self):
-		self.vitality -= 25
+		self.vitality -= VIT_CONSUME
 		self.eat() #后面改
 
 	def kill_decision(self, other, game):
@@ -299,7 +303,6 @@ class Game:
 			pass 
 		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
-
 
 	def check(self):
 		print("-回合结束-")
