@@ -284,7 +284,7 @@ class Game:
 			for i in id_list:
 				# print(i)
 				if self.player_list0[i] in share_list:
-					party_member.append(self.player_list0[i])
+					party_member.append(self.player_list0[i]) #党魁没进自己party
 					j += 1
 				if j == party_number:
 					break
