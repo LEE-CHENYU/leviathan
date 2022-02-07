@@ -41,6 +41,7 @@ class Members:
 		self.productivity = int(np.random.rand() * 20 + 40)
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
+		self.fight_engagement = 0
 		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
 		# countsList = list(range(counts))
 		# del countsList[id] 
@@ -171,8 +172,48 @@ class Game:
 		for player in self.player_list:
 			player.load()
 
-	def fight(self, team_A, team_B, A_engagement, B_egagement, A_leader=None, B_leader=None):
-		
+	def fight(self, team_A, team_B, A_leader=None, B_leader=None):
+		# 先挑选队伍双方，为每个人设置参与度
+		# 返回值为两个list，分别为结束时的双方存活的人
+		loser = ""
+		team_A_alive = team_A.copy()
+		team_B_alive = team_B.copy()
+		def continue_fight():
+			# 返回None来继续战斗
+			if A_leader is not None:
+				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_A_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
+
+			if B_leader is not None:
+				if B_leader.vitality <= 0 or B_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_B_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
+
+		while continue_fight():
+			# 打一轮
+			for member in team_A_alive:
+				if member.engagement > 0:
+					target = np.random.choice(team_B_alive, size=1, p=)
+
+			# 判断死亡
+
+			# 判断投降（调整engagement）
+
 
 
 	def fight_old(self, killer, victim):
