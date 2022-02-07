@@ -25,9 +25,11 @@ MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
 
 # Distribute
-TACTIC_LIST = ['随机', "平均", "政党"] #& 给血少的分
+TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁"]
 INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
 PARTY_SHARE = 0.7
+FRIEND_THRESHOLD = 1.5 #好感度与平均水平比例高于此值时，成为寡头成员
+CRUELTY = 1.2 #独裁模式下，分配额与消耗量的比例
 
 def dice():
 	return random.randint(0,5)
@@ -332,24 +334,53 @@ class Game:
 			# print(self.leader.id)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
+			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
 			j = 0
 			for i in id_list:
 				# print(i)
 				if self.player_list0[i] in share_list:
-					party_member.append(self.player_list0[i]) #党魁没进自己party
+					if self.player_list0[i] != self.player_list0[self.leader.id]:
+						party_member.append(self.player_list0[i]) 
 					j += 1
 				if j == party_number:
 					break
 			for member in share_list:
 				if member in party_member:
 					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
+					cargo_pool -= member.cargo 
 				else:
 					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
+					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
-			pass
+			id_list = np.argsort(self.like[self.leader.id])[::-1]
+			party_member = []
+			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
+			t = sum(self.like[self.leader.id])/len(self.like[self.leader.id]) * FRIEND_THRESHOLD
+			j = 0
+			for i in id_list:
+				# print(i)
+				if self.player_list0[i] in share_list:
+					if self.like[self.leader.id, i] >= t:
+						if self.player_list0[i] != self.player_list0[self.leader.id]:
+							party_member.append(self.player_list0[i]) 
+					j += 1
+				if j == party_number:
+					break
+			for member in share_list:
+				if member in party_member:
+					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
+					cargo_pool -= member.cargo 
+				else:
+					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
+					cargo_pool -= member.cargo
 		if self.leader.tactic == "独裁":
-			pass 
-		for i in share_list: #分配导致的好感度变化
+			for p in share_list:
+				if self.player_list0[i] != self.player_list0[self.leader.id]: 
+					p.cargo += VIT_CONSUME * CRUELTY
+					cargo_pool -= p.cargo 
+			self.player_list0[self.leader.id] += cargo_pool
+			print("独裁者将总")
+		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
 
 	#&justice：包含起义和政变
