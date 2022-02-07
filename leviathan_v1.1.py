@@ -170,7 +170,11 @@ class Game:
 		for player in self.player_list:
 			player.load()
 
-	def fight(self, killer, victim):
+	def fight(self, team_A, team_B, A_engagement, B_egagement, A_leader=None, B_leader=None):
+		
+
+
+	def fight_old(self, killer, victim):
 		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
 			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
 		killer_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * killer.vitality) + killer_bonus / 2
@@ -213,7 +217,6 @@ class Game:
 			print(f"{killer.name} 和 {victim.name} 交战，但是无人死亡")
 			killer.eat()
 			killer.destroy_cargo()
-
 
 	def collect(self):
 		print("-采集-")
@@ -312,7 +315,8 @@ class Game:
 			print(f"Last 10 person: {[player.name for player in self.player_list]}")
 			print(f"\n"*10)
 			exit()
-		
+	
+
 
 # def end(info):
 # 	print("-回合结束-")
