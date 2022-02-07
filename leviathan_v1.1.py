@@ -1,5 +1,5 @@
 from lib2to3.pgen2.token import NAME
-from nis import match
+#from nis import match
 from os import kill
 import random
 from tkinter.tix import MAX
@@ -43,6 +43,7 @@ class Members:
 		self.productivity = int(np.random.rand() * 20 + 40)
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
+		self.fight_engagement = 0
 		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
 		# countsList = list(range(counts))
 		# del countsList[id] 
@@ -56,15 +57,16 @@ class Members:
 
 	def consume(self):
 		self.vitality -= VIT_CONSUME
-		self.eat() #后面改
+		self.eat() #后面改（可能是需要拆成两个func）
 
 	def kill_decision(self, other, game):
-		if self.is_leader or other.is_leader:
-			return False
 		killer_bonus = int(np.average([game.like[self.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP) \
 			- int(np.average([game.like[other.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP)
 		self_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality) + killer_bonus / 2
 		other_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * other.vitality) - killer_bonus / 2
+
+		if self.is_leader or other.is_leader:
+			return False
 
 		if other_attack >= self.vitality or self_attack < other.vitality:
 			return False
@@ -158,7 +160,7 @@ class Game:
 		ring = list(range(self.counts))
 		ring = sorted(self.player_list, key=lambda k: random.random())
 	
-		return ring
+		return ring #&更复杂的地图
 
 	def consume(self):
 		for player in self.player_list:
@@ -172,11 +174,56 @@ class Game:
 		for player in self.player_list:
 			player.load()
 
-	def fight(self, killer, victim):
+	def fight(self, team_A, team_B, A_leader=None, B_leader=None):
+		# 先挑选队伍双方，为每个人设置参与度
+		# 返回值为两个list，分别为结束时的双方存活的人
+		loser = ""
+		team_A_alive = team_A.copy()
+		team_B_alive = team_B.copy()
+		def continue_fight():
+			# 返回None来继续战斗
+			if A_leader is not None:
+				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_A_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
+
+			if B_leader is not None:
+				if B_leader.vitality <= 0 or B_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_B_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
+
+		while continue_fight():
+			# 打一轮
+			for member in team_A_alive:
+				if member.engagement > 0:
+					target = np.random.choice(team_B_alive, size=1, p=)
+
+			# 判断死亡
+
+			# 判断投降（调整engagement）
+
+
+
+	def fight_old(self, killer, victim):
 		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
 			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
 		killer_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * killer.vitality) + killer_bonus / 2
 		victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
+		#&根据好感度决定是否助战
 
 		self.like[killer.id, victim.id] -= 2
 		self.like[killer.id, :killer.id] -= 1
@@ -216,11 +263,12 @@ class Game:
 			killer.eat()
 			killer.destroy_cargo()
 
-
 	def collect(self):
 		print("-采集-")
 		self.load()
 		self.rob()
+
+	#偷窃
 
 	def rob(self):
 		killer_list = []
@@ -252,7 +300,7 @@ class Game:
 		respect_sum = np.sum(self.respect, 1)
 		respect_sum_max = np.max(respect_sum)
 		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
-		leader_id = np.random.choice(respect_maximum_index[0])
+		leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
 
 		if self.leader is not None:
 			self.leader.is_leader = False
@@ -345,6 +393,8 @@ class Game:
 		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
 
+	#&justice：包含起义和政变
+
 	def check(self):
 		print("-回合结束-")
 		for player in self.player_list:
@@ -353,7 +403,8 @@ class Game:
 			print(f"Last 10 person: {[player.name for player in self.player_list]}")
 			print(f"\n"*10)
 			exit()
-		
+	
+
 
 # def end(info):
 # 	print("-回合结束-")
