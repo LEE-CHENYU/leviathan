@@ -1,5 +1,5 @@
 from lib2to3.pgen2.token import NAME
-from nis import match
+#from nis import match
 from os import kill
 import random
 from tkinter.tix import MAX
@@ -25,7 +25,7 @@ MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
 
 # Distribute
-TACTIC_LIST = ['随机', "平均", "政党"]
+TACTIC_LIST = ['随机', "平均", "政党"] #& 给血少的分
 INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
 PARTY_SHARE = 0.7
 
@@ -54,15 +54,16 @@ class Members:
 
 	def consume(self):
 		self.vitality -= VIT_CONSUME
-		self.eat() #后面改
+		self.eat() #后面改（可能是需要拆成两个func）
 
 	def kill_decision(self, other, game):
-		if self.is_leader or other.is_leader:
-			return False
 		killer_bonus = int(np.average([game.like[self.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP) \
 			- int(np.average([game.like[other.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP)
 		self_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality) + killer_bonus / 2
 		other_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * other.vitality) - killer_bonus / 2
+
+		if self.is_leader or other.is_leader:
+			return False
 
 		if other_attack >= self.vitality or self_attack < other.vitality:
 			return False
@@ -156,7 +157,7 @@ class Game:
 		ring = list(range(self.counts))
 		ring = sorted(self.player_list, key=lambda k: random.random())
 	
-		return ring
+		return ring #&更复杂的地图
 
 	def consume(self):
 		for player in self.player_list:
@@ -179,6 +180,7 @@ class Game:
 			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
 		killer_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * killer.vitality) + killer_bonus / 2
 		victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
+		#&根据好感度决定是否助战
 
 		self.like[killer.id, victim.id] -= 2
 		self.like[killer.id, :killer.id] -= 1
@@ -223,6 +225,8 @@ class Game:
 		self.load()
 		self.rob()
 
+	#偷窃
+
 	def rob(self):
 		killer_list = []
 		victim_list = []
@@ -253,7 +257,7 @@ class Game:
 		respect_sum = np.sum(self.respect, 1)
 		respect_sum_max = np.max(respect_sum)
 		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
-		leader_id = np.random.choice(respect_maximum_index[0])
+		leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
 
 		if self.leader is not None:
 			self.leader.is_leader = False
@@ -291,7 +295,7 @@ class Game:
 			for i in id_list:
 				# print(i)
 				if self.player_list0[i] in share_list:
-					party_member.append(self.player_list0[i])
+					party_member.append(self.player_list0[i]) #&党魁没进自己party
 					j += 1
 				if j == party_number:
 					break
@@ -304,8 +308,10 @@ class Game:
 			pass
 		if self.leader.tactic == "独裁":
 			pass 
-		for i in share_list:
+		for i in share_list: #分配导致的好感度变化
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
+
+	#&justice：包含起义和政变
 
 	def check(self):
 		print("-回合结束-")
