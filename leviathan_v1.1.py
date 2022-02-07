@@ -3,6 +3,7 @@ from lib2to3.pgen2.token import NAME
 from os import kill
 import random
 from tkinter.tix import MAX
+from turtle import begin_fill
 import numpy as np
 
 
@@ -210,12 +211,24 @@ class Game:
 
 		while continue_fight():
 			# 打一轮
-			A_eng_list = [member.engagement for member in team_A]
-			B_eng_list = [member.engagement for member in team_B]
+			A_eng_list = np.array([member.engagement for member in team_A])
+			B_eng_list = np.array([member.engagement for member in team_B])
+			A_eng_list /= np.sum(A_eng_list)
+			B_eng_list /= np.sum(B_eng_list)
 			for member in team_A_alive:
 				if np.random.rand() <= member.engagement:
-					target = np.random.choice(team_B_alive, size=1)
-					attack = 
+					target = np.random.choice(team_B_alive, size=1, p=B_eng_list)
+					attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * member.vitality
+					target.vitality -= attack
+					# 还差好感度
+
+
+			for member in team_B_alive:
+				if np.random.rand() <= member.engagement:
+					target = np.random.choice(team_A_alive, size=1, p=A_eng_list)
+					attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * member.vitality
+					target.vitality -= attack
+					# 还差好感度
 
 			# 判断死亡
 			
@@ -227,7 +240,7 @@ class Game:
 	def fight_old(self, killer, victim):
 		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
 			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
-		killer_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * killer.vitality) + killer_bonus / 2
+		killer_attack = int() + killer_bonus / 2
 		victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
 		#&根据好感度决定是否助战
 
