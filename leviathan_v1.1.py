@@ -80,6 +80,9 @@ class Members:
 
 		return True
 
+	def help_decision(self, side1, side2, game):
+		pass #&助战决定
+
 	def eat(self, amount=None):
 		if amount is None:
 			if self.vitality + self.cargo >= 100:
@@ -233,7 +236,7 @@ class Game:
 
 		self.like[killer.id, victim.id] -= 2
 		self.like[killer.id, :killer.id] -= 1
-		self.like[killer.id, killer.id+1:] -= 1
+		self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
 
 		killer.vitality -= victim_attack
 		victim.vitality -= killer_attack
@@ -297,7 +300,7 @@ class Game:
 					victim_list.append(self.player_list[i-1])
 			
 		for i in range(len(killer_list)):
-			self.fight(killer_list[i], victim_list[i])
+			self.fight(killer_list[i], victim_list[i]) #&前面加判定，后面加分配
 
 		self.killer_list = killer_list
 
