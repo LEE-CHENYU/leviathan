@@ -16,10 +16,12 @@ VIT_CONSUME = 20
 SPECTATOR_HELP = 0.2	# 参战加成的比例
 
 MIN_ATTACK = 0.3
-MAX_ATTACK = 1
+MAX_ATTACK = 0.5
 
+# Like
 LIKE_THRESHOLD = 2  		# A对某人喜欢超过这个值，A不会杀这个人
 BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀这个人
+LIKE_BASIS = 1.5			# 好感度对决策的影响：LIKE_BASIS ** like[x, y]
 
 MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
@@ -43,7 +45,7 @@ class Members:
 		self.productivity = int(np.random.rand() * 20 + 40)
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
-		self.fight_engagement = 0
+		self.engagement = 0			# 仅在参战时使用，每次战斗都不同，需要重新设置
 		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
 		# countsList = list(range(counts))
 		# del countsList[id] 
@@ -208,11 +210,15 @@ class Game:
 
 		while continue_fight():
 			# 打一轮
+			A_eng_list = [member.engagement for member in team_A]
+			B_eng_list = [member.engagement for member in team_B]
 			for member in team_A_alive:
-				if member.engagement > 0:
-					target = np.random.choice(team_B_alive, size=1, p=)
+				if np.random.rand() <= member.engagement:
+					target = np.random.choice(team_B_alive, size=1)
+					attack = 
 
 			# 判断死亡
+			
 
 			# 判断投降（调整engagement）
 
