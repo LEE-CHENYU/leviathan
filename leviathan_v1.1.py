@@ -25,7 +25,7 @@ MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
 
 # Distribute
-TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁"]
+TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
 INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
 PARTY_SHARE = 0.7
 FRIEND_THRESHOLD = 1.5 #好感度与平均水平比例高于此值时，成为寡头成员
@@ -326,12 +326,22 @@ class Game:
 					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "独裁":
+			cargo_pool0 = cargo_pool
 			for p in share_list:
 				if self.player_list0[i] != self.player_list0[self.leader.id]: 
 					p.cargo += VIT_CONSUME * CRUELTY
 					cargo_pool -= p.cargo 
-			self.player_list0[self.leader.id] += cargo_pool
-			print("独裁者将总")
+			self.player_list0[self.leader.id].cargo += cargo_pool
+			share_precentage = self.player_list0[self.leader.id].cargo/cargo_pool0 * 100
+			print("独裁者将分配池的" + str(share_precentage) + "分给了自己")
+		if self.leader.tactic == "福利":
+			vitality_sum = 0
+			for i in share_list:
+				vitality_sum += i.vitality
+				avg_vitality = vitality_sum/len(share_list)
+			for i in share_list:
+				i.cargo += avg_share * avg_vitality/i.vitality
+				cargo_pool -= i.cargo
 		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
 
