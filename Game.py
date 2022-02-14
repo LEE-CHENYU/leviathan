@@ -5,7 +5,7 @@ from sniffio import current_async_library
 
 NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
 
-TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
+TACTIC_LIST = ['随机', "平均", "政党", "寡头", "独裁", "福利"]
 
 # Survive
 VIT_CONSUME = 20
