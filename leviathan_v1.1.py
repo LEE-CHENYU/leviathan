@@ -5,6 +5,7 @@ from os import kill
 import random
 from tkinter.tix import MAX
 from turtle import begin_fill
+from urllib.request import AbstractDigestAuthHandler
 import numpy as np
 
 
@@ -28,6 +29,11 @@ LIKE_WHEN_SEEN_ATTACKING = 1
 LIKE_THRESHOLD = 2  		# A对某人喜欢超过这个值，A不会杀这个人
 BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀这个人
 # LIKE_BASIS = 1.5			# 好感度对决策的影响：LIKE_BASIS ** like[x, y]
+
+#help
+ASSIST_THRESHOLD = 2
+SURRENDER_THRESHOLD_VITA = 20
+SURRENDER_THRESHOLD_LIKE = 2
 
 MIN_BRAVITY = 1
 MAX_BRAVITY = 1.5
@@ -93,6 +99,24 @@ class Members:
 		# 计算攻击力，正比于攻击者血量
 		attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality
 		return target, attack
+		
+	def assist_decision(self, game, team_A, team_B, A_leader=None, B_leader=None):
+		#&助战决定，side应是member类对象
+		if self.is_leader != False:
+			return False
+		like_difference = game.like[A_leader.id, self.id] - game.like[B_leader.id, self.id] #&需要解决leader为None的情况
+		if like_difference > ASSIST_THRESHOLD:
+			if self.vitality < B_leader.vitality: #&根据死亡概率作调整？
+				return False
+			else:
+				team_A.append(self)
+				self.engagement = abs(like_difference)/10
+		if like_difference < ASSIST_THRESHOLD * -1:
+			if self.vitality < A_leader.vitality:
+				return False
+			else:
+				team_B.append(self)	
+				self.engagement = abs(like_difference)/10
 
 	def eat(self, amount=None):
 		if amount is None:
@@ -118,14 +142,13 @@ class Members:
 			print(f"{self.name}'s vitality goes above 100!")
 			self.vitality = 100
 
-
-class Matrix:
-	def __init__(self, counts):
-		self.mat = np.zeros((counts, counts))
-	def up(self, index, value):
-		self.mat[index] += value
-	def down(self, index, value):
-		self.mat[index] -= value
+# class Matrix:
+# 	def __init__(self, counts):
+# 		self.mat = np.zeros((counts, counts))
+# 	def up(self, index, value):
+# 		self.mat[index] += value
+# 	def down(self, index, value):
+# 		self.mat[index] -= value
 
 
 class Game:
@@ -222,6 +245,18 @@ class Game:
 						break
 				if all_died:
 					return False
+		def like_calculator(self0):
+			#&计算好感度之差判断是否投降,是否战斗过程中对队友好感度必定持续上升？
+			for member in team_A_alive:
+				team_A_like += self.like[member.id, self0.id] #对队友/敌人的好感度
+			for member in team_A_alive:
+				team_B_like += self.like[member.id, self0.id]
+			if self0 in team_A_alive:
+				like_difference = team_A_like - team_B_like
+			if self0 in team_B_alive:
+				like_difference = team_B_like - team_A_like
+			like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
+			return like_difference
 
 			return True
 
@@ -236,21 +271,35 @@ class Game:
 					target, attack = member.attack_decision(team_B_alive, B_eng_list)
 					target.vitality -= attack
 					# 好感度调整
-					self.like[member.id, target.id] -= 
 
+					self.like[member.id, target.id] -= attack/10 #&被攻击者好感度调整，需修改好感度减少数值
+					for team_member in team_A_alive:
+						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
 					target, attack = member.attack_decision(team_A_alive, A_eng_list)
 					target.vitality -= attack
-					# 还差好感度
+					self.like[member.id, target.id] -= attack/10 #&需修改好感度减少数值
+					for team_member in team_A_alive:
+						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
 
 			# 判断死亡
-			
+			for member in team_A_alive:
+				if member.vitality <= 0:
+					del team_A_alive[member]
+					del self.playerlist[member]
+
+			for member in team_B_alive:
+				if member.vitality <= 0:
+					del team_B_alive[member]
+					del self.player_list[member]
 
 			# 判断投降（调整engagement）
-
-
+			for member in team_A_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if like_calculator(member) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
 
 	def fight_old(self, killer, victim):
 		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
@@ -261,7 +310,7 @@ class Game:
 
 		self.like[killer.id, victim.id] -= 2
 		self.like[killer.id, :killer.id] -= 1
-		self.like[killer.id, killer.id+1:] -= 1
+		self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
 
 		killer.vitality -= victim_attack
 		victim.vitality -= killer_attack
@@ -325,7 +374,7 @@ class Game:
 					victim_list.append(self.player_list[i-1])
 			
 		for i in range(len(killer_list)):
-			self.fight(killer_list[i], victim_list[i])
+			self.fight(killer_list[i], victim_list[i]) #&前面加判定，后面加分配
 
 		self.killer_list = killer_list
 
