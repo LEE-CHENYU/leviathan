@@ -274,11 +274,13 @@ class Game:
 				if member.vitality <= 0:
 					del team_A_alive[member]
 					del self.playerlist[member]
+					self.current_counts -= 1
 
 			for member in team_B_alive:
 				if member.vitality <= 0:
 					del team_B_alive[member]
 					del self.player_list[member]
+					self.current_counts -= 1
 
 			# 判断投降（调整engagement）
 			for member in team_A_alive:
