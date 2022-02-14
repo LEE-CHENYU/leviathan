@@ -288,50 +288,50 @@ class Game:
 					if like_calculator(member) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
 
-	def fight_old(self, killer, victim):
-		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
-			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
-		killer_attack = int() + killer_bonus / 2
-		victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
-		#&根据好感度决定是否助战
+	# def fight_old(self, killer, victim):
+	# 	killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
+	# 		- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
+	# 	killer_attack = int() + killer_bonus / 2
+	# 	victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
+	# 	#&根据好感度决定是否助战
 
-		self.like[killer.id, victim.id] -= 2
-		self.like[killer.id, :killer.id] -= 1
-		self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
+	# 	self.like[killer.id, victim.id] -= 2
+	# 	self.like[killer.id, :killer.id] -= 1
+	# 	self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
 
-		killer.vitality -= victim_attack
-		victim.vitality -= killer_attack
+	# 	killer.vitality -= victim_attack
+	# 	victim.vitality -= killer_attack
 
-		if killer.vitality <= 0 and victim.vitality <= 0: 
-			print("犯罪者" + str(killer.name) + "与正当防卫者" + str(victim.name) + "均死亡")
-			self.player_list.remove(killer)
-			self.player_list.remove(victim)
-			self.current_counts -= 2
-			# 注意需要分别从player_list中和ring中移除player
-		elif killer.vitality > 0 and victim.vitality <= 0:
-			print("正当防卫者" + str(victim.name) + " killed by " + str(killer.name))
-			self.player_list.remove(victim)
+	# 	if killer.vitality <= 0 and victim.vitality <= 0: 
+	# 		print("犯罪者" + str(killer.name) + "与正当防卫者" + str(victim.name) + "均死亡")
+	# 		self.player_list.remove(killer)
+	# 		self.player_list.remove(victim)
+	# 		self.current_counts -= 2
+	# 		# 注意需要分别从player_list中和ring中移除player
+	# 	elif killer.vitality > 0 and victim.vitality <= 0:
+	# 		print("正当防卫者" + str(victim.name) + " killed by " + str(killer.name))
+	# 		self.player_list.remove(victim)
 
-			killer.cargo += victim.cargo
-			killer.eat()
-			killer.destroy_cargo()
+	# 		killer.cargo += victim.cargo
+	# 		killer.eat()
+	# 		killer.destroy_cargo()
 			
-			self.respect[killer.id, :] += 1
-			self.current_counts -= 1
-			# print(self.respect, "\n")
-		elif killer.vitality <= 0 and victim.vitality > 0:
-			print("犯罪者" + str(killer.name) + " killed by " + str(victim.name))
-			self.player_list.remove(killer)
+	# 		self.respect[killer.id, :] += 1
+	# 		self.current_counts -= 1
+	# 		# print(self.respect, "\n")
+	# 	elif killer.vitality <= 0 and victim.vitality > 0:
+	# 		print("犯罪者" + str(killer.name) + " killed by " + str(victim.name))
+	# 		self.player_list.remove(killer)
 
-			victim.cargo += killer.cargo
-			victim.eat()
+	# 		victim.cargo += killer.cargo
+	# 		victim.eat()
 
-			self.respect[victim.id, :] += 2
-			self.current_counts -= 1
-		else:
-			print(f"{killer.name} 和 {victim.name} 交战，但是无人死亡")
-			killer.eat()
-			killer.destroy_cargo()
+	# 		self.respect[victim.id, :] += 2
+	# 		self.current_counts -= 1
+	# 	else:
+	# 		print(f"{killer.name} 和 {victim.name} 交战，但是无人死亡")
+	# 		killer.eat()
+	# 		killer.destroy_cargo()
 
 	def collect(self):
 		print("-采集-")
