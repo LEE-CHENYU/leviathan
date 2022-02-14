@@ -12,8 +12,6 @@ BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀�
 
 VIT_CONSUME = 20
 
-
-
 class Members:
 	def __init__(self, name, id, counts):
 		self.name = name
@@ -65,6 +63,24 @@ class Members:
 		# 计算攻击力，正比于攻击者血量
 		attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality
 		return target, attack
+		
+	def assist_decision(self, game, team_A, team_B, A_leader=None, B_leader=None):
+		#&助战决定，side应是member类对象
+		if self.is_leader != False:
+			return False
+		like_difference = game.like[A_leader.id, self.id] - game.like[B_leader.id, self.id] #&需要解决leader为None的情况
+		if like_difference > ASSIST_THRESHOLD:
+			if self.vitality < B_leader.vitality: #&根据死亡概率作调整？
+				return False
+			else:
+				team_A.append(self)
+				self.engagement = abs(like_difference)/10
+		if like_difference < ASSIST_THRESHOLD * -1:
+			if self.vitality < A_leader.vitality:
+				return False
+			else:
+				team_B.append(self)	
+				self.engagement = abs(like_difference)/10
 
 	def eat(self, amount=None):
 		if amount is None:

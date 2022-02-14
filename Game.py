@@ -1,4 +1,9 @@
 import numpy as np
+import random
+from Member import Members
+
+NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
+
 
 
 
@@ -71,6 +76,7 @@ class Game:
 		loser = ""
 		team_A_alive = team_A.copy()
 		team_B_alive = team_B.copy()
+        
 		def continue_fight():
 			# 返回True来继续战斗
 			if A_leader is not None:
@@ -98,6 +104,20 @@ class Game:
 					return False
 
 			return True
+            
+		def like_calculator(self0):
+			#&计算好感度之差判断是否投降,是否战斗过程中对队友好感度必定持续上升？
+			for member in team_A_alive:
+				team_A_like += self.like[member.id, self0.id] #对队友/敌人的好感度
+			for member in team_A_alive:
+				team_B_like += self.like[member.id, self0.id]
+			if self0 in team_A_alive:
+				like_difference = team_A_like - team_B_like
+			if self0 in team_B_alive:
+				like_difference = team_B_like - team_A_like
+			like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
+			return like_difference
+
 
 		while continue_fight():
 			# 打一轮
@@ -110,21 +130,38 @@ class Game:
 					target, attack = member.attack_decision(team_B_alive, B_eng_list)
 					target.vitality -= attack
 					# 好感度调整
-					self.like[member.id, target.id] -= 
 
+					self.like[member.id, target.id] -= attack/10 #&被攻击者好感度调整，需修改好感度减少数值
+					for team_member in team_A_alive:
+						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
 					target, attack = member.attack_decision(team_A_alive, A_eng_list)
 					target.vitality -= attack
-					# 还差好感度
+					self.like[member.id, target.id] -= attack/10 #&需修改好感度减少数值
+					for team_member in team_A_alive:
+						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
 
 			# 判断死亡
-			
+			for member in team_A_alive:
+				if member.vitality <= 0:
+					del team_A_alive[member]
+					del self.player_list[member]
+                    self.current_counts -= 1
+
+			for member in team_B_alive:
+				if member.vitality <= 0:
+					del team_B_alive[member]
+					del self.player_list[member]
 
 			# 判断投降（调整engagement）
+			for member in team_A_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if like_calculator(member) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
 
-
+        return None
 
 	def fight_old(self, killer, victim):
 		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
@@ -135,7 +172,7 @@ class Game:
 
 		self.like[killer.id, victim.id] -= 2
 		self.like[killer.id, :killer.id] -= 1
-		self.like[killer.id, killer.id+1:] -= 1
+		self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
 
 		killer.vitality -= victim_attack
 		victim.vitality -= killer_attack
@@ -199,7 +236,7 @@ class Game:
 					victim_list.append(self.player_list[i-1])
 			
 		for i in range(len(killer_list)):
-			self.fight(killer_list[i], victim_list[i])
+			self.fight(killer_list[i], victim_list[i]) #&前面加判定，后面加分配
 
 		self.killer_list = killer_list
 
@@ -312,20 +349,3 @@ class Game:
 			print(f"\n"*10)
 			exit()
 	
-
-
-# def end(info):
-# 	print("-回合结束-")
-# 	print("\n")
-# 	print(info.like.mat, "\n\n", info.respect.mat)
-# 	print("\n")
-# 	for i in info.player_list:
-# 		if info.player_list0[info.player_id] not in info.player_list:
-# 			print("You Died!")
-# 			print(str(len(info.player_list))+"人生还")
-# 			print("\n")
-# 			exit()
-# 	if len(info.player_list) == 1:
-# 			print("最后生还者是"+info.player_list[0].name)
-# 			print("\n")
-# 			exit()
