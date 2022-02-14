@@ -1,3 +1,4 @@
+from ctypes.wintypes import tagRECT
 from lib2to3.pgen2.token import NAME
 #from nis import match
 from os import kill
@@ -21,24 +22,28 @@ MIN_ATTACK = 0.3
 MAX_ATTACK = 0.5
 
 # Like
+LIKE_WHEN_ATTACK = 2		# 对某人主动发起攻击时，（他对攻击者的）好感度降低值
+LIKE_WHEN_HELPING = 1		# 对某人帮助时，（他对帮助者的）好感度提升值
+LIKE_WHEN_SEEN_ATTACKING = 1
+							# 发动攻击被看到时，（其他人对攻击者的）好感度降低值
 LIKE_THRESHOLD = 2  		# A对某人喜欢超过这个值，A不会杀这个人
 BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀这个人
-LIKE_BASIS = 1.5			# 好感度对决策的影响：LIKE_BASIS ** like[x, y]
+# LIKE_BASIS = 1.5			# 好感度对决策的影响：LIKE_BASIS ** like[x, y]
 
 #help
 ASSIST_THRESHOLD = 2
 SURRENDER_THRESHOLD_VITA = 20
 SURRENDER_THRESHOLD_LIKE = 2
 
-MIN_BRAVITY = 1
-MAX_BRAVITY = 1.5
+MIN_COURAGE = 1
+MAX_COURAGE = 1.5
 
 # Distribute
 TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
-INEQUALITY_AVERSION = 0.1 #分配小于平均值时，好感度下降
+INEQUALITY_AVERSION = 0.1 	#分配小于平均值时，好感度下降
 PARTY_SHARE = 0.7
-FRIEND_THRESHOLD = 1.5 #好感度与平均水平比例高于此值时，成为寡头成员
-CRUELTY = 1.2 #独裁模式下，分配额与消耗量的比例
+FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
+CRUELTY = 1.2 				#独裁模式下，分配额与消耗量的比例
 
 def dice():
 	return random.randint(0,5)
@@ -53,7 +58,7 @@ class Members:
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
 		self.engagement = 0			# 仅在参战时使用，每次战斗都不同，需要重新设置
-		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
+		# self.courage = np.random.rand() * (MAX_COURAGE - MIN_COURAGE) + MIN_COURAGE
 		# countsList = list(range(counts))
 		# del countsList[id] 
 		# for i in countsList:
@@ -87,6 +92,14 @@ class Members:
 
 		return True
 
+	def attack_decision(self, attack_list, engagement_list, like=None):
+		# 判断攻击目标，产生攻击数值
+		# 根据参与度，随机选择攻击对象
+		target = np.random.choice(attack_list, size=1, p=engagement_list)
+		# 计算攻击力，正比于攻击者血量
+		attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality
+		return target, attack
+		
 	def assist_decision(self, game, team_A, team_B, A_leader=None, B_leader=None):
 		#&助战决定，side应是member类对象
 		if self.is_leader != False:
@@ -152,7 +165,7 @@ class Game:
 
 		self.player_list0 = [element for element in self.player_list] # backup array for original player list
 
-		self.like = np.random.randint(-1, 2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 被 其他人的喜欢程度
+		self.like = np.random.randint(-1, 2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
 		self.respect = np.random.randint(-1, 2, size=(self.counts, self.counts), dtype=int)
 		self.leader = None
 		self.killer_list = []
@@ -208,7 +221,7 @@ class Game:
 		team_A_alive = team_A.copy()
 		team_B_alive = team_B.copy()
 		def continue_fight():
-			# 返回None来继续战斗
+			# 返回True来继续战斗
 			if A_leader is not None:
 				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
 					return False
@@ -245,25 +258,27 @@ class Game:
 			like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
 			return like_difference
 
+			return True
+
 		while continue_fight():
 			# 打一轮
-			A_eng_list = np.array([member.engagement for member in team_A])
-			B_eng_list = np.array([member.engagement for member in team_B])
+			A_eng_list = np.array([member.engagement for member in team_A_alive])
+			B_eng_list = np.array([member.engagement for member in team_B_alive])
 			A_eng_list /= np.sum(A_eng_list)
 			B_eng_list /= np.sum(B_eng_list)
 			for member in team_A_alive:
-				if np.random.rand() <= member.engagement:
-					target = np.random.choice(team_B_alive, size=1, p=B_eng_list)
-					attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * member.vitality
+				if np.random.rand() <= member.engagement: # 根据参与度，随机判定是否攻击
+					target, attack = member.attack_decision(team_B_alive, B_eng_list)
 					target.vitality -= attack
+					# 好感度调整
+
 					self.like[member.id, target.id] -= attack/10 #&被攻击者好感度调整，需修改好感度减少数值
 					for team_member in team_A_alive:
 						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
-					target = np.random.choice(team_A_alive, size=1, p=A_eng_list)
-					attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * member.vitality
+					target, attack = member.attack_decision(team_A_alive, A_eng_list)
 					target.vitality -= attack
 					self.like[member.id, target.id] -= attack/10 #&需修改好感度减少数值
 					for team_member in team_A_alive:
