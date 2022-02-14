@@ -1,16 +1,8 @@
 import numpy as np
 
-MIN_ATTACK = 0.3
-MAX_ATTACK = 0.5
+from Game import LIKE_WHEN_ATTACKING, LIKE_WHEN_HELPING, MIN_ATTACK, MAX_ATTACK, TACTIC_LIST, VIT_CONSUME, MIN_COURAGE, MAX_COURAGE, MIN_PRODUCTIVITY, MAX_PRODUCTIVITY
+from Game import LIKE_THRESHOLD, BE_LIKED_THRESHOLD, SPECTATOR_HELP
 
-SPECTATOR_HELP = 0.2	# 参战加成的比例
-
-TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
-
-LIKE_THRESHOLD = 2  		# A对某人喜欢超过这个值，A不会杀这个人
-BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀这个人
-
-VIT_CONSUME = 20
 
 class Members:
 	def __init__(self, name, id, counts):
@@ -18,11 +10,11 @@ class Members:
 		self.id = id
 		self.vitality = 50
 		self.cargo = 0
-		self.productivity = int(np.random.rand() * 20 + 40)
+		self.productivity = int(np.random.rand() * (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) + MIN_PRODUCTIVITY)
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
 		self.engagement = 0			# 仅在参战时使用，每次战斗都不同，需要重新设置
-		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
+		self.courage = np.random.rand() * (MAX_COURAGE - MIN_COURAGE) + MIN_COURAGE
 		# countsList = list(range(counts))
 		# del countsList[id] 
 		# for i in countsList:
@@ -38,49 +30,65 @@ class Members:
 		self.eat() #后面改（可能是需要拆成两个func）
 
 	def kill_decision(self, other, game):
-		killer_bonus = int(np.average([game.like[self.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP) \
-			- int(np.average([game.like[other.id, spectator.id] * spectator.vitality for spectator in game.player_list if spectator not in [self, other]]) * SPECTATOR_HELP)
-		self_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality) + killer_bonus / 2
-		other_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * other.vitality) - killer_bonus / 2
-
+		# Leader 不杀人、不被杀		
 		if self.is_leader or other.is_leader:
 			return False
 
-		if other_attack >= self.vitality or self_attack < other.vitality:
-			return False
-
+		# 相互喜欢，不杀
 		if game.like[other.id, self.id] > LIKE_THRESHOLD:
 			return False
 		if game.like[self.id, other.id] > BE_LIKED_THRESHOLD:
 			return False
 
+		# 好感度不足或血量不足 导致战力不足，不杀
+		like_difference = game.like[self.id, :] - game.like[other.id, :]
+		like_difference[self.id] = 0
+		like_difference[other.id] = 0
+		like_difference[np.abs(like_difference) <= 2] = 0	# 小于2不参战
+		# 助战方攻击力
+		assist_like = np.copy(like_difference)
+		assist_like[assist_like < 2] = 0
+		assist_engagement = assist_like / LIKE_WHEN_ATTACKING
+		assist_attack = np.sum(assist_engagement * game.vitality_list)
+		# 敌对方攻击力
+		enemy_like = np.copy(like_difference)
+		enemy_like[enemy_like > -2] = 0
+		enemy_engagement = enemy_like / LIKE_WHEN_ATTACKING
+		enemy_attack = np.sum(enemy_engagement * game.vitality_list)
+		# 当本队攻击力不足以击杀敌方首领，不杀		
+		if (self.vitality + assist_attack) * self.courage < other.vitality * (np.sum(enemy_engagement) + 1):
+			return False
+		# 当敌方攻击力足以击杀自己，不杀
+		if (other.vitality + enemy_attack) > self.vitality * (np.sum(assist_engagement) + 1) * self.courage:
+			return False
+
 		return True
 
-	def attack_decision(self, attack_list, engagement_list, like=None):
+	def attack_decision_in_fight(self, attack_list, engagement_list):
 		# 判断攻击目标，产生攻击数值
 		# 根据参与度，随机选择攻击对象
 		target = np.random.choice(attack_list, size=1, p=engagement_list)
 		# 计算攻击力，正比于攻击者血量
 		attack = (np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * self.vitality
-		return target, attack
+		return target[0], attack
 		
 	def assist_decision(self, game, team_A, team_B, A_leader=None, B_leader=None):
 		#&助战决定，side应是member类对象
 		if self.is_leader != False:
 			return False
 		like_difference = game.like[A_leader.id, self.id] - game.like[B_leader.id, self.id] #&需要解决leader为None的情况
-		if like_difference > ASSIST_THRESHOLD:
+		if like_difference > LIKE_WHEN_HELPING:
 			if self.vitality < B_leader.vitality: #&根据死亡概率作调整？
 				return False
 			else:
 				team_A.append(self)
-				self.engagement = abs(like_difference)/10
-		if like_difference < ASSIST_THRESHOLD * -1:
+				self.engagement = abs(like_difference) / LIKE_WHEN_ATTACKING
+		if like_difference < LIKE_WHEN_HELPING * -1:
 			if self.vitality < A_leader.vitality:
 				return False
 			else:
 				team_B.append(self)	
-				self.engagement = abs(like_difference)/10
+				self.engagement = abs(like_difference) / LIKE_WHEN_ATTACKING
 
 	def eat(self, amount=None):
 		if amount is None:
@@ -105,3 +113,21 @@ class Members:
 		if self.vitality > 100:
 			print(f"{self.name}'s vitality goes above 100!")
 			self.vitality = 100
+		if self.vitality < 0:
+			self.vitality = 0
+
+	def like_calculator(self, team_A_alive, team_B_alive, like):
+        #&计算好感度之差判断是否投降,是否战斗过程中对队友好感度必定持续上升？
+        # self 在 team_A中
+		team_A_like = 0
+		team_B_like = 0
+		for member in team_A_alive:
+			team_A_like += like[member.id, self.id] #对队友/敌人的好感度
+		for member in team_A_alive:
+			team_B_like += like[member.id, self.id]
+		if self in team_A_alive:
+			like_difference = team_A_like - team_B_like
+		if self in team_B_alive:
+			like_difference = team_B_like - team_A_like
+		like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
+		return like_difference

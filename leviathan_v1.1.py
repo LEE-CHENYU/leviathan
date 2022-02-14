@@ -35,8 +35,8 @@ ASSIST_THRESHOLD = 2
 SURRENDER_THRESHOLD_VITA = 20
 SURRENDER_THRESHOLD_LIKE = 2
 
-MIN_BRAVITY = 1
-MAX_BRAVITY = 1.5
+MIN_COURAGE = 1
+MAX_COURAGE = 1.5
 
 # Distribute
 TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
@@ -58,7 +58,7 @@ class Members:
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
 		self.engagement = 0			# 仅在参战时使用，每次战斗都不同，需要重新设置
-		# self.bravity = np.random.rand() * (MAX_BRAVITY - MIN_BRAVITY) + MIN_BRAVITY
+		# self.courage = np.random.rand() * (MAX_COURAGE - MIN_COURAGE) + MIN_COURAGE
 		# countsList = list(range(counts))
 		# del countsList[id] 
 		# for i in countsList:

@@ -1,11 +1,51 @@
 import numpy as np
 import random
-from Member import Members
+
+from sniffio import current_async_library
 
 NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
 
+TACTIC_LIST = ['随机', "平均", "政党", "政党", "独裁", "福利"]
 
+# Survive
+VIT_CONSUME = 20
+MIN_PRODUCTIVITY = 20
+MAX_PRODUCTIVITY = 30
 
+# Rob
+GROUP_SIZE = 10				# 抢劫时目击者+参与者的总数量
+
+# Attack
+MIN_COURAGE = 0.5
+MAX_COURAGE = 1
+MIN_ATTACK = 0.3
+MAX_ATTACK = 0.5
+SPECTATOR_HELP = 0.2	# 参战加成的比例
+LIKE_THRESHOLD = 2  		# A对某人喜欢超过这个值，A不会杀这个人
+BE_LIKED_THRESHOLD = 4		# 某人对A的喜欢程度超过这个值，A不会杀这个人
+
+# Like
+LIKE_WHEN_ATTACKING = 5		# 对某人主动发起攻击（致死）时，（他对攻击者的）好感度降低值
+LIKE_WHEN_HELPING = 2		# 对某人帮助（杀死一个人）时，（他对帮助者的）好感度提升值
+# LIKE_WHEN_SEEN_ATTACKING = 1
+# 							# 发动攻击被看到时，（其他人对攻击者的）好感度降低值
+
+# Respect
+RESPECT_AFTER_KILL = 1				# 杀人后得到respect
+RESPECT_AFTER_VICTORY = 1			# 获胜后得到respect
+
+#help
+ASSIST_THRESHOLD = 2
+SURRENDER_THRESHOLD_VITA = 20
+SURRENDER_THRESHOLD_LIKE = 2
+
+# Distribute
+INEQUALITY_AVERSION = 0.1 	#分配小于平均值时，好感度下降
+PARTY_SHARE = 0.7
+FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
+CRUELTY = 1 				#独裁模式下，分配额与消耗量的比例
+
+from Member import Members
 
 class Game:
 	def __init__(self):
@@ -21,10 +61,14 @@ class Game:
 
 		self.player_list0 = [element for element in self.player_list] # backup array for original player list
 
-		self.like = np.random.randint(-1, 2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
-		self.respect = np.random.randint(-1, 2, size=(self.counts, self.counts), dtype=int)
+		self.like = np.random.randint(-LIKE_WHEN_HELPING-1, LIKE_WHEN_HELPING+2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
+		self.respect = np.random.randint(-RESPECT_AFTER_VICTORY, RESPECT_AFTER_VICTORY+1, size=(self.counts, self.counts), dtype=int)
+
 		self.leader = None
+
 		self.killer_list = []
+
+		self.vitality_list = [member.vitality for member in self.player_list0]
 
 	def print_status(self):
 		status = ""
@@ -41,7 +85,7 @@ class Game:
 			self.elect()
 			self.print_status()
 			self.collect()
-			self.print_status()
+			# self.print_status()
 			self.distribute()
 			self.print_status()
 			self.consume()
@@ -62,7 +106,14 @@ class Game:
 		for player in self.player_list:
 			player.consume()
 			if player.vitality <= 0:
+				player.vitality = 0
 				print(f"{player.name} 饿死了")
+
+				self.like[player.id, :] = 0
+				self.like[:, player.id] = 0
+				self.respect[player.id, :] = 0
+				self.respect[:, player.id] = 0
+
 				self.player_list.remove(player)
 				self.current_counts -= 1
 
@@ -70,13 +121,13 @@ class Game:
 		for player in self.player_list:
 			player.load()
 
+
 	def fight(self, team_A, team_B, A_leader=None, B_leader=None):
 		# 先挑选队伍双方，为每个人设置参与度
 		# 返回值为两个list，分别为结束时的双方存活的人
-		loser = ""
 		team_A_alive = team_A.copy()
 		team_B_alive = team_B.copy()
-        
+
 		def continue_fight():
 			# 返回True来继续战斗
 			if A_leader is not None:
@@ -105,108 +156,75 @@ class Game:
 
 			return True
             
-		def like_calculator(self0):
-			#&计算好感度之差判断是否投降,是否战斗过程中对队友好感度必定持续上升？
-			for member in team_A_alive:
-				team_A_like += self.like[member.id, self0.id] #对队友/敌人的好感度
-			for member in team_A_alive:
-				team_B_like += self.like[member.id, self0.id]
-			if self0 in team_A_alive:
-				like_difference = team_A_like - team_B_like
-			if self0 in team_B_alive:
-				like_difference = team_B_like - team_A_like
-			like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
-			return like_difference
-
-
 		while continue_fight():
 			# 打一轮
 			A_eng_list = np.array([member.engagement for member in team_A_alive])
 			B_eng_list = np.array([member.engagement for member in team_B_alive])
-			A_eng_list /= np.sum(A_eng_list)
-			B_eng_list /= np.sum(B_eng_list)
+			A_eng_list = A_eng_list / np.sum(A_eng_list)
+			B_eng_list = B_eng_list / np.sum(B_eng_list)
+
 			for member in team_A_alive:
 				if np.random.rand() <= member.engagement: # 根据参与度，随机判定是否攻击
-					target, attack = member.attack_decision(team_B_alive, B_eng_list)
+					target, attack = member.attack_decision_in_fight(team_B_alive, B_eng_list)
 					target.vitality -= attack
 					# 好感度调整
 
-					self.like[member.id, target.id] -= attack/10 #&被攻击者好感度调整，需修改好感度减少数值
+					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&被攻击者好感度调整，需修改好感度减少数值
 					for team_member in team_A_alive:
-						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
+						self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
+					
+					# 抢到人头，加repect
+					if target.vitality <= 0:
+						target.vitality = 0
+						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
+						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
+						print(f"\t{target.name} 被 {member.name} 杀了")
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
-					target, attack = member.attack_decision(team_A_alive, A_eng_list)
+					target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
 					target.vitality -= attack
-					self.like[member.id, target.id] -= attack/10 #&需修改好感度减少数值
-					for team_member in team_A_alive:
-						self.like[member.id, team_member.id] += attack/len(team_A_alive - 1) #队友好感度调整，需修改好感度减少数值
+
+					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
+					for team_member in team_B_alive:
+						self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
+					
+					# 抢到人头，加repect
+					if target.vitality <= 0:
+						target.vitality = 0
+						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
+						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
+						print(f"\t{target.name} 被 {member.name} 杀了")
 
 			# 判断死亡
 			for member in team_A_alive:
 				if member.vitality <= 0:
-					del team_A_alive[member]
-					del self.player_list[member]
-                    self.current_counts -= 1
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_A_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
 
 			for member in team_B_alive:
 				if member.vitality <= 0:
-					del team_B_alive[member]
-					del self.player_list[member]
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_B_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
 
 			# 判断投降（调整engagement）
 			for member in team_A_alive:
 				if member.vitality < SURRENDER_THRESHOLD_VITA:
-					if like_calculator(member) < SURRENDER_THRESHOLD_LIKE:
+					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
 
-        return None
+		return team_A_alive, team_B_alive
 
-	def fight_old(self, killer, victim):
-		killer_bonus = int(np.average([self.like[killer.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP) \
-			- int(np.average([self.like[victim.id, spectator.id] * spectator.vitality for spectator in self.player_list if spectator not in [killer, victim]]) * SPECTATOR_HELP)
-		killer_attack = int() + killer_bonus / 2
-		victim_attack = int((np.random.rand() * (MAX_ATTACK - MIN_ATTACK) + MIN_ATTACK) * victim.vitality) - killer_bonus / 2
-		#&根据好感度决定是否助战
-
-		self.like[killer.id, victim.id] -= 2
-		self.like[killer.id, :killer.id] -= 1
-		self.like[killer.id, killer.id+1:] -= 1 #好感度调整与犯罪与否有关
-
-		killer.vitality -= victim_attack
-		victim.vitality -= killer_attack
-
-		if killer.vitality <= 0 and victim.vitality <= 0: 
-			print("犯罪者" + str(killer.name) + "与正当防卫者" + str(victim.name) + "均死亡")
-			self.player_list.remove(killer)
-			self.player_list.remove(victim)
-			self.current_counts -= 2
-			# 注意需要分别从player_list中和ring中移除player
-		elif killer.vitality > 0 and victim.vitality <= 0:
-			print("正当防卫者" + str(victim.name) + " killed by " + str(killer.name))
-			self.player_list.remove(victim)
-
-			killer.cargo += victim.cargo
-			killer.eat()
-			killer.destroy_cargo()
-			
-			self.respect[killer.id, :] += 1
-			self.current_counts -= 1
-			# print(self.respect, "\n")
-		elif killer.vitality <= 0 and victim.vitality > 0:
-			print("犯罪者" + str(killer.name) + " killed by " + str(victim.name))
-			self.player_list.remove(killer)
-
-			victim.cargo += killer.cargo
-			victim.eat()
-
-			self.respect[victim.id, :] += 2
-			self.current_counts -= 1
-		else:
-			print(f"{killer.name} 和 {victim.name} 交战，但是无人死亡")
-			killer.eat()
-			killer.destroy_cargo()
 
 	def collect(self):
 		print("-采集-")
@@ -216,30 +234,134 @@ class Game:
 	#偷窃
 
 	def rob(self):
-		killer_list = []
-		victim_list = []
-		for i in range(self.current_counts):
-			if self.player_list[i].kill_decision(self.player_list[(i+1) % self.current_counts], self):
-				if self.player_list[i] not in killer_list and \
-					self.player_list[(i+1) % self.current_counts] not in victim_list and \
-						self.player_list[i] not in victim_list and \
-							self.player_list[(i+1) % self.current_counts] not in killer_list: 
-					killer_list.append(self.player_list[i])
-					victim_list.append(self.player_list[(i+1) % self.current_counts])
-				
-			if self.player_list[i].kill_decision(self.player_list[i-1], self):
-				if self.player_list[i] not in killer_list and \
-					self.player_list[i-1] not in victim_list and \
-						self.player_list[i] not in victim_list and \
-							self.player_list[(i-1) % self.current_counts] not in killer_list: 
-					killer_list.append(self.player_list[i])
-					victim_list.append(self.player_list[i-1])
-			
-		for i in range(len(killer_list)):
-			self.fight(killer_list[i], victim_list[i]) #&前面加判定，后面加分配
+		# 重置killer list
+		self.killer_list = []
 
-		self.killer_list = killer_list
+		# 随机生成一些人群
+		groups_for_idx = np.array_split(np.arange(self.current_counts), np.ceil(self.current_counts / GROUP_SIZE))
 
+		groups = []
+		for group_for_idx in groups_for_idx:
+			group = []
+			for member_idx in group_for_idx:
+				group.append(self.player_list[member_idx])
+			groups.append(group)
+
+
+		# 统计血量
+		self.vitality_list = [member.vitality for member in self.player_list0]
+
+		for member_list in groups:
+			killer = None
+			victim = None
+			for member in member_list:
+				for member_2 in member_list:
+					if member.id == member_2.id:
+						continue
+					if member.kill_decision(member_2, self):
+						killer = member
+						victim = member_2
+						break
+				if killer is not None:
+					break
+
+			# 开打
+			if killer is not None:
+				team_A = [killer]
+				team_B = [victim]
+				# 助战
+				for member in member_list:
+					if member == killer or member == victim:
+						continue
+					member.assist_decision(self, team_A, team_B, A_leader=killer, B_leader=victim)
+				killer.engagement = 1
+				victim.engagement = 1
+
+				print(f"{killer.name} {[helper.name for helper in team_A]} 对 {victim.name} {[helper.name for helper in team_B]} 发起战斗")
+				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=killer, B_leader=victim)
+
+				# 涉及财产时应该修改
+				cargo_pool = 0
+				for member in team_A:
+					if member.vitality <= 0:
+						cargo_pool += member.cargo
+						member.cargo = 0
+				for member in team_B:
+					if member.vitality <= 0:
+						cargo_pool += member.cargo
+						member.cargo = 0
+
+				# 结算
+				if (killer.vitality <= 0 or killer.engagement <= 0) \
+					and (victim.vitality > 0 and victim.engagement > 0):
+					# victim 胜利
+					if victim.vitality > 75:
+						victim_consume = 0
+					else:
+						victim_consume = 75 - victim.vitality
+						if cargo_pool < victim_consume:
+							victim.vitality += cargo_pool
+						else:
+							victim.vitality = 75
+							cargo_pool -= victim_consume
+							cargo_share = cargo_pool / len(team_B_alive)
+							for member in team_B_alive: 
+								if member.id != victim.id:
+									member.cargo += cargo_share
+									member.eat(cargo_share)
+
+					# Respect
+					self.respect[victim.id, :victim.id] += RESPECT_AFTER_VICTORY
+					self.respect[victim.id, victim.id:] += RESPECT_AFTER_VICTORY
+
+					if killer.vitality > 0:
+						self.respect[killer.id, :killer.id] -= RESPECT_AFTER_VICTORY
+						self.respect[killer.id, killer.id:] -= RESPECT_AFTER_VICTORY
+
+				elif (killer.vitality > 0 and killer.engagement > 0) \
+					and (victim.vitality <= 0 or victim.engagement <= 0):
+					# killer 胜利
+					if killer.vitality > 75:
+						killer_consume = 0
+					else:
+						killer_consume = 75 - killer.vitality
+						if cargo_pool < killer_consume:
+							killer.vitality += cargo_pool
+						else:
+							killer.vitality = 75
+							cargo_pool -= killer_consume
+							cargo_share = cargo_pool / len(team_A_alive)
+							for member in team_A_alive: 
+								if member.id != killer.id:
+									member.cargo += cargo_share
+									member.eat(cargo_share)
+
+					# Respect
+					self.respect[killer.id, :killer.id] += RESPECT_AFTER_VICTORY
+					self.respect[killer.id, killer.id:] += RESPECT_AFTER_VICTORY
+
+					if victim.vitality > 0:
+						self.respect[victim.id, :victim.id] -= RESPECT_AFTER_VICTORY
+						self.respect[victim.id, victim.id:] -= RESPECT_AFTER_VICTORY
+
+
+				elif (killer.vitality <= 0 or killer.engagement <= 0) \
+					and (victim.vitality <= 0 and victim.engagement <= 0):
+					# 同时死亡 或 投降
+					alive_list = team_A_alive + team_B_alive
+					cargo_share = cargo_pool / len(alive_list)
+					for member in alive_list: 
+						member.cargo += cargo_share
+						member.eat(cargo_share)
+
+
+				elif (killer.vitality > 0 and killer.engagement > 0) \
+					and (victim.vitality > 0 and victim.engagement > 0):
+					print("不可能的情况：两方均未战死或头像")
+					exit(-1)
+
+				if killer.vitality > 0:
+					self.killer_list.append(killer)
 		
 	def elect(self):
 		respect_sum = np.sum(self.respect, 1)
@@ -320,12 +442,18 @@ class Game:
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "独裁":
 			cargo_pool0 = cargo_pool
+
+			current_cruelty = CRUELTY
+
+			while (VIT_CONSUME * current_cruelty * (len(share_list) - 1) + VIT_CONSUME) / cargo_pool > 1:
+				current_cruelty *= 0.8
+
 			for p in share_list:
-				if self.player_list0[i] != self.player_list0[self.leader.id]: 
-					p.cargo += VIT_CONSUME * CRUELTY
+				if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
+					p.cargo += VIT_CONSUME * current_cruelty
 					cargo_pool -= p.cargo 
 			self.player_list0[self.leader.id].cargo += cargo_pool
-			share_precentage = self.player_list0[self.leader.id].cargo/cargo_pool0 * 100
+			share_precentage = self.leader.cargo/cargo_pool0 * 100
 			print("独裁者将分配池的" + str(share_precentage) + "分给了自己")
 		if self.leader.tactic == "福利":
 			vitality_sum = 0
@@ -337,15 +465,28 @@ class Game:
 				cargo_pool -= i.cargo
 		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
+			self.like[self.leader.id, self.leader.id] = 0
+			
 
 	#&justice：包含起义和政变
 
 	def check(self):
 		print("-回合结束-")
+		# 每个角色check
 		for player in self.player_list:
 			player.check()
+
+		# 自身好感度、威望为0
+		for i in range(self.counts):
+			# assert self.like[i, i] == 0
+			# assert self.respect[i, i] == 0
+			self.like[i, i] = 0
+			self.respect[i, i] = 0
+		
 		if len(self.player_list) <= 3:
-			print(f"Last 10 person: {[player.name for player in self.player_list]}")
+			print(f"Last 3 person: {[player.name for player in self.player_list]}")
 			print(f"\n"*10)
 			exit()
+
+		self.vitality_list = [member.vitality for member in self.player_list0]
 	
