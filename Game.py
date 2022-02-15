@@ -1,3 +1,4 @@
+from math import ceil
 import numpy as np
 import random
 
@@ -85,7 +86,7 @@ class Game:
 			self.elect()
 			self.print_status()
 			self.collect()
-			# self.print_status()
+			self.print_status()
 			self.distribute()
 			self.print_status()
 			self.consume()
@@ -381,7 +382,10 @@ class Game:
 		share_list = []
 		for i in self.player_list:
 			if i not in self.killer_list:
-				share_list.append(i)
+				if i.vitality != 0:
+					share_list.append(i)
+				else:
+					print(f"已死之人{i.name}留在了名单上") #&临时处理，如果有死人在player_list中，提示
 		for i in share_list:
 			cargo_pool += i.cargo
 			i.cargo = 0
@@ -420,8 +424,8 @@ class Game:
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
 			party_number = 5
-			if len(share_list) <= party_number * 0.5:
-				party_number = round(len(share_list) * 0.2)
+			if len(share_list) * 0.5 <= party_number:
+				party_number = np.ceil(len(share_list) * 0.2)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
 			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
@@ -455,7 +459,7 @@ class Game:
 				if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
 					p.cargo += VIT_CONSUME * current_cruelty
 					cargo_pool -= p.cargo 
-			self.player_list0[self.leader.id].cargo += cargo_pool
+			self.player_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
 			print("独裁者将分配池的" + str(share_precentage) + "分给了自己")
 		if self.leader.tactic == "福利":
@@ -464,7 +468,7 @@ class Game:
 				vitality_sum += i.vitality
 				avg_vitality = vitality_sum/len(share_list)
 			for i in share_list:
-				i.cargo += avg_share * avg_vitality/i.vitality
+				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
 				cargo_pool -= i.cargo
 		for i in share_list:
 			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
