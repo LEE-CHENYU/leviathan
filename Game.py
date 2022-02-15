@@ -419,6 +419,9 @@ class Game:
 					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
+			party_number = 5
+			if len(share_list) <= party_number * 0.5:
+				party_number = round(len(share_list) * 0.2)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
 			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
