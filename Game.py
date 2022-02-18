@@ -357,6 +357,9 @@ class Game:
 			and (victim.vitality > 0 and victim.engagement > 0):
 			#不可能的情况：两方均未战死或投降
 			return 3
+		
+		else:
+			print(f"killer_vita: {killer.vitality}, killer_engage: {killer.engagement}, vic_vita: {victim.vitality}, vic_engage: {victim.engagement}")
 
 	def fight_settle(self, killer_leader, victim_leader, team_A, team_A_alive, team_B, team_B_alive):
 		# 涉及财产时应该修改
