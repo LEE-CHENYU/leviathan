@@ -482,6 +482,7 @@ class Game:
 			for i in self.share_list:
 				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
 				cargo_pool -= i.cargo
+		print("对领袖好感度变化：")
 		for f in self.share_list:
 			self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
 			print(self.like[self.leader.id, f.id])
