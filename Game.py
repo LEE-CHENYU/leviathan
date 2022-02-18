@@ -41,7 +41,8 @@ SURRENDER_THRESHOLD_VITA = 20
 SURRENDER_THRESHOLD_LIKE = 2
 
 # Distribute
-INEQUALITY_AVERSION = 0.1 	#分配小于平均值时，好感度下降
+INEQUALITY_AVERSION = 0.5 	#分配小于平均值时，好感度下降
+REVOLUTION_THRESHOLD = -20
 PARTY_SHARE = 0.7
 FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
 CRUELTY = 1 				#独裁模式下，分配额与消耗量的比例
@@ -62,12 +63,15 @@ class Game:
 
 		self.player_list0 = [element for element in self.player_list] # backup array for original player list
 
-		self.like = np.random.randint(-LIKE_WHEN_HELPING-1, LIKE_WHEN_HELPING+2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
-		self.respect = np.random.randint(-RESPECT_AFTER_VICTORY, RESPECT_AFTER_VICTORY+1, size=(self.counts, self.counts), dtype=int)
+		#self.like = np.random.randint(-LIKE_WHEN_HELPING-1, LIKE_WHEN_HELPING+2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
+		#self.respect = np.random.randint(-RESPECT_AFTER_VICTORY, RESPECT_AFTER_VICTORY+1, size=(self.counts, self.counts), dtype=int)
+		self.like = np.zeros((self.counts, self.counts), dtype=float)
+		self.respect = np.zeros((self.counts, self.counts), dtype=float)
 
 		self.leader = None
 
 		self.killer_list = []
+		self.share_list = []
 
 		self.vitality_list = [member.vitality for member in self.player_list0]
 
@@ -379,29 +383,29 @@ class Game:
 	def distribute(self):
 		print("-分配-")
 		cargo_pool = 0
-		share_list = []
+		self.share_list = []
 		for i in self.player_list:
 			if i not in self.killer_list:
 				if i.vitality != 0:
-					share_list.append(i)
+					self.share_list.append(i)
 				else:
 					print(f"已死之人{i.name}留在了名单上") #&临时处理，如果有死人在player_list中，提示
-		for i in share_list:
+		for i in self.share_list:
 			cargo_pool += i.cargo
 			i.cargo = 0
-		avg_share = cargo_pool / len(share_list)
+		avg_share = cargo_pool / len(self.share_list)
 		if self.leader.tactic == "平均":
-			for i in share_list:
+			for i in self.share_list:
 				i.cargo += avg_share
 				cargo_pool -= i.cargo
 		if self.leader.tactic == "随机":
-			for i in range(len(share_list)):
-				divider = np.sort(np.random.rand(len(share_list) - 1) * cargo_pool)
+			for i in range(len(self.share_list)):
+				divider = np.sort(np.random.rand(len(self.share_list) - 1) * cargo_pool)
 				cargo_splitted = np.concatenate([[0], divider, [cargo_pool]])
-				share_list[i].cargo += cargo_splitted[i+1] - cargo_splitted[i]
-				cargo_pool -= share_list[i].cargo
+				self.share_list[i].cargo += cargo_splitted[i+1] - cargo_splitted[i]
+				cargo_pool -= self.share_list[i].cargo
 		if self.leader.tactic == "政党":
-			party_number = int(len(share_list) / 2) + 1
+			party_number = int(len(self.share_list) / 2) + 1
 			# print(self.leader.id)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
@@ -409,23 +413,23 @@ class Game:
 			j = 0
 			for i in id_list:
 				# print(i)
-				if self.player_list0[i] in share_list:
+				if self.player_list0[i] in self.share_list:
 					if self.player_list0[i] != self.player_list0[self.leader.id]:
 						party_member.append(self.player_list0[i]) 
 					j += 1
 				if j == party_number:
 					break
-			for member in share_list:
+			for member in self.share_list:
 				if member in party_member:
 					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
 					cargo_pool -= member.cargo 
 				else:
-					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
+					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(self.share_list) - party_number))
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
 			party_number = 5
-			if len(share_list) * 0.5 <= party_number:
-				party_number = np.ceil(len(share_list) * 0.2)
+			if len(self.share_list) * 0.5 <= party_number:
+				party_number = np.ceil(len(self.share_list) * 0.2)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
 			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
@@ -433,29 +437,29 @@ class Game:
 			j = 0
 			for i in id_list:
 				# print(i)
-				if self.player_list0[i] in share_list:
+				if self.player_list0[i] in self.share_list:
 					if self.like[self.leader.id, i] >= t:
 						if self.player_list0[i] != self.player_list0[self.leader.id]:
 							party_member.append(self.player_list0[i]) 
 					j += 1
 				if j == party_number:
 					break
-			for member in share_list:
+			for member in self.share_list:
 				if member in party_member:
 					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
 					cargo_pool -= member.cargo 
 				else:
-					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(share_list) - party_number))
+					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(self.share_list) - party_number))
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "独裁":
 			cargo_pool0 = cargo_pool
 
 			current_cruelty = CRUELTY
 
-			while (VIT_CONSUME * current_cruelty * (len(share_list) - 1) + VIT_CONSUME) / cargo_pool > 1:
+			while (VIT_CONSUME * current_cruelty * (len(self.share_list) - 1) + VIT_CONSUME) / cargo_pool > 1:
 				current_cruelty *= 0.8
 
-			for p in share_list:
+			for p in self.share_list:
 				if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
 					p.cargo += VIT_CONSUME * current_cruelty
 					cargo_pool -= p.cargo 
@@ -464,24 +468,48 @@ class Game:
 			print("独裁者将分配池的" + str(share_precentage) + "分给了自己")
 		if self.leader.tactic == "福利":
 			vitality_sum = 0
-			for i in share_list:
+			for i in self.share_list:
 				vitality_sum += i.vitality
-				avg_vitality = vitality_sum/len(share_list)
-			for i in share_list:
+				avg_vitality = vitality_sum/len(self.share_list)
+			for i in self.share_list:
 				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
 				cargo_pool -= i.cargo
-		for i in share_list:
-			self.like[self.leader.id, i.id] += (i.cargo - avg_share) * INEQUALITY_AVERSION
-			self.like[self.leader.id, self.leader.id] = 0
+		for f in self.share_list:
+			self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
+			print(self.like[self.leader.id, f.id])
+		self.like[self.leader.id, self.leader.id] = 0
 			
 
 	#&justice：包含起义和政变
+	def revolution_trigger(self):
+		revolutionist = []
+		for m in self.share_list:
+			if self.like[self.leader.id, m.id] < 10:
+				revolutionist.append(m)
+		if len(revolutionist) > len(self.share_list) * 0.5:
+			share_list_respect = []
+			share_respect_sum = np.sum(self.respect, 1)
+			for n in self.share_list:
+				share_list_respect.append(share_respect_sum[n])
+				share_respect_sum_max = np.max(share_list_respect)
+				share_respect_maximum_index = np.array(np.where(share_respect_sum == share_respect_sum_max))
+				revolution_leader_id = np.random.choice(share_respect_maximum_index[0]) #&相同数值处理
+				return revolution_leader_id
+		else:
+			return None
+
+	def coup_trigger(self):
+		respect_sum = np.sum(self.respect, 1)
+		respect_sum_max = np.max(respect_sum)
+		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
+		coup_leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
+		return coup_leader_id
 
 	def check(self):
 		print("-回合结束-")
 		# 每个角色check
 		for player in self.player_list:
-			player.check()
+			player.check(self)
 
 		# 自身好感度、威望为0
 		for i in range(self.counts):
