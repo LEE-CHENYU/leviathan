@@ -114,9 +114,10 @@ class Members:
 		if self.vitality > 100:
 			print(f"{self.name}'s vitality goes above 100!")
 			self.vitality = 100
-		if self.vitality < 0:
+		if self.vitality <= 0:
 			self.vitality = 0
-			for i in range(self.counts):
+			#game.player_list.remove(self) 	#解决已死之人问题
+			for i in range(game.counts):
 				game.like[i,self.id] = 0
 				game.respect[i,self.id] = 0
 				game.like[self.id, i] = 0

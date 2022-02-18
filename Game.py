@@ -70,6 +70,7 @@ class Game:
 		self.respect = np.zeros((self.counts, self.counts), dtype=float)
 
 		self.leader = None
+		self.judge_result = 3
 
 		self.killer_list = []
 		self.share_list = []
@@ -95,8 +96,8 @@ class Game:
 			self.print_status()
 			self.distribute()
 			self.print_status()
-			self.consume()
 			self.justice()
+			self.consume()
 			self.check()
 			#self.end()
 
@@ -123,6 +124,9 @@ class Game:
 
 				self.player_list.remove(player)
 				self.current_counts -= 1
+
+			if player == self.leader:
+				self.elect()
 
 	def load(self):
 		for player in self.player_list:
@@ -280,41 +284,20 @@ class Game:
 				for member in member_list:
 					if member == killer or member == victim:
 						continue
-					member.assist_decision(self, team_A, team_B, A_leader=killer, B_leader=victim)
+					if member.is_leader == False:
+						member.assist_decision(self, team_A, team_B, A_leader=killer, B_leader=victim)
 				killer.engagement = 1
 				victim.engagement = 1
 
 				print(f"{killer.name} {[helper.name for helper in team_A]} 对 {victim.name} {[helper.name for helper in team_B]} 发起战斗")
 				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=killer, B_leader=victim)
 
-				# 涉及财产时应该修改
-				cargo_pool = 0
-				for member in team_A:
-					if member.vitality <= 0:
-						cargo_pool += member.cargo
-						member.cargo = 0
-				for member in team_B:
-					if member.vitality <= 0:
-						cargo_pool += member.cargo
-						member.cargo = 0
-
 				# 结算
-				if self.fight_judge(killer, victim) == 0:
+				self.judge_result = 3
+				self.judge_result = self.fight_judge(killer, victim)
+				if self.judge_result == 0:
 					# victim 胜利
-					if victim.vitality > 75:
-						victim_consume = 0
-					else:
-						victim_consume = 75 - victim.vitality
-						if cargo_pool < victim_consume:
-							victim.vitality += cargo_pool
-						else:
-							victim.vitality = 75
-							cargo_pool -= victim_consume
-							cargo_share = cargo_pool / len(team_B_alive)
-							for member in team_B_alive: 
-								if member.id != victim.id:
-									member.cargo += cargo_share
-									member.eat(cargo_share)
+					self.fight_settle(killer, victim, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[victim.id, :victim.id] += RESPECT_AFTER_VICTORY
@@ -324,22 +307,9 @@ class Game:
 						self.respect[killer.id, :killer.id] -= RESPECT_AFTER_VICTORY
 						self.respect[killer.id, killer.id:] -= RESPECT_AFTER_VICTORY
 
-				elif self.fight_judge(killer, victim) == 1:
+				elif self.judge_result == 1:
 					# killer 胜利
-					if killer.vitality > 75:
-						killer_consume = 0
-					else:
-						killer_consume = 75 - killer.vitality
-						if cargo_pool < killer_consume:
-							killer.vitality += cargo_pool
-						else:
-							killer.vitality = 75
-							cargo_pool -= killer_consume
-							cargo_share = cargo_pool / len(team_A_alive)
-							for member in team_A_alive: 
-								if member.id != killer.id:
-									member.cargo += cargo_share
-									member.eat(cargo_share)
+					self.fight_settle(killer, victim, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[killer.id, :killer.id] += RESPECT_AFTER_VICTORY
@@ -350,16 +320,16 @@ class Game:
 						self.respect[victim.id, victim.id:] -= RESPECT_AFTER_VICTORY
 
 
-				elif self.fight_judge(killer, victim) == 2:
+				elif self.judge_result == 2:
 					# 同时死亡 或 投降
 					alive_list = team_A_alive + team_B_alive
-					cargo_share = cargo_pool / len(alive_list)
-					for member in alive_list: 
-						member.cargo += cargo_share
-						member.eat(cargo_share)
+					# cargo_share = cargo_pool / len(alive_list)
+					# for member in alive_list: 
+					# 	member.cargo += cargo_share
+					# 	member.eat(cargo_share)
 
 
-				elif self.fight_judge(killer, victim) == 3:
+				elif self.judge_result == 3:
 					print("不可能的情况：两方均未战死或头像")
 					exit(-1)
 
@@ -367,26 +337,74 @@ class Game:
 					self.killer_list.append(killer)
 
 	def fight_judge(self, killer, victim):
-				# 结算
-				if (killer.vitality <= 0 or killer.engagement <= 0) \
-					and (victim.vitality > 0 and victim.engagement > 0):
-					# victim 胜利
-					return 0
-					
-				elif (killer.vitality > 0 and killer.engagement > 0) \
-					and (victim.vitality <= 0 or victim.engagement <= 0):
-					# killer 胜利
-					return 1
+		# 判断输赢
+		if (killer.vitality <= 0 or killer.engagement <= 0) \
+			and (victim.vitality > 0 and victim.engagement > 0):
+			# victim 胜利
+			return 0
+			
+		elif (killer.vitality > 0 and killer.engagement > 0) \
+			and (victim.vitality <= 0 or victim.engagement <= 0):
+			# killer 胜利
+			return 1
 
-				elif (killer.vitality <= 0 or killer.engagement <= 0) \
-					and (victim.vitality <= 0 and victim.engagement <= 0):
-					# 同时死亡 或 投降
-					return 2
+		elif (killer.vitality <= 0 or killer.engagement <= 0) \
+			and (victim.vitality <= 0 and victim.engagement <= 0):
+			# 同时死亡 或 投降
+			return 2
 
-				elif (killer.vitality > 0 and killer.engagement > 0) \
-					and (victim.vitality > 0 and victim.engagement > 0):
-					#不可能的情况：两方均未战死或投降
-					return 3
+		elif (killer.vitality > 0 and killer.engagement > 0) \
+			and (victim.vitality > 0 and victim.engagement > 0):
+			#不可能的情况：两方均未战死或投降
+			return 3
+
+	def fight_settle(self, killer_leader, victim_leader, team_A, team_A_alive, team_B, team_B_alive):
+		# 涉及财产时应该修改
+		cargo_pool = 0
+		property_pool = 0
+
+		#根据输赢进行结算
+		if self.judge_result == 0:
+			# victim_leader 胜利
+			for member in team_A:
+				if member.vitality <= 0:
+					cargo_pool += member.cargo
+					member.cargo = 0
+			if victim_leader.vitality > 75:
+				victim_leader_consume = 0
+			else:
+				victim_leader_consume = 75 - victim_leader.vitality
+				if cargo_pool < victim_leader_consume:
+					victim_leader.vitality += cargo_pool
+				else:
+					victim_leader.vitality = 75
+					cargo_pool -= victim_leader_consume
+					cargo_share = cargo_pool / len(team_B_alive)
+					for member in team_B_alive: 
+						if member.id != victim_leader.id:
+							member.cargo += cargo_share
+							member.eat(cargo_share)
+		
+		elif self.judge_result == 1:
+					# coup_leader 胜利
+					for member in team_B:
+						if member.vitality <= 0:
+							cargo_pool += member.cargo
+							member.cargo = 0
+					if killer_leader.vitality > 75:
+						killer_leader_consume = 0
+					else:
+						killer_leader_consume = 75 - killer_leader.vitality
+						if cargo_pool < killer_leader_consume:
+							killer_leader.vitality += cargo_pool
+						else:
+							killer_leader.vitality = 75
+							cargo_pool -= killer_leader_consume
+							cargo_share = cargo_pool / len(team_A_alive)
+							for member in team_A_alive: 
+								if member.id != killer_leader.id:
+									member.cargo += cargo_share
+									member.eat(cargo_share)
 
 	def distribute(self):
 		print("-分配-")
@@ -464,13 +482,15 @@ class Game:
 
 			current_cruelty = CRUELTY
 
-			while (VIT_CONSUME * current_cruelty * (len(self.share_list) - 1) + VIT_CONSUME) / cargo_pool > 1:
-				current_cruelty *= 0.8
+			if VIT_CONSUME < cargo_pool:
+				while (VIT_CONSUME * current_cruelty * (len(self.share_list) - 1) + VIT_CONSUME) / cargo_pool > 1:
+					current_cruelty *= 0.8
 
-			for p in self.share_list:
-				if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
-					p.cargo += VIT_CONSUME * current_cruelty
-					cargo_pool -= p.cargo 
+				for p in self.share_list:
+					if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
+						p.cargo += VIT_CONSUME * current_cruelty
+						cargo_pool -= p.cargo 
+
 			self.player_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
 			print("独裁者将分配池的" + str(round(share_precentage,2)) + "%分给了自己")
@@ -482,10 +502,10 @@ class Game:
 			for i in self.share_list:
 				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
 				cargo_pool -= i.cargo
-		print("对领袖好感度变化：")
+		print("对领袖好感度：")
 		for f in self.share_list:
 			self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
-			print(self.like[self.leader.id, f.id])
+			print(f"{round(self.like[self.leader.id, f.id],2)}({round((f.cargo - avg_share) * INEQUALITY_AVERSION,2)})")
 		self.like[self.leader.id, self.leader.id] = 0
 			
 	def candidate(self):
@@ -519,8 +539,7 @@ class Game:
 
 		revolutionist = revolution_trigger()
 		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER)
-		if len(revolutionist) <= len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER:
-			#print("没有发生起义")
+		if len(revolutionist) < len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER:
 			coup_leader_id = coup_trigger()
 			coup_leader = self.player_list0[coup_leader_id]
 			if coup_leader is not None and coup_leader is not self.leader:
@@ -537,30 +556,13 @@ class Game:
 				print(f"{coup_leader.name} {[helper.name for helper in team_A]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
 				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader)
 
-				# 涉及财产时应该修改
-				property_pool = 0
-
 				# 结算
-				if self.fight_judge(coup_leader, self.leader) == 0:
+				self.judge_result = 3
+				self.judge_result = self.fight_judge(coup_leader, self.leader)
+
+				if self.judge_result == 0:
 					# self.leader 胜利
-					for member in team_A:
-						if member.vitality <= 0:
-							property_pool += member.property
-							member.property = 0
-					if self.leader.vitality > 75:
-						self.leader_consume = 0
-					else:
-						self.leader_consume = 75 - self.leader.vitality
-						if property_pool < self.leader_consume:
-							self.leader.vitality += property_pool
-						else:
-							self.leader.vitality = 75
-							property_pool -= self.leader_consume
-							property_share = property_pool / len(team_B_alive)
-							for member in team_B_alive: 
-								if member.id != self.leader.id:
-									member.property += property_share
-									member.eat(property_share)
+					self.fight_settle(coup_leader, self.leader, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[self.leader.id, :self.leader.id] += RESPECT_AFTER_VICTORY * 2
@@ -570,26 +572,9 @@ class Game:
 						self.respect[coup_leader.id, :coup_leader.id] -= RESPECT_AFTER_VICTORY * 2
 						self.respect[coup_leader.id, coup_leader.id:] -= RESPECT_AFTER_VICTORY * 2
 
-				elif self.fight_judge(coup_leader, self.leader) == 1:
+				elif self.judge_result == 1:
 					# coup_leader 胜利
-					for member in team_B:
-						if member.vitality <= 0:
-							property_pool += member.property
-							member.property = 0
-					if coup_leader.vitality > 75:
-						coup_leader_consume = 0
-					else:
-						coup_leader_consume = 75 - coup_leader.vitality
-						if property_pool < coup_leader_consume:
-							coup_leader.vitality += property_pool
-						else:
-							coup_leader.vitality = 75
-							property_pool -= coup_leader_consume
-							property_share = property_pool / len(team_A_alive)
-							for member in team_A_alive: 
-								if member.id != coup_leader.id:
-									member.property += property_share
-									member.eat(property_share)
+					self.fight_settle(coup_leader, self.leader, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[coup_leader.id, :coup_leader.id] += RESPECT_AFTER_VICTORY * 2
@@ -600,20 +585,32 @@ class Game:
 						self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY * 2
 
 
-				elif self.fight_judge(revolution_leader, self.leader) == 2:
+				elif self.judge_result == 2:
 					# 同时死亡 或 投降
 					alive_list = team_A_alive + team_B_alive
-					# property_share = property_pool / len(alive_list)
+					# cargo_share = cargo_pool / len(alive_list)
 					# for member in alive_list: 
-					# 	member.property += property_share
-					# 	member.eat(property_share)
+					# 	member.cargo += cargo_share
+					# 	member.eat(cargo_share)
+					self.respect[coup_leader.id, :coup_leader.id] -= RESPECT_AFTER_VICTORY
+					self.respect[coup_leader.id, coup_leader.id:] -= RESPECT_AFTER_VICTORY
 
-				elif self.fight_judge(coup_leader, self.leader) == 3:
+					self.respect[self.leader.id, :self.leader.id] -= RESPECT_AFTER_VICTORY
+					self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY
+
+				elif self.judge_result == 3:
 					print("不可能的情况：两方均未战死或头像")
 					exit(-1)
+			else:
+				print("政局稳定")
+				self.judge_result = 3
 
-			#print(self.fight_judge(coup_leader, self.leader))
-			self.leader = coup_leader
+			print(self.judge_result)
+			if self.judge_result == 1:
+				self.leader = coup_leader
+				self.leader.is_leader = True
+			elif self.judge_result == 2:
+				self.elect()
 
 		else:
 			share_list_respect = []
@@ -638,33 +635,15 @@ class Game:
 				revolution_leader.engagement = 1
 				self.leader.engagement = 1
 
-				print(f"{revolution_leader.name} {[helper.name for helper in revolutionist]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
+				print(f"{revolution_leader.name} {[helper.name for helper in revolutionist]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动起义")
 				team_A_alive, team_B_alive = self.fight(revolutionist, team_B, A_leader=revolution_leader, B_leader=self.leader)
 
-				# 涉及财产时应该修改
-				property_pool = 0
-
 				# 结算
-				if self.fight_judge(revolution_leader, self.leader) == 0:
+				self.judge_result = 3
+				self.judge_result = self.fight_judge(revolution_leader, self.leader)
+				if self.judge_result == 0:
 					# self.leader 胜利
-					for member in revolutionist:
-						if member.vitality <= 0:
-							property_pool += member.property
-							member.property = 0
-					if self.leader.vitality > 75:
-						self.leader_consume = 0
-					else:
-						self.leader_consume = 75 - self.leader.vitality
-						if property_pool < self.leader_consume:
-							self.leader.vitality += property_pool
-						else:
-							self.leader.vitality = 75
-							property_pool -= self.leader_consume
-							property_share = property_pool / len(team_B_alive)
-							for member in team_B_alive: 
-								if member.id != self.leader.id:
-									member.property += property_share
-									member.eat(property_share)
+					self.fight_settle(revolution_leader, self.leader, revolutionist, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[self.leader.id, :self.leader.id] += RESPECT_AFTER_VICTORY * 2
@@ -674,26 +653,9 @@ class Game:
 						self.respect[revolution_leader.id, :revolution_leader.id] -= RESPECT_AFTER_VICTORY * 2
 						self.respect[revolution_leader.id, revolution_leader.id:] -= RESPECT_AFTER_VICTORY * 2
 
-				elif self.fight_judge(revolution_leader, self.leader) == 1:
+				elif self.judge_result == 1:
 					# revolution_leader 胜利
-					for member in team_B:
-						if member.vitality <= 0:
-							property_pool += member.property
-							member.property = 0
-					if revolution_leader.vitality > 75:
-						revolution_leader_consume = 0
-					else:
-						revolution_leader_consume = 75 - revolution_leader.vitality
-						if property_pool < revolution_leader_consume:
-							revolution_leader.vitality += property_pool
-						else:
-							revolution_leader.vitality = 75
-							property_pool -= revolution_leader_consume
-							property_share = property_pool / len(team_A_alive)
-							for member in team_A_alive: 
-								if member.id != revolution_leader.id:
-									member.property += property_share
-									member.eat(property_share)
+					self.fight_settle(revolution_leader, self.leader, revolutionist, team_A_alive, team_B, team_B_alive)
 
 					# Respect
 					self.respect[revolution_leader.id, :revolution_leader.id] += RESPECT_AFTER_VICTORY * 2
@@ -704,20 +666,30 @@ class Game:
 						self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY * 2
 
 
-				elif self.fight_judge(revolution_leader, self.leader) == 2:
+				elif self.judge_result == 2:
 					# 同时死亡 或 投降
 					alive_list = team_A_alive + team_B_alive
-					# property_share = property_pool / len(alive_list)
+					# cargo_share = cargo_pool / len(alive_list)
 					# for member in alive_list: 
-					# 	member.property += property_share
-					# 	member.eat(property_share)
+					# 	member.cargo += cargo_share
+					# 	member.eat(cargo_share)
+					self.respect[revolution_leader.id, :revolution_leader.id] -= RESPECT_AFTER_VICTORY
+					self.respect[revolution_leader.id, revolution_leader.id:] -= RESPECT_AFTER_VICTORY
 
-				elif self.fight_judge(revolution_leader, self.leader) == 3:
+					self.respect[self.leader.id, :self.leader.id] -= RESPECT_AFTER_VICTORY
+					self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY
+
+
+				elif self.judge_result == 3:
 					print("不可能的情况：两方均未战死或头像")
 					exit(-1)
 
-			#print(self.fight_judge(revolution_leader, self.leader))
-			self.leader = revolution_leader
+			print(self.judge_result)
+			if self.judge_result == 1:
+				self.leader = revolution_leader
+				self.leader.is_leader = True
+			elif self.judge_result == 2:
+				self.elect()
 
 	def check(self):
 		print("-回合结束-")
