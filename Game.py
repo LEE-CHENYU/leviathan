@@ -42,7 +42,8 @@ SURRENDER_THRESHOLD_LIKE = 2
 
 # Distribute
 INEQUALITY_AVERSION = 0.5 	#分配小于平均值时，好感度下降
-REVOLUTION_THRESHOLD = -20
+REVOLUTION_THRESHOLD_SHARE = INEQUALITY_AVERSION * -1	#可调整数据为分配低于平均值数量
+REVOLUTION_THRESHOLD_NUMBER = 0.5	#share_list人数比例达到多少发动革命
 PARTY_SHARE = 0.7
 FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
 CRUELTY = 1 				#独裁模式下，分配额与消耗量的比例
@@ -87,15 +88,16 @@ class Game:
 		while True:
 			print("#" * 30 + f"  回合: {round}  " + "#" * 30)
 			np.random.shuffle(self.player_list)
-			self.elect()
+			if round == 1:
+				self.elect()
 			self.print_status()
 			self.collect()
 			self.print_status()
 			self.distribute()
 			self.print_status()
 			self.consume()
+			self.justice()
 			self.check()
-			#self.justice()
 			#self.end()
 
 			round += 1
@@ -271,7 +273,7 @@ class Game:
 					break
 
 			# 开打
-			if killer is not None:
+			if killer is not None and killer is not self.leader and victim is not self.leader:
 				team_A = [killer]
 				team_B = [victim]
 				# 助战
@@ -297,8 +299,7 @@ class Game:
 						member.cargo = 0
 
 				# 结算
-				if (killer.vitality <= 0 or killer.engagement <= 0) \
-					and (victim.vitality > 0 and victim.engagement > 0):
+				if self.fight_judge(killer, victim) == 0:
 					# victim 胜利
 					if victim.vitality > 75:
 						victim_consume = 0
@@ -323,8 +324,7 @@ class Game:
 						self.respect[killer.id, :killer.id] -= RESPECT_AFTER_VICTORY
 						self.respect[killer.id, killer.id:] -= RESPECT_AFTER_VICTORY
 
-				elif (killer.vitality > 0 and killer.engagement > 0) \
-					and (victim.vitality <= 0 or victim.engagement <= 0):
+				elif self.fight_judge(killer, victim) == 1:
 					# killer 胜利
 					if killer.vitality > 75:
 						killer_consume = 0
@@ -350,8 +350,7 @@ class Game:
 						self.respect[victim.id, victim.id:] -= RESPECT_AFTER_VICTORY
 
 
-				elif (killer.vitality <= 0 or killer.engagement <= 0) \
-					and (victim.vitality <= 0 and victim.engagement <= 0):
+				elif self.fight_judge(killer, victim) == 2:
 					# 同时死亡 或 投降
 					alive_list = team_A_alive + team_B_alive
 					cargo_share = cargo_pool / len(alive_list)
@@ -360,25 +359,34 @@ class Game:
 						member.eat(cargo_share)
 
 
-				elif (killer.vitality > 0 and killer.engagement > 0) \
-					and (victim.vitality > 0 and victim.engagement > 0):
+				elif self.fight_judge(killer, victim) == 3:
 					print("不可能的情况：两方均未战死或头像")
 					exit(-1)
 
 				if killer.vitality > 0:
 					self.killer_list.append(killer)
-		
-	def elect(self):
-		respect_sum = np.sum(self.respect, 1)
-		respect_sum_max = np.max(respect_sum)
-		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
-		leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
 
-		if self.leader is not None:
-			self.leader.is_leader = False
-		
-		self.leader = self.player_list0[leader_id]
-		self.leader.is_leader = True
+	def fight_judge(self, killer, victim):
+				# 结算
+				if (killer.vitality <= 0 or killer.engagement <= 0) \
+					and (victim.vitality > 0 and victim.engagement > 0):
+					# victim 胜利
+					return 0
+					
+				elif (killer.vitality > 0 and killer.engagement > 0) \
+					and (victim.vitality <= 0 or victim.engagement <= 0):
+					# killer 胜利
+					return 1
+
+				elif (killer.vitality <= 0 or killer.engagement <= 0) \
+					and (victim.vitality <= 0 and victim.engagement <= 0):
+					# 同时死亡 或 投降
+					return 2
+
+				elif (killer.vitality > 0 and killer.engagement > 0) \
+					and (victim.vitality > 0 and victim.engagement > 0):
+					#不可能的情况：两方均未战死或投降
+					return 3
 
 	def distribute(self):
 		print("-分配-")
@@ -465,7 +473,7 @@ class Game:
 					cargo_pool -= p.cargo 
 			self.player_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
-			print("独裁者将分配池的" + str(share_precentage) + "分给了自己")
+			print("独裁者将分配池的" + str(round(share_precentage,2)) + "%分给了自己")
 		if self.leader.tactic == "福利":
 			vitality_sum = 0
 			for i in self.share_list:
@@ -479,31 +487,236 @@ class Game:
 			print(self.like[self.leader.id, f.id])
 		self.like[self.leader.id, self.leader.id] = 0
 			
-
-	#&justice：包含起义和政变
-	def revolution_trigger(self):
-		revolutionist = []
-		for m in self.share_list:
-			if self.like[self.leader.id, m.id] < 10:
-				revolutionist.append(m)
-		if len(revolutionist) > len(self.share_list) * 0.5:
-			share_list_respect = []
-			share_respect_sum = np.sum(self.respect, 1)
-			for n in self.share_list:
-				share_list_respect.append(share_respect_sum[n])
-				share_respect_sum_max = np.max(share_list_respect)
-				share_respect_maximum_index = np.array(np.where(share_respect_sum == share_respect_sum_max))
-				revolution_leader_id = np.random.choice(share_respect_maximum_index[0]) #&相同数值处理
-				return revolution_leader_id
-		else:
-			return None
-
-	def coup_trigger(self):
+	def candidate(self):
 		respect_sum = np.sum(self.respect, 1)
 		respect_sum_max = np.max(respect_sum)
 		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
-		coup_leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
-		return coup_leader_id
+		leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
+		return leader_id
+
+	def elect(self):
+		leader_id = self.candidate()
+		if self.leader is not None:
+			self.leader.is_leader = False
+		
+		self.leader = self.player_list0[leader_id]
+		self.leader.is_leader = True
+
+	#&justice：包含起义和政变
+	def justice(self):
+		print("-权力争夺-")
+		def revolution_trigger():
+			revolutionist = []
+			for m in self.share_list:
+				if self.like[self.leader.id, m.id] < REVOLUTION_THRESHOLD_SHARE:
+					revolutionist.append(m)
+			return revolutionist
+
+		def coup_trigger():
+			coup_leader_id = self.candidate()
+			return coup_leader_id
+
+		revolutionist = revolution_trigger()
+		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER)
+		if len(revolutionist) <= len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER:
+			#print("没有发生起义")
+			coup_leader_id = coup_trigger()
+			coup_leader = self.player_list0[coup_leader_id]
+			if coup_leader is not None and coup_leader is not self.leader:
+				team_A = [coup_leader]
+				team_B = [self.leader]
+				# 助战
+				for member in self.player_list:
+					if member == coup_leader or member == self.leader:
+						continue
+					member.assist_decision(self, team_A, team_B, A_leader=coup_leader, B_leader=self.leader)
+				coup_leader.engagement = 1
+				self.leader.engagement = 1
+
+				print(f"{coup_leader.name} {[helper.name for helper in team_A]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
+				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader)
+
+				# 涉及财产时应该修改
+				property_pool = 0
+
+				# 结算
+				if self.fight_judge(coup_leader, self.leader) == 0:
+					# self.leader 胜利
+					for member in team_A:
+						if member.vitality <= 0:
+							property_pool += member.property
+							member.property = 0
+					if self.leader.vitality > 75:
+						self.leader_consume = 0
+					else:
+						self.leader_consume = 75 - self.leader.vitality
+						if property_pool < self.leader_consume:
+							self.leader.vitality += property_pool
+						else:
+							self.leader.vitality = 75
+							property_pool -= self.leader_consume
+							property_share = property_pool / len(team_B_alive)
+							for member in team_B_alive: 
+								if member.id != self.leader.id:
+									member.property += property_share
+									member.eat(property_share)
+
+					# Respect
+					self.respect[self.leader.id, :self.leader.id] += RESPECT_AFTER_VICTORY * 2
+					self.respect[self.leader.id, self.leader.id:] += RESPECT_AFTER_VICTORY * 2
+
+					if coup_leader.vitality > 0:
+						self.respect[coup_leader.id, :coup_leader.id] -= RESPECT_AFTER_VICTORY * 2
+						self.respect[coup_leader.id, coup_leader.id:] -= RESPECT_AFTER_VICTORY * 2
+
+				elif self.fight_judge(coup_leader, self.leader) == 1:
+					# coup_leader 胜利
+					for member in team_B:
+						if member.vitality <= 0:
+							property_pool += member.property
+							member.property = 0
+					if coup_leader.vitality > 75:
+						coup_leader_consume = 0
+					else:
+						coup_leader_consume = 75 - coup_leader.vitality
+						if property_pool < coup_leader_consume:
+							coup_leader.vitality += property_pool
+						else:
+							coup_leader.vitality = 75
+							property_pool -= coup_leader_consume
+							property_share = property_pool / len(team_A_alive)
+							for member in team_A_alive: 
+								if member.id != coup_leader.id:
+									member.property += property_share
+									member.eat(property_share)
+
+					# Respect
+					self.respect[coup_leader.id, :coup_leader.id] += RESPECT_AFTER_VICTORY * 2
+					self.respect[coup_leader.id, coup_leader.id:] += RESPECT_AFTER_VICTORY * 2
+
+					if self.leader.vitality > 0:
+						self.respect[self.leader.id, :self.leader.id] -= RESPECT_AFTER_VICTORY * 2
+						self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY * 2
+
+
+				elif self.fight_judge(revolution_leader, self.leader) == 2:
+					# 同时死亡 或 投降
+					alive_list = team_A_alive + team_B_alive
+					# property_share = property_pool / len(alive_list)
+					# for member in alive_list: 
+					# 	member.property += property_share
+					# 	member.eat(property_share)
+
+				elif self.fight_judge(coup_leader, self.leader) == 3:
+					print("不可能的情况：两方均未战死或头像")
+					exit(-1)
+
+			#print(self.fight_judge(coup_leader, self.leader))
+			self.leader = coup_leader
+
+		else:
+			share_list_respect = []
+			share_respect_sum = np.sum(self.respect, 1)
+			for r in revolutionist:
+				share_list_respect.append(share_respect_sum[r.id])
+				share_respect_sum_max = np.max(share_list_respect)
+				share_respect_maximum_index = np.array(np.where(share_respect_sum == share_respect_sum_max))
+				revolution_leader_id = np.random.choice(share_respect_maximum_index[0])		#&相同数值处理
+			
+			revolution_leader = self.player_list0[revolution_leader_id]
+			print(f"共有{len(revolutionist)}人发动起义，由{revolution_leader.name}领导")
+
+			if revolution_leader is not None and revolution_leader is not self.leader:
+				team_A = [revolution_leader]
+				team_B = [self.leader]
+				# 助战
+				for member in self.player_list:
+					if member == revolution_leader or member == self.leader:
+						continue
+					member.assist_decision(self, team_A, team_B, A_leader=revolution_leader, B_leader=self.leader)
+				revolution_leader.engagement = 1
+				self.leader.engagement = 1
+
+				print(f"{revolution_leader.name} {[helper.name for helper in revolutionist]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
+				team_A_alive, team_B_alive = self.fight(revolutionist, team_B, A_leader=revolution_leader, B_leader=self.leader)
+
+				# 涉及财产时应该修改
+				property_pool = 0
+
+				# 结算
+				if self.fight_judge(revolution_leader, self.leader) == 0:
+					# self.leader 胜利
+					for member in revolutionist:
+						if member.vitality <= 0:
+							property_pool += member.property
+							member.property = 0
+					if self.leader.vitality > 75:
+						self.leader_consume = 0
+					else:
+						self.leader_consume = 75 - self.leader.vitality
+						if property_pool < self.leader_consume:
+							self.leader.vitality += property_pool
+						else:
+							self.leader.vitality = 75
+							property_pool -= self.leader_consume
+							property_share = property_pool / len(team_B_alive)
+							for member in team_B_alive: 
+								if member.id != self.leader.id:
+									member.property += property_share
+									member.eat(property_share)
+
+					# Respect
+					self.respect[self.leader.id, :self.leader.id] += RESPECT_AFTER_VICTORY * 2
+					self.respect[self.leader.id, self.leader.id:] += RESPECT_AFTER_VICTORY * 2
+
+					if revolution_leader.vitality > 0:
+						self.respect[revolution_leader.id, :revolution_leader.id] -= RESPECT_AFTER_VICTORY * 2
+						self.respect[revolution_leader.id, revolution_leader.id:] -= RESPECT_AFTER_VICTORY * 2
+
+				elif self.fight_judge(revolution_leader, self.leader) == 1:
+					# revolution_leader 胜利
+					for member in team_B:
+						if member.vitality <= 0:
+							property_pool += member.property
+							member.property = 0
+					if revolution_leader.vitality > 75:
+						revolution_leader_consume = 0
+					else:
+						revolution_leader_consume = 75 - revolution_leader.vitality
+						if property_pool < revolution_leader_consume:
+							revolution_leader.vitality += property_pool
+						else:
+							revolution_leader.vitality = 75
+							property_pool -= revolution_leader_consume
+							property_share = property_pool / len(team_A_alive)
+							for member in team_A_alive: 
+								if member.id != revolution_leader.id:
+									member.property += property_share
+									member.eat(property_share)
+
+					# Respect
+					self.respect[revolution_leader.id, :revolution_leader.id] += RESPECT_AFTER_VICTORY * 2
+					self.respect[revolution_leader.id, revolution_leader.id:] += RESPECT_AFTER_VICTORY * 2
+
+					if self.leader.vitality > 0:
+						self.respect[self.leader.id, :self.leader.id] -= RESPECT_AFTER_VICTORY * 2
+						self.respect[self.leader.id, self.leader.id:] -= RESPECT_AFTER_VICTORY * 2
+
+
+				elif self.fight_judge(revolution_leader, self.leader) == 2:
+					# 同时死亡 或 投降
+					alive_list = team_A_alive + team_B_alive
+					# property_share = property_pool / len(alive_list)
+					# for member in alive_list: 
+					# 	member.property += property_share
+					# 	member.eat(property_share)
+
+				elif self.fight_judge(revolution_leader, self.leader) == 3:
+					print("不可能的情况：两方均未战死或头像")
+					exit(-1)
+
+			#print(self.fight_judge(revolution_leader, self.leader))
+			self.leader = revolution_leader
 
 	def check(self):
 		print("-回合结束-")
