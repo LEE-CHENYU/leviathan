@@ -11,7 +11,7 @@ TACTIC_LIST = ['随机', "平均", "政党", "寡头", "独裁", "福利"]
 # Survive
 VIT_CONSUME = 20
 MIN_PRODUCTIVITY = 20
-MAX_PRODUCTIVITY = 50
+MAX_PRODUCTIVITY = 30
 
 # Rob
 GROUP_SIZE = 10				# 抢劫时目击者+参与者的总数量
