@@ -166,8 +166,40 @@ class Game:
 					return False
 
 			return True
-            
+
 		while continue_fight():
+			# 更新是否死亡
+			for member in team_A_alive:
+				if member.vitality <= 0:
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_A_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
+
+			for member in team_B_alive:
+				if member.vitality <= 0:
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_B_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
+
+			# 更新是否投降（调整engagement）
+			for member in team_A_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
+
+			for member in team_B_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if member.like_calculator(team_B_alive, team_A_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
+
 			# 打一轮
 			A_eng_list = np.array([member.engagement for member in team_A_alive])
 			B_eng_list = np.array([member.engagement for member in team_B_alive])
@@ -206,33 +238,6 @@ class Game:
 						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
 						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
 						print(f"\t{target.name} 被 {member.name} 杀了")
-
-			# 判断死亡
-			for member in team_A_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_A_alive.remove(member)
-					self.player_list.remove(member)
-					self.current_counts -= 1
-
-			for member in team_B_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_B_alive.remove(member)
-					self.player_list.remove(member)
-					self.current_counts -= 1
-
-			# 判断投降（调整engagement）
-			for member in team_A_alive:
-				if member.vitality < SURRENDER_THRESHOLD_VITA:
-					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
-						member.engagement = 0
 
 		return team_A_alive, team_B_alive
 
