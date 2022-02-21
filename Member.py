@@ -10,6 +10,7 @@ class Members:
 		self.id = id
 		self.vitality = 50
 		self.cargo = 0
+		self.property = 0
 		self.productivity = int(np.random.rand() * (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) + MIN_PRODUCTIVITY)
 		self.tactic = np.random.choice(TACTIC_LIST)
 		self.is_leader = False
@@ -109,12 +110,21 @@ class Members:
 	def destroy_cargo(self):
 		self.cargo = 0
 
-	def check(self):
+	def check(self, game):
 		if self.vitality > 100:
 			print(f"{self.name}'s vitality goes above 100!")
 			self.vitality = 100
-		if self.vitality < 0:
+		if self.vitality <= 0:
 			self.vitality = 0
+			#game.player_list.remove(self) 	#解决已死之人问题
+			for i in range(game.counts):
+				game.like[i,self.id] = 0
+				game.respect[i,self.id] = 0
+				game.like[self.id, i] = 0
+				game.respect[self.id, i] = 0
+		if self.cargo > 0:
+			self.property += self.cargo
+			self.cargo = 0 
 
 	def like_calculator(self, team_A_alive, team_B_alive, like):
         #&计算好感度之差判断是否投降,是否战斗过程中对队友好感度必定持续上升？
