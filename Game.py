@@ -17,8 +17,8 @@ MAX_PRODUCTIVITY = 30
 GROUP_SIZE = 10				# 抢劫时目击者+参与者的总数量
 
 # Attack
-MIN_COURAGE = 0.5
-MAX_COURAGE = 1
+MIN_COURAGE = 0.1	#默认0.5
+MAX_COURAGE = 0.3		#默认1
 MIN_ATTACK = 0.3
 MAX_ATTACK = 0.5
 SPECTATOR_HELP = 0.2	# 参战加成的比例
@@ -140,34 +140,6 @@ class Game:
 		team_B_alive = team_B.copy()
 
 		def continue_fight():
-			# 返回True来继续战斗
-			if A_leader is not None:
-				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
-					return False
-			else:
-				all_died = True
-				for member in team_A_alive:
-					if member.engagement >= 0:
-						all_died = False
-						break
-				if all_died:
-					return False
-
-			if B_leader is not None:
-				if B_leader.vitality <= 0 or B_leader.engagement <= 0:
-					return False
-			else:
-				all_died = True
-				for member in team_B_alive:
-					if member.engagement >= 0:
-						all_died = False
-						break
-				if all_died:
-					return False
-
-			return True
-
-		while continue_fight():
 			# 更新是否死亡
 			for member in team_A_alive:
 				if member.vitality <= 0:
@@ -199,7 +171,34 @@ class Game:
 				if member.vitality < SURRENDER_THRESHOLD_VITA:
 					if member.like_calculator(team_B_alive, team_A_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
+			# 返回True来继续战斗
+			if A_leader is not None:
+				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_A_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
 
+			if B_leader is not None:
+				if B_leader.vitality <= 0 or B_leader.engagement <= 0:
+					return False
+			else:
+				all_died = True
+				for member in team_B_alive:
+					if member.engagement >= 0:
+						all_died = False
+						break
+				if all_died:
+					return False
+
+			return True
+
+		while continue_fight():
 			# 打一轮
 			A_eng_list = np.array([member.engagement for member in team_A_alive])
 			B_eng_list = np.array([member.engagement for member in team_B_alive])
@@ -225,7 +224,11 @@ class Game:
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
-					target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+					try:
+						target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+					except ValueError:
+						print(f"{A_eng_list},{np.array([member.engagement for member in team_A_alive])}")
+						exit()
 					target.vitality -= attack
 
 					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
@@ -354,7 +357,7 @@ class Game:
 			return 1
 
 		elif (killer.vitality <= 0 or killer.engagement <= 0) \
-			and (victim.vitality <= 0 and victim.engagement <= 0):
+			and (victim.vitality <= 0 or victim.engagement <= 0):
 			# 同时死亡 或 投降
 			return 2
 
