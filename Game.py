@@ -17,8 +17,8 @@ MAX_PRODUCTIVITY = 30
 GROUP_SIZE = 10				# 抢劫时目击者+参与者的总数量
 
 # Attack
-MIN_COURAGE = 0.5
-MAX_COURAGE = 1
+MIN_COURAGE = 0.5	#默认0.5
+MAX_COURAGE = 1		#默认1
 MIN_ATTACK = 0.3
 MAX_ATTACK = 0.5
 SPECTATOR_HELP = 0.2	# 参战加成的比例
@@ -41,8 +41,8 @@ SURRENDER_THRESHOLD_VITA = 20
 SURRENDER_THRESHOLD_LIKE = 2
 
 # Distribute
-INEQUALITY_AVERSION = 0.5 	#分配小于平均值时，好感度下降
-REVOLUTION_THRESHOLD_SHARE = INEQUALITY_AVERSION * -1	#可调整数据为分配低于平均值数量
+INEQUALITY_AVERSION = 0.25 	#分配小于平均值时，好感度下降
+REVOLUTION_THRESHOLD_SHARE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量
 REVOLUTION_THRESHOLD_NUMBER = 0.5	#share_list人数比例达到多少发动革命
 PARTY_SHARE = 0.7
 FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
@@ -140,6 +140,37 @@ class Game:
 		team_B_alive = team_B.copy()
 
 		def continue_fight():
+			# 更新是否死亡
+			for member in team_A_alive:
+				if member.vitality <= 0:
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_A_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
+
+			for member in team_B_alive:
+				if member.vitality <= 0:
+					self.like[member.id, :] = 0
+					self.like[:, member.id] = 0
+					self.respect[member.id, :] = 0
+					self.respect[:, member.id] = 0
+					team_B_alive.remove(member)
+					self.player_list.remove(member)
+					self.current_counts -= 1
+
+			# 更新是否投降（调整engagement）
+			for member in team_A_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
+
+			for member in team_B_alive:
+				if member.vitality < SURRENDER_THRESHOLD_VITA:
+					if member.like_calculator(team_B_alive, team_A_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
+						member.engagement = 0
 			# 返回True来继续战斗
 			if A_leader is not None:
 				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
@@ -166,7 +197,7 @@ class Game:
 					return False
 
 			return True
-            
+
 		while continue_fight():
 			# 打一轮
 			A_eng_list = np.array([member.engagement for member in team_A_alive])
@@ -193,7 +224,11 @@ class Game:
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
-					target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+					try:
+						target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+					except ValueError:
+						print(f"{A_eng_list},{np.array([member.engagement for member in team_A_alive])}")
+						exit()
 					target.vitality -= attack
 
 					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
@@ -206,33 +241,6 @@ class Game:
 						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
 						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
 						print(f"\t{target.name} 被 {member.name} 杀了")
-
-			# 判断死亡
-			for member in team_A_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_A_alive.remove(member)
-					self.player_list.remove(member)
-					self.current_counts -= 1
-
-			for member in team_B_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_B_alive.remove(member)
-					self.player_list.remove(member)
-					self.current_counts -= 1
-
-			# 判断投降（调整engagement）
-			for member in team_A_alive:
-				if member.vitality < SURRENDER_THRESHOLD_VITA:
-					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
-						member.engagement = 0
 
 		return team_A_alive, team_B_alive
 
@@ -349,7 +357,7 @@ class Game:
 			return 1
 
 		elif (killer.vitality <= 0 or killer.engagement <= 0) \
-			and (victim.vitality <= 0 and victim.engagement <= 0):
+			and (victim.vitality <= 0 or victim.engagement <= 0):
 			# 同时死亡 或 投降
 			return 2
 
@@ -638,6 +646,10 @@ class Game:
 				revolution_leader.engagement = 1
 				self.leader.engagement = 1
 
+				for member in revolutionist:
+					if member != revolution_leader:
+						member.engagement = self.like[self.leader.id, member.id]/LIKE_WHEN_ATTACKING * -1
+
 				print(f"{revolution_leader.name} {[helper.name for helper in revolutionist]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动起义")
 				team_A_alive, team_B_alive = self.fight(revolutionist, team_B, A_leader=revolution_leader, B_leader=self.leader)
 
@@ -711,6 +723,9 @@ class Game:
 			print(f"Last 3 person: {[player.name for player in self.player_list]}")
 			print(f"\n"*10)
 			exit()
+		
+		self.like[self.like > LIKE_WHEN_ATTACKING] = LIKE_WHEN_ATTACKING
+		self.like[self.like < -LIKE_WHEN_ATTACKING] = -LIKE_WHEN_ATTACKING
 
 		self.vitality_list = [member.vitality for member in self.player_list0]
 	
