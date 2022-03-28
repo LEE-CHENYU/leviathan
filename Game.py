@@ -1,8 +1,11 @@
 from math import ceil
 import numpy as np
 import random
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from sniffio import current_async_library
+from sympy import total_degree
 
 NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
 
@@ -62,7 +65,10 @@ class Game:
 			# print(NAME_LIST[i])
 		print("\n你是" + self.player_list[self.player_id].name)
 
-		self.player_list0 = [element for element in self.player_list] # backup array for original player list
+		# 按名字顺序重新排序
+		self.player_list = [self.player_list[i] for i in np.argsort([member.name for member in self.player_list])]
+		# 备份初始玩家列表
+		self.player_list0 = [element for element in self.player_list] 
 
 		#self.like = np.random.randint(-LIKE_WHEN_HELPING-1, LIKE_WHEN_HELPING+2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
 		#self.respect = np.random.randint(-RESPECT_AFTER_VICTORY, RESPECT_AFTER_VICTORY+1, size=(self.counts, self.counts), dtype=int)
@@ -84,6 +90,55 @@ class Game:
 		print(f"Current surviver: {status}")
 		print(f"Current leader: {self.leader.name}, type: {self.leader.tactic}")
 
+	def plot_like_and_respect(self, ):
+		name_list = [member.name for member in self.player_list0]
+		total_player_num = len(name_list)
+		cmap = plt.cm.RdYlGn
+		fontsize = np.max([12, 100 / total_player_num])
+
+		fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+		# Like
+		img0 = ax[0].imshow(self.like, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		ax[0].set_title("Like")
+		ax[0].set_xticks(range(len(name_list)), fontsize=fontsize)
+		ax[0].set_xticklabels(name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top")
+		ax[0].set_yticks(range(len(name_list)), fontsize=fontsize)
+		ax[0].set_yticklabels(name_list)
+		# 覆盖死亡人物的位置为 RGB [0.3, 0.3, 0.3]
+		rgba = np.zeros((total_player_num, total_player_num, 4))
+		for i in range(total_player_num):
+			if self.player_list0[i].vitality <= 0:
+				rgba[i, :, :3] = 0.7
+				rgba[i, :, 3] = 1
+				rgba[:, i, :3] = 0.7
+				rgba[:, i, 3] = 1
+		ax[0].imshow(rgba)
+
+		# Respect
+		img1 = ax[1].imshow(self.respect, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		ax[1].set_title("Respect")
+		ax[1].set_xticks(range(len(name_list)), fontsize=fontsize)
+		ax[1].set_xticklabels(name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top")
+		ax[1].set_yticks(range(len(name_list)), fontsize=fontsize)
+		ax[1].set_yticklabels(name_list)
+		# 覆盖死亡人物的位置为 RGB [0.3, 0.3, 0.3]
+		rgba = np.zeros((total_player_num, total_player_num, 4))
+		for i in range(total_player_num):
+			if self.player_list0[i].vitality <= 0:
+				rgba[i, :, :3] = 0.7
+				rgba[i, :, 3] = 1
+				rgba[:, i, :3] = 0.7
+				rgba[:, i, 3] = 1
+		ax[1].imshow(rgba)
+		
+		
+		fig.colorbar(img0, ax=ax[0])
+		fig.colorbar(img1, ax=ax[1])
+		plt.tight_layout()
+		plt.show()
+
+
 	def run(self):
 		round = 1
 		while True:
@@ -99,6 +154,7 @@ class Game:
 			self.justice()
 			self.consume()
 			self.check()
+			self.plot_like_and_respect()
 			#self.end()
 
 			round += 1
