@@ -30,7 +30,7 @@ class Members:
 		self.vitality -= VIT_CONSUME
 		self.eat() #后面改（可能是需要拆成两个func）
 
-	def kill_decision(self, other, game):
+	def kill_decision(self, other, game, vit_list):
 		# Leader 不杀人、不被杀		
 		if self.is_leader or other.is_leader:
 			return False
@@ -50,12 +50,12 @@ class Members:
 		assist_like = np.copy(like_difference)
 		assist_like[assist_like < 2] = 0
 		assist_engagement = assist_like / LIKE_WHEN_ATTACKING
-		assist_attack = np.sum(assist_engagement * game.vitality_list)
+		assist_attack = np.sum(assist_engagement * vit_list)
 		# 敌对方攻击力
 		enemy_like = np.copy(like_difference)
 		enemy_like[enemy_like > -2] = 0
 		enemy_engagement = enemy_like / LIKE_WHEN_ATTACKING
-		enemy_attack = np.sum(enemy_engagement * game.vitality_list)
+		enemy_attack = np.sum(enemy_engagement * vit_list)
 		# 当本队攻击力不足以击杀敌方首领，不杀		
 		if (self.vitality + assist_attack) * self.courage < other.vitality * (np.sum(enemy_engagement) + 1):
 			return False

@@ -2,7 +2,7 @@ from math import ceil
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-import matplotlib as mpl
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from sniffio import current_async_library
 from sympy import total_degree
@@ -59,16 +59,18 @@ class Game:
 		self.current_counts = self.counts
 
 		self.player_id = random.randint(0, self.counts-1)
-		self.player_list = [] 				# alive
+		self.member_list = [] 				# alive
 		for i in range(0, self.counts):
-			self.player_list.append(Members(NAME_LIST[i], i, self.counts))
+			self.member_list.append(Members(NAME_LIST[i], i, self.counts))
 			# print(NAME_LIST[i])
-		print("\n你是" + self.player_list[self.player_id].name)
+		print("\n你是" + self.member_list[self.player_id].name)
 
 		# 按名字顺序重新排序
-		self.player_list = [self.player_list[i] for i in np.argsort([member.name for member in self.player_list])]
+		self.member_list = [self.member_list[i] for i in np.argsort([member.name for member in self.member_list])]
 		# 备份初始玩家列表
-		self.player_list0 = [element for element in self.player_list] 
+		self.member_list0 = [element for element in self.member_list] 
+		self.name_list = [member.name for member in self.member_list0]
+		self.member_color_list = np.random.rand(self.counts, 3) * 0.8 + 0.2
 
 		#self.like = np.random.randint(-LIKE_WHEN_HELPING-1, LIKE_WHEN_HELPING+2, size=(self.counts, self.counts), dtype=int)  	#	第i行代表第i个人 *被* 其他人的喜欢程度
 		#self.respect = np.random.randint(-RESPECT_AFTER_VICTORY, RESPECT_AFTER_VICTORY+1, size=(self.counts, self.counts), dtype=int)
@@ -78,96 +80,152 @@ class Game:
 		self.leader = None
 		self.judge_result = 3
 
+		self.vit_tracker = [[member.vitality for member in self.member_list0]]
+		self.leader_tracker = [None]
+		self.end_of_round_indicator = [True] # 由于记录的内容可能是回合中间的过程，所以利用一个额外的列表来记录这行数据是否记录在回合末尾
+
 		self.killer_list = []
 		self.share_list = []
 
-		self.vitality_list = [member.vitality for member in self.player_list0]
+		self.round = 1
+
 
 	def print_status(self):
 		status = ""
-		for player in self.player_list:
+		for player in self.member_list:
 			status += f"\n\t[{player.name},\t Vit: {player.vitality:.1f},\t Cargo: {player.cargo:.1f},\t Like: {np.average(self.like[player.id]):.1f},\t Resp: {np.average(self.respect[player.id]):.1f}], " 
 		print(f"Current surviver: {status}")
 		print(f"Current leader: {self.leader.name}, type: {self.leader.tactic}")
 
-	def plot_like_and_respect(self, ):
-		name_list = [member.name for member in self.player_list0]
-		total_player_num = len(name_list)
-		cmap = plt.cm.RdYlGn
-		fontsize = np.max([12, 100 / total_player_num])
+	def track_data(self, end_of_round=False):
+		vit_list = []
+		for i in range(self.counts):
+			member = self.member_list0[i]
+			if member.is_leader:
+				self.leader_tracker.append(member)
+			if member.vitality <= 0:
+				vit_list.append(None)
+			else:
+				vit_list.append(member.vitality)
+		self.vit_tracker.append(vit_list)
+		self.end_of_round_indicator.append(end_of_round)
 
-		fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+	def plot_like_and_respect(self, fig, ax0, ax1):
+		cmap = plt.cm.RdYlGn
+		fontsize = np.min([10, 100/self.counts])
 
 		# Like
-		img0 = ax[0].imshow(self.like, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
-		ax[0].set_title("Like")
-		ax[0].set_xticks(range(len(name_list)), fontsize=fontsize)
-		ax[0].set_xticklabels(name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top")
-		ax[0].set_yticks(range(len(name_list)), fontsize=fontsize)
-		ax[0].set_yticklabels(name_list)
+		img0 = ax0.imshow(self.like, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		ax0.set_title("Like")
+		ax0.set_xticks(range(self.counts), fontsize=fontsize)
+		ax0.set_xticklabels(self.name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top", fontsize=fontsize)
+		ax0.set_yticks(range(self.counts), fontsize=fontsize)
+		ax0.set_yticklabels(self.name_list, fontsize=fontsize)
 		# 覆盖死亡人物的位置为 RGB [0.3, 0.3, 0.3]
-		rgba = np.zeros((total_player_num, total_player_num, 4))
-		for i in range(total_player_num):
-			if self.player_list0[i].vitality <= 0:
+		rgba = np.zeros((self.counts, self.counts, 4))
+		for i in range(self.counts):
+			if self.member_list0[i].vitality <= 0:
 				rgba[i, :, :3] = 0.7
 				rgba[i, :, 3] = 1
 				rgba[:, i, :3] = 0.7
 				rgba[:, i, 3] = 1
-		ax[0].imshow(rgba)
+		ax0.imshow(rgba)
 
 		# Respect
-		img1 = ax[1].imshow(self.respect, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
-		ax[1].set_title("Respect")
-		ax[1].set_xticks(range(len(name_list)), fontsize=fontsize)
-		ax[1].set_xticklabels(name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top")
-		ax[1].set_yticks(range(len(name_list)), fontsize=fontsize)
-		ax[1].set_yticklabels(name_list)
+		img1 = ax1.imshow(self.respect, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		ax1.set_title("Respect")
+		ax1.set_xticks(range(self.counts), fontsize=fontsize)
+		ax1.set_xticklabels(self.name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top", fontsize=fontsize)
+		ax1.set_yticks(range(self.counts), fontsize=fontsize)
+		ax1.set_yticklabels(self.name_list, fontsize=fontsize)
 		# 覆盖死亡人物的位置为 RGB [0.3, 0.3, 0.3]
-		rgba = np.zeros((total_player_num, total_player_num, 4))
-		for i in range(total_player_num):
-			if self.player_list0[i].vitality <= 0:
+		rgba = np.zeros((self.counts, self.counts, 4))
+		for i in range(self.counts):
+			if self.member_list0[i].vitality <= 0:
 				rgba[i, :, :3] = 0.7
 				rgba[i, :, 3] = 1
 				rgba[:, i, :3] = 0.7
 				rgba[:, i, 3] = 1
-		ax[1].imshow(rgba)
+		ax1.imshow(rgba)
 		
+		divider = make_axes_locatable(ax0)
+		cax0 = divider.append_axes("right", size="5%", pad=0.05)
+		fig.colorbar(img0, cax=cax0)
+		divider = make_axes_locatable(ax1)
+		cax1 = divider.append_axes("right", size="5%", pad=0.05)
+		fig.colorbar(img1, cax=cax1)
+
+	def plot_vit(self, ax):
+		# 仅在每轮末尾使用
+		fontsize = np.min([10, 100/self.counts])
+
+		fig_length = 10
+		while fig_length <= self.round:
+			fig_length *= 2
+
+		# plot vitality for everyone at all time
+		round_list = np.linspace(0, self.round, len(self.vit_tracker))
+		for i in range(self.counts):
+			ax.scatter(round_list[self.end_of_round_indicator], np.array(self.vit_tracker)[self.end_of_round_indicator][:, i], color=self.member_color_list[i], s=5)
+			ax.plot(round_list, np.array(self.vit_tracker)[:, i], color=self.member_color_list[i], label=self.name_list[i])
+		ax.set_xlim(-0.3, fig_length+0.3)
+		ax.legend(fontsize=fontsize)
+
+		# plot leaders
+		for t in range(len(self.leader_tracker)):
+			if self.leader_tracker[t] is not None:
+				leader = self.leader_tracker[t]
+				ax.scatter([round_list[t]], [self.vit_tracker[t][leader.id]], color=self.member_color_list[leader.id], marker="*")
+
 		
-		fig.colorbar(img0, ax=ax[0])
-		fig.colorbar(img1, ax=ax[1])
+	def plot_status(self):
+		# 仅在每轮末尾使用
+		fig = plt.figure(figsize=(8, 8))
+
+		ax00 = fig.add_subplot(221)
+		ax01 = fig.add_subplot(222)
+		self.plot_like_and_respect(fig, ax00, ax01)
+
+		ax1 = fig.add_subplot(212)
+		self.plot_vit(ax1)
+
 		plt.tight_layout()
 		plt.show()
 
-
 	def run(self):
-		round = 1
 		while True:
-			print("#" * 30 + f"  回合: {round}  " + "#" * 30)
-			np.random.shuffle(self.player_list)
-			if round == 1:
+			print("#" * 30 + f"  回合: {self.round}  " + "#" * 30)
+			np.random.shuffle(self.member_list)
+			if self.round == 1:
 				self.elect()
-			self.print_status()
+
 			self.collect()
-			self.print_status()
+
+			self.track_data(end_of_round=False)
+
 			self.distribute()
-			self.print_status()
 			self.justice()
 			self.consume()
 			self.check()
-			self.plot_like_and_respect()
+
+			self.track_data(end_of_round=True)
+			
+			self.plot_status()
+
+
 			#self.end()
 
-			round += 1
+			self.round += 1
 
 
 	def map(self):
 		ring = list(range(self.counts))
-		ring = sorted(self.player_list, key=lambda k: random.random())
+		ring = sorted(self.member_list, key=lambda k: random.random())
 	
 		return ring #&更复杂的地图
 
 	def consume(self):
-		for player in self.player_list:
+		for player in self.member_list:
 			player.consume()
 			if player.vitality <= 0:
 				player.vitality = 0
@@ -178,14 +236,14 @@ class Game:
 				self.respect[player.id, :] = 0
 				self.respect[:, player.id] = 0
 
-				self.player_list.remove(player)
+				self.member_list.remove(player)
 				self.current_counts -= 1
 
 			if player == self.leader:
 				self.elect()
 
 	def load(self):
-		for player in self.player_list:
+		for player in self.member_list:
 			player.load()
 
 
@@ -204,7 +262,7 @@ class Game:
 					self.respect[member.id, :] = 0
 					self.respect[:, member.id] = 0
 					team_A_alive.remove(member)
-					self.player_list.remove(member)
+					self.member_list.remove(member)
 					self.current_counts -= 1
 
 			for member in team_B_alive:
@@ -214,7 +272,7 @@ class Game:
 					self.respect[member.id, :] = 0
 					self.respect[:, member.id] = 0
 					team_B_alive.remove(member)
-					self.player_list.remove(member)
+					self.member_list.remove(member)
 					self.current_counts -= 1
 
 			# 更新是否投降（调整engagement）
@@ -315,16 +373,14 @@ class Game:
 		# 随机生成一些人群
 		groups_for_idx = np.array_split(np.arange(self.current_counts), np.ceil(self.current_counts / GROUP_SIZE))
 
+		vit_list = [member.vitality for member in self.member_list0]
+
 		groups = []
 		for group_for_idx in groups_for_idx:
 			group = []
 			for member_idx in group_for_idx:
-				group.append(self.player_list[member_idx])
+				group.append(self.member_list[member_idx])
 			groups.append(group)
-
-
-		# 统计血量
-		self.vitality_list = [member.vitality for member in self.player_list0]
 
 		for member_list in groups:
 			killer = None
@@ -333,7 +389,7 @@ class Game:
 				for member_2 in member_list:
 					if member.id == member_2.id:
 						continue
-					if member.kill_decision(member_2, self):
+					if member.kill_decision(member_2, self, vit_list):
 						killer = member
 						victim = member_2
 						break
@@ -477,7 +533,7 @@ class Game:
 		print("-分配-")
 		cargo_pool = 0
 		self.share_list = []
-		for i in self.player_list:
+		for i in self.member_list:
 			if i not in self.killer_list:
 				if i.vitality != 0:
 					self.share_list.append(i)
@@ -502,13 +558,13 @@ class Game:
 			# print(self.leader.id)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
-			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
+			party_member.append(self.member_list0[self.leader.id]) #将分配者自己加入list
 			j = 0
 			for i in id_list:
 				# print(i)
-				if self.player_list0[i] in self.share_list:
-					if self.player_list0[i] != self.player_list0[self.leader.id]:
-						party_member.append(self.player_list0[i]) 
+				if self.member_list0[i] in self.share_list:
+					if self.member_list0[i] != self.member_list0[self.leader.id]:
+						party_member.append(self.member_list0[i]) 
 					j += 1
 				if j == party_number:
 					break
@@ -525,15 +581,15 @@ class Game:
 				party_number = np.ceil(len(self.share_list) * 0.2)
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			party_member = []
-			party_member.append(self.player_list0[self.leader.id]) #将分配者自己加入list
+			party_member.append(self.member_list0[self.leader.id]) #将分配者自己加入list
 			t = sum(self.like[self.leader.id])/len(self.like[self.leader.id]) * FRIEND_THRESHOLD
 			j = 0
 			for i in id_list:
 				# print(i)
-				if self.player_list0[i] in self.share_list:
+				if self.member_list0[i] in self.share_list:
 					if self.like[self.leader.id, i] >= t:
-						if self.player_list0[i] != self.player_list0[self.leader.id]:
-							party_member.append(self.player_list0[i]) 
+						if self.member_list0[i] != self.member_list0[self.leader.id]:
+							party_member.append(self.member_list0[i]) 
 					j += 1
 				if j == party_number:
 					break
@@ -554,11 +610,11 @@ class Game:
 					current_cruelty *= 0.8
 
 				for p in self.share_list:
-					if self.player_list0[p.id] != self.player_list0[self.leader.id]: 
+					if self.member_list0[p.id] != self.member_list0[self.leader.id]: 
 						p.cargo += VIT_CONSUME * current_cruelty
 						cargo_pool -= p.cargo 
 
-			self.player_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
+			self.member_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
 			print("独裁者将分配池的" + str(round(share_precentage,2)) + "%分给了自己")
 		if self.leader.tactic == "福利":
@@ -587,7 +643,7 @@ class Game:
 		if self.leader is not None:
 			self.leader.is_leader = False
 		
-		self.leader = self.player_list0[leader_id]
+		self.leader = self.member_list0[leader_id]
 		self.leader.is_leader = True
 
 	#&justice：包含起义和政变
@@ -608,12 +664,12 @@ class Game:
 		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER)
 		if len(revolutionist) < len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER:
 			coup_leader_id = coup_trigger()
-			coup_leader = self.player_list0[coup_leader_id]
+			coup_leader = self.member_list0[coup_leader_id]
 			if coup_leader is not None and coup_leader is not self.leader:
 				team_A = [coup_leader]
 				team_B = [self.leader]
 				# 助战
-				for member in self.player_list:
+				for member in self.member_list:
 					if member == coup_leader or member == self.leader:
 						continue
 					member.assist_decision(self, team_A, team_B, A_leader=coup_leader, B_leader=self.leader)
@@ -674,6 +730,7 @@ class Game:
 
 			print(self.judge_result)
 			if self.judge_result == 1:
+				self.leader.is_leader = False
 				self.leader = coup_leader
 				self.leader.is_leader = True
 			elif self.judge_result == 2:
@@ -688,14 +745,14 @@ class Game:
 				share_respect_maximum_index = np.array(np.where(share_respect_sum == share_respect_sum_max))
 				revolution_leader_id = np.random.choice(share_respect_maximum_index[0])		#&相同数值处理
 			
-			revolution_leader = self.player_list0[revolution_leader_id]
+			revolution_leader = self.member_list0[revolution_leader_id]
 			print(f"共有{len(revolutionist)}人发动起义，由{revolution_leader.name}领导")
 
 			if revolution_leader is not None and revolution_leader is not self.leader:
 				team_A = [revolution_leader]
 				team_B = [self.leader]
 				# 助战
-				for member in self.player_list:
+				for member in self.member_list:
 					if member == revolution_leader or member == self.leader:
 						continue
 					member.assist_decision(self, team_A, team_B, A_leader=revolution_leader, B_leader=self.leader)
@@ -765,7 +822,7 @@ class Game:
 	def check(self):
 		print("-回合结束-")
 		# 每个角色check
-		for player in self.player_list:
+		for player in self.member_list:
 			player.check(self)
 
 		# 自身好感度、威望为0
@@ -775,13 +832,13 @@ class Game:
 			self.like[i, i] = 0
 			self.respect[i, i] = 0
 		
-		if len(self.player_list) <= 3:
-			print(f"Last 3 person: {[player.name for player in self.player_list]}")
+		if len(self.member_list) <= 3:
+			print(f"Last 3 person: {[player.name for player in self.member_list]}")
 			print(f"\n"*10)
 			exit()
 		
 		self.like[self.like > LIKE_WHEN_ATTACKING] = LIKE_WHEN_ATTACKING
 		self.like[self.like < -LIKE_WHEN_ATTACKING] = -LIKE_WHEN_ATTACKING
 
-		self.vitality_list = [member.vitality for member in self.player_list0]
+		self.vitality_list = [member.vitality for member in self.member_list0]
 	
