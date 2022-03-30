@@ -45,8 +45,8 @@ SURRENDER_THRESHOLD_LIKE = 2
 
 # Distribute
 INEQUALITY_AVERSION = 0.25 	#分配小于平均值时，好感度下降
-REVOLUTION_THRESHOLD_SHARE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量
-REVOLUTION_THRESHOLD_NUMBER = 0.5	#share_list人数比例达到多少发动革命
+REVOLUTION_THRESHOLD_LIKE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量
+REVOLUTION_THRESHOLD_MEMBER_PORTION = 0.5	#share_list人数比例达到多少发动革命
 PARTY_SHARE = 0.7
 FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
 CRUELTY = 1 				#独裁模式下，分配额与消耗量的比例
@@ -177,7 +177,6 @@ class Game:
 				leader = self.leader_tracker[t]
 				ax.scatter([round_list[t]], [self.vit_tracker[t][leader.id]], color=self.member_color_list[leader.id], marker="*")
 
-		
 	def plot_status(self):
 		# 仅在每轮末尾使用
 		fig = plt.figure(figsize=(8, 8))
@@ -206,10 +205,11 @@ class Game:
 			self.distribute()
 			self.justice()
 			self.consume()
+
 			self.check()
 
 			self.track_data(end_of_round=True)
-			
+
 			self.plot_status()
 
 
@@ -247,7 +247,7 @@ class Game:
 			player.load()
 
 
-	def fight(self, team_A, team_B, A_leader=None, B_leader=None):
+	def fight(self, team_A, team_B, A_leader=None, B_leader=None, print_fight_details=False):
 		# 先挑选队伍双方，为每个人设置参与度
 		# 返回值为两个list，分别为结束时的双方存活的人
 		team_A_alive = team_A.copy()
@@ -322,9 +322,11 @@ class Game:
 			for member in team_A_alive:
 				if np.random.rand() <= member.engagement: # 根据参与度，随机判定是否攻击
 					target, attack = member.attack_decision_in_fight(team_B_alive, B_eng_list)
+					if print_fight_details:
+						print(f"\t{member.name}({member.vitality:.1f}) --[{attack:.1f}]-> {target.name}({target.vitality:.1f})")
 					target.vitality -= attack
-					# 好感度调整
 
+					# 好感度调整
 					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&被攻击者好感度调整，需修改好感度减少数值
 					for team_member in team_A_alive:
 						self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
@@ -334,15 +336,13 @@ class Game:
 						target.vitality = 0
 						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
 						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
-						print(f"\t{target.name} 被 {member.name} 杀了")
+						print(f"\t{member.name} 杀了 {target.name}")
 
 			for member in team_B_alive:
 				if np.random.rand() <= member.engagement:
-					try:
-						target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
-					except ValueError:
-						print(f"{A_eng_list},{np.array([member.engagement for member in team_A_alive])}")
-						exit()
+					target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+					if print_fight_details:
+						print(f"\t{target.name}({target.vitality:.1f}) <-[{attack:.1f}]-- {member.name}({member.vitality:.1f})")
 					target.vitality -= attack
 
 					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
@@ -410,7 +410,7 @@ class Game:
 				victim.engagement = 1
 
 				print(f"{killer.name} {[helper.name for helper in team_A]} 对 {victim.name} {[helper.name for helper in team_B]} 发起战斗")
-				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=killer, B_leader=victim)
+				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=killer, B_leader=victim, print_fight_details=True)
 
 				# 结算
 				self.judge_result = 3
@@ -616,7 +616,7 @@ class Game:
 
 			self.member_list0[self.leader.id].cargo += cargo_pool #&独裁者的cargo没有处理
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
-			print("独裁者将分配池的" + str(round(share_precentage,2)) + "%分给了自己")
+			print(f"独裁者将分配池的{share_precentage:.2f}%分给了自己")
 		if self.leader.tactic == "福利":
 			vitality_sum = 0
 			for i in self.share_list:
@@ -625,10 +625,12 @@ class Game:
 			for i in self.share_list:
 				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
 				cargo_pool -= i.cargo
+
+		# 好感度更新
 		print("对领袖好感度：")
 		for f in self.share_list:
 			self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
-			print(f"{round(self.like[self.leader.id, f.id],2)}({round((f.cargo - avg_share) * INEQUALITY_AVERSION,2)})")
+			print(f"{self.like[self.leader.id, f.id]:.2f}({(f.cargo - avg_share) * INEQUALITY_AVERSION:.2f})")
 		self.like[self.leader.id, self.leader.id] = 0
 			
 	def candidate(self):
@@ -652,7 +654,7 @@ class Game:
 		def revolution_trigger():
 			revolutionist = []
 			for m in self.share_list:
-				if self.like[self.leader.id, m.id] < REVOLUTION_THRESHOLD_SHARE:
+				if self.like[self.leader.id, m.id] < REVOLUTION_THRESHOLD_LIKE:
 					revolutionist.append(m)
 			return revolutionist
 
@@ -661,8 +663,8 @@ class Game:
 			return coup_leader_id
 
 		revolutionist = revolution_trigger()
-		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER)
-		if len(revolutionist) < len(self.share_list) * REVOLUTION_THRESHOLD_NUMBER:
+		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_MEMBER_PORTION)
+		if len(revolutionist) < len(self.share_list) * REVOLUTION_THRESHOLD_MEMBER_PORTION:
 			coup_leader_id = coup_trigger()
 			coup_leader = self.member_list0[coup_leader_id]
 			if coup_leader is not None and coup_leader is not self.leader:
@@ -677,7 +679,12 @@ class Game:
 				self.leader.engagement = 1
 
 				print(f"{coup_leader.name} {[helper.name for helper in team_A]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
-				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader)
+				print("政变成员情况")
+				for member in team_A:
+					print(f"team A: {member.name} ({member.vitality})")
+				for member in team_A:
+					print(f"team B: {member.name} ({member.vitality})")
+				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader, print_fight_details=True)
 
 				# 结算
 				self.judge_result = 3
@@ -764,7 +771,7 @@ class Game:
 						member.engagement = self.like[self.leader.id, member.id]/LIKE_WHEN_ATTACKING * -1
 
 				print(f"{revolution_leader.name} {[helper.name for helper in revolutionist]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动起义")
-				team_A_alive, team_B_alive = self.fight(revolutionist, team_B, A_leader=revolution_leader, B_leader=self.leader)
+				team_A_alive, team_B_alive = self.fight(revolutionist, team_B, A_leader=revolution_leader, B_leader=self.leader, print_fight_details=True)
 
 				# 结算
 				self.judge_result = 3
