@@ -47,9 +47,10 @@ SURRENDER_THRESHOLD_LIKE = 2
 INEQUALITY_AVERSION = 0.25 	#分配小于平均值时，好感度下降
 REVOLUTION_THRESHOLD_LIKE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量
 REVOLUTION_THRESHOLD_MEMBER_PORTION = 0.5	#share_list人数比例达到多少发动革命
-PARTY_SHARE = 0.7
-FRIEND_THRESHOLD = 1.5 		#好感度与平均水平比例高于此值时，成为寡头成员
-CRUELTY = 1 				#独裁模式下，分配额与消耗量的比例
+PARTY_SHARE = 0.6
+FRIEND_THRESHOLD = 1.5 		# 好感度与平均水平比例高于此值时，成为寡头成员
+CRUELTY = 1 				# 独裁模式下，分配额与消耗量的比例
+WELFARE_DONATION = 0.3 	# 福利模式下，最多从健康人群处扣除多少生活必需品
 
 from Member import Members
 
@@ -174,7 +175,6 @@ class Game:
 		ax.legend(fontsize=fontsize)
 
 		# plot leaders
-		print(len(self.leader_tracker), "dsgsergesrgsrgsergrsg")
 		for t in range(len(self.leader_tracker)):
 			if self.leader_tracker[t] is not None:
 				leader = self.leader_tracker[t]
@@ -266,11 +266,13 @@ class Game:
 				if member.vitality < SURRENDER_THRESHOLD_VITA:
 					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
+						print(f"\tA: {member.name}({member.vitality:.1f}) 投降了")
 
 			for member in team_B_alive:
 				if member.vitality < SURRENDER_THRESHOLD_VITA:
 					if member.like_calculator(team_B_alive, team_A_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
+						print(f"\tB: {member.name}({member.vitality:.1f}) 投降了")
 			# 返回True来继续战斗
 			if A_leader is not None:
 				if A_leader.vitality <= 0 or A_leader.engagement <= 0:
@@ -498,7 +500,7 @@ class Game:
 			return 3
 		
 		else:
-			print(f"killer_vita: {killer.vitality}, killer_engage: {killer.engagement}, vic_vita: {victim.vitality}, vic_engage: {victim.engagement}")
+			print(f"killer_vita: {killer.vitality:.1f}, killer_engage: {killer.engagement}, vic_vita: {victim.vitality:.1f}, vic_engage: {victim.engagement}")
 
 	def fight_settle(self, killer_leader, victim_leader, team_A, team_A_alive, team_B, team_B_alive):
 		# 涉及财产时应该修改
@@ -589,22 +591,15 @@ class Game:
 				party_member.append(self.member_list0[id_list[i]])
 				i += 1
 			print("party member: ", [member.name for member in party_member])
-				
-			j = 0
-			for i in id_list:
-				# print(i)
-				if self.member_list0[i] in self.share_list:
-					if self.member_list0[i] != self.member_list0[self.leader.id]:
-						party_member.append(self.member_list0[i]) 
-					j += 1
-				if j == party_number:
-					break
+			
+			party_member_share = (cargo_pool * PARTY_SHARE) / party_number
+			opposition_party_member_share = (cargo_pool * (1 - PARTY_SHARE)) / (len(self.share_list) - party_number)
 			for member in self.share_list:
 				if member in party_member:
-					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
+					member.cargo += party_member_share
 					cargo_pool -= member.cargo 
 				else:
-					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(self.share_list) - party_number))
+					member.cargo += opposition_party_member_share
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
 			party_number = 5
@@ -612,7 +607,7 @@ class Game:
 			party_member = [self.leader]
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
 			i = 0
-			while len(party_member) < party_number:
+			while len(party_member) < party_number and i < self.counts:
 				if self.member_list0[id_list[i]] == self.leader:
 					i += 1
 					continue
@@ -622,25 +617,30 @@ class Game:
 				party_member.append(self.member_list0[id_list[i]])
 				i += 1
 			print("party member: ", [member.name for member in party_member])
-			
-			t = sum(self.like[self.leader.id])/len(self.like[self.leader.id]) * FRIEND_THRESHOLD
-			j = 0
-			for i in id_list:
-				# print(i)
-				if self.member_list0[i] in self.share_list:
-					if self.like[self.leader.id, i] >= t:
-						if self.member_list0[i] != self.member_list0[self.leader.id]:
-							party_member.append(self.member_list0[i]) 
-					j += 1
-				if j == party_number:
-					break
+
+			# t = sum(self.like[self.leader.id])/len(self.like[self.leader.id]) * FRIEND_THRESHOLD
+			# j = 0
+			# for i in id_list:
+			# 	# print(i)
+			# 	if self.member_list0[i] in self.share_list:
+			# 		if self.like[self.leader.id, i] >= t:
+			# 			if self.member_list0[i] != self.member_list0[self.leader.id]:
+			# 				party_member.append(self.member_list0[i]) 
+			# 		j += 1
+			# 	if j == party_number:
+			# 		break
+
+			party_member_share = (cargo_pool * PARTY_SHARE) / party_number
+			if len(self.share_list) == party_number:
+				opposition_party_member_share = (cargo_pool * (1 - PARTY_SHARE)) / (len(self.share_list) - party_number)
 			for member in self.share_list:
 				if member in party_member:
-					member.cargo += (cargo_pool * PARTY_SHARE / party_number)
+					member.cargo += party_member_share
 					cargo_pool -= member.cargo 
 				else:
-					member.cargo += (cargo_pool * (1 - PARTY_SHARE) / (len(self.share_list) - party_number))
+					member.cargo += opposition_party_member_share
 					cargo_pool -= member.cargo
+
 		if self.leader.tactic == "独裁":
 			cargo_pool0 = cargo_pool
 
@@ -659,13 +659,29 @@ class Game:
 			share_precentage = self.leader.cargo/cargo_pool0 * 100
 			print(f"独裁者将分配池的{share_precentage:.2f}%分给了自己")
 		if self.leader.tactic == "福利":
-			vitality_sum = 0
+			share_member_vit_list = []
 			for i in self.share_list:
-				vitality_sum += i.vitality
-				avg_vitality = vitality_sum/len(self.share_list)
-			for i in self.share_list:
-				i.cargo += avg_share * avg_vitality/i.vitality #&player_list中有死人
-				cargo_pool -= i.cargo
+				share_member_vit_list.append(i.vitality)
+			share_member_vit_list = np.array(share_member_vit_list)
+			avg_vitality = np.sum(share_member_vit_list) / len(self.share_list)
+
+			# 先给所有人保底的生活需求
+			if VIT_CONSUME * (1 - WELFARE_DONATION) * len(self.share_list) >= cargo_pool:
+				# 不够满足保底需求，均分
+				basic_share = cargo_pool / len(self.share_list)
+				cargo_pool = 0
+			else:
+				basic_share = (1 - WELFARE_DONATION) * VIT_CONSUME
+				cargo_pool -= basic_share * len(self.share_list)
+			
+			# 剩余的按照血量离满血的远近 加权分配 
+			share_member_vit_needed_list = 100 - (share_member_vit_list + basic_share - VIT_CONSUME)
+			sum_vit_needed = np.sum(share_member_vit_needed_list)
+
+			for i in range(len(self.share_list)):
+				self.share_list[i].cargo += basic_share + cargo_pool * share_member_vit_needed_list[i] / sum_vit_needed
+			
+			cargo_pool = 0
 
 		# 好感度更新
 		# print("对领袖好感度：")
@@ -711,7 +727,7 @@ class Game:
 			return coup_leader_id
 
 		revolutionist = revolution_trigger()
-		print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_MEMBER_PORTION)
+		# print(len(revolutionist), len(self.share_list) * REVOLUTION_THRESHOLD_MEMBER_PORTION)
 		if len(revolutionist) < len(self.share_list) * REVOLUTION_THRESHOLD_MEMBER_PORTION:
 			coup_leader_id = coup_trigger()
 			coup_leader = self.member_list0[coup_leader_id]
@@ -766,7 +782,7 @@ class Game:
 
 
 				elif self.judge_result == 2:
-					# 同时死亡 或 投降
+					print("同时死亡 或 投降")
 					alive_list = team_A_alive + team_B_alive
 					# cargo_share = cargo_pool / len(alive_list)
 					# for member in alive_list: 
@@ -785,7 +801,7 @@ class Game:
 				print("政局稳定")
 				self.judge_result = 3
 
-			print(self.judge_result)
+			# print(self.judge_result)
 			if self.judge_result == 1:
 				self.leader.is_leader = False
 				self.leader = coup_leader
@@ -828,6 +844,7 @@ class Game:
 				self.judge_result = self.fight_judge(revolution_leader, self.leader)
 				if self.judge_result == 0:
 					# self.leader 胜利
+					print("起义失败")
 					self.fight_settle(revolution_leader, self.leader, revolutionist, team_A_alive, team_B, team_B_alive)
 
 					# Respect
@@ -840,6 +857,7 @@ class Game:
 
 				elif self.judge_result == 1:
 					# revolution_leader 胜利
+					print("起义成功")
 					self.fight_settle(revolution_leader, self.leader, revolutionist, team_A_alive, team_B, team_B_alive)
 
 					# Respect
