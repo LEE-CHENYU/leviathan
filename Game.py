@@ -682,7 +682,7 @@ class Game:
 				print("政变成员情况")
 				for member in team_A:
 					print(f"team A: {member.name} ({member.vitality})")
-				for member in team_A:
+				for member in team_B:
 					print(f"team B: {member.name} ({member.vitality})")
 				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader, print_fight_details=True)
 
@@ -692,6 +692,7 @@ class Game:
 
 				if self.judge_result == 0:
 					# self.leader 胜利
+					print("政变失败")
 					self.fight_settle(coup_leader, self.leader, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
@@ -704,6 +705,7 @@ class Game:
 
 				elif self.judge_result == 1:
 					# coup_leader 胜利
+					print("政变成功")
 					self.fight_settle(coup_leader, self.leader, team_A, team_A_alive, team_B, team_B_alive)
 
 					# Respect
