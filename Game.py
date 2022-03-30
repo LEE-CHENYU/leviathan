@@ -67,6 +67,8 @@ class Game:
 
 		# 按名字顺序重新排序
 		self.member_list = [self.member_list[i] for i in np.argsort([member.name for member in self.member_list])]
+		for i in range(self.counts):
+			self.member_list[i].id = i
 		# 备份初始玩家列表
 		self.member_list0 = [element for element in self.member_list] 
 		self.name_list = [member.name for member in self.member_list0]
@@ -112,10 +114,10 @@ class Game:
 
 	def plot_like_and_respect(self, fig, ax0, ax1):
 		cmap = plt.cm.RdYlGn
-		fontsize = np.min([10, 100/self.counts])
+		fontsize = np.min([15, 150/self.counts])
 
 		# Like
-		img0 = ax0.imshow(self.like, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		img0 = ax0.imshow(self.like, vmax=np.max(np.abs(self.like)), vmin=-np.max(np.abs(self.like)), cmap=cmap)
 		ax0.set_title("Like")
 		ax0.set_xticks(range(self.counts), fontsize=fontsize)
 		ax0.set_xticklabels(self.name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top", fontsize=fontsize)
@@ -132,7 +134,7 @@ class Game:
 		ax0.imshow(rgba)
 
 		# Respect
-		img1 = ax1.imshow(self.respect, vmax=np.abs(self.like).max(), vmin=-np.abs(self.like).max(), cmap=cmap)
+		img1 = ax1.imshow(self.respect, vmax=np.max(np.abs(self.respect)), vmin=-np.max(np.abs(self.respect)), cmap=cmap)
 		ax1.set_title("Respect")
 		ax1.set_xticks(range(self.counts), fontsize=fontsize)
 		ax1.set_xticklabels(self.name_list, rotation=45, rotation_mode="anchor", horizontalalignment="right", verticalalignment="top", fontsize=fontsize)
@@ -149,15 +151,15 @@ class Game:
 		ax1.imshow(rgba)
 		
 		divider = make_axes_locatable(ax0)
-		cax0 = divider.append_axes("right", size="5%", pad=0.05)
+		cax0 = divider.append_axes("right", size="5%")
 		fig.colorbar(img0, cax=cax0)
 		divider = make_axes_locatable(ax1)
-		cax1 = divider.append_axes("right", size="5%", pad=0.05)
+		cax1 = divider.append_axes("right", size="5%")
 		fig.colorbar(img1, cax=cax1)
 
 	def plot_vit(self, ax):
 		# 仅在每轮末尾使用
-		fontsize = np.min([10, 100/self.counts])
+		fontsize = np.min([15, 150/self.counts])
 
 		fig_length = 10
 		while fig_length <= self.round:
@@ -172,6 +174,7 @@ class Game:
 		ax.legend(fontsize=fontsize)
 
 		# plot leaders
+		print(len(self.leader_tracker), "dsgsergesrgsrgsergrsg")
 		for t in range(len(self.leader_tracker)):
 			if self.leader_tracker[t] is not None:
 				leader = self.leader_tracker[t]
@@ -194,9 +197,11 @@ class Game:
 	def run(self):
 		while True:
 			print("#" * 30 + f"  回合: {self.round}  " + "#" * 30)
+
 			np.random.shuffle(self.member_list)
 			if self.round == 1:
 				self.elect()
+			print(f"Current leader: {self.leader.name}, type: {self.leader.tactic}")
 
 			self.collect()
 
@@ -207,6 +212,7 @@ class Game:
 			self.consume()
 
 			self.check()
+			print(f"Current leader: {self.leader.name}, type: {self.leader.tactic}")
 
 			self.track_data(end_of_round=True)
 
@@ -254,26 +260,6 @@ class Game:
 		team_B_alive = team_B.copy()
 
 		def continue_fight():
-			# 更新是否死亡
-			for member in team_A_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_A_alive.remove(member)
-					self.member_list.remove(member)
-					self.current_counts -= 1
-
-			for member in team_B_alive:
-				if member.vitality <= 0:
-					self.like[member.id, :] = 0
-					self.like[:, member.id] = 0
-					self.respect[member.id, :] = 0
-					self.respect[:, member.id] = 0
-					team_B_alive.remove(member)
-					self.member_list.remove(member)
-					self.current_counts -= 1
 
 			# 更新是否投降（调整engagement）
 			for member in team_A_alive:
@@ -315,46 +301,79 @@ class Game:
 		while continue_fight():
 			# 打一轮
 			A_eng_list = np.array([member.engagement for member in team_A_alive])
-			B_eng_list = np.array([member.engagement for member in team_B_alive])
 			A_eng_list = A_eng_list / np.sum(A_eng_list)
+			B_eng_list = np.array([member.engagement for member in team_B_alive])
 			B_eng_list = B_eng_list / np.sum(B_eng_list)
 
-			for member in team_A_alive:
-				if np.random.rand() <= member.engagement: # 根据参与度，随机判定是否攻击
-					target, attack = member.attack_decision_in_fight(team_B_alive, B_eng_list)
-					if print_fight_details:
-						print(f"\t{member.name}({member.vitality:.1f}) --[{attack:.1f}]-> {target.name}({target.vitality:.1f})")
-					target.vitality -= attack
+			random_attack_list = team_A_alive + team_B_alive
+			np.random.shuffle(random_attack_list)
 
-					# 好感度调整
-					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&被攻击者好感度调整，需修改好感度减少数值
-					for team_member in team_A_alive:
-						self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
-					
-					# 抢到人头，加repect
-					if target.vitality <= 0:
-						target.vitality = 0
-						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
-						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
-						print(f"\t{member.name} 杀了 {target.name}")
+			for member in random_attack_list:
 
-			for member in team_B_alive:
-				if np.random.rand() <= member.engagement:
-					target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
-					if print_fight_details:
-						print(f"\t{target.name}({target.vitality:.1f}) <-[{attack:.1f}]-- {member.name}({member.vitality:.1f})")
-					target.vitality -= attack
+				if member in team_A_alive:
+					if team_B_alive == []:
+						continue
 
-					self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
-					for team_member in team_B_alive:
-						self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
-					
-					# 抢到人头，加repect
-					if target.vitality <= 0:
-						target.vitality = 0
-						self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
-						self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
-						print(f"\t{target.name} 被 {member.name} 杀了")
+					if np.random.rand() <= member.engagement: # 根据参与度，随机判定是否攻击
+						target, attack = member.attack_decision_in_fight(team_B_alive, B_eng_list)
+						if print_fight_details:
+							print(f"\t{member.name}({member.vitality:.1f}) --[{attack:.1f}]-> {target.name}({target.vitality:.1f})")
+						target.vitality -= attack
+
+						# 好感度调整
+						self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&被攻击者好感度调整，需修改好感度减少数值
+						for team_member in team_A_alive:
+							self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
+						
+						# 抢到人头，加repect
+						if target.vitality <= 0:
+							target.vitality = 0
+							self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
+							self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
+							print(f"\t{member.name} 杀了 {target.name}")
+							
+							self.like[target.id, :] = 0
+							self.like[:, target.id] = 0
+							self.respect[target.id, :] = 0
+							self.respect[:, target.id] = 0
+							self.member_list.remove(target)
+							self.current_counts -= 1
+
+							team_B_alive.remove(target)
+							B_eng_list = np.array([member.engagement for member in team_B_alive])
+							B_eng_list = B_eng_list / np.sum(B_eng_list)
+
+				if member in team_B_alive:
+					if team_A_alive == []:
+						continue
+
+					if np.random.rand() <= member.engagement:
+						target, attack = member.attack_decision_in_fight(team_A_alive, A_eng_list)
+						if print_fight_details:
+							print(f"\t{target.name}({target.vitality:.1f}) <-[{attack:.1f}]-- {member.name}({member.vitality:.1f})")
+						target.vitality -= attack
+
+						self.like[member.id, target.id] -= attack / 50 * LIKE_WHEN_ATTACKING #&需修改好感度减少数值
+						for team_member in team_B_alive:
+							self.like[member.id, team_member.id] += attack / 50 * team_member.engagement * LIKE_WHEN_HELPING #队友好感度调整，需修改好感度减少数值
+						
+						# 抢到人头，加repect
+						if target.vitality <= 0:
+							target.vitality = 0
+							self.respect[member.id, :member.id] += RESPECT_AFTER_KILL
+							self.respect[member.id, member.id+1:] += RESPECT_AFTER_KILL
+							print(f"\t{target.name} 被 {member.name} 杀了")
+
+							self.like[target.id, :] = 0
+							self.like[:, target.id] = 0
+							self.respect[target.id, :] = 0
+							self.respect[:, target.id] = 0
+							self.member_list.remove(target)
+							self.current_counts -= 1
+
+							team_A_alive.remove(target)
+							A_eng_list = np.array([member.engagement for member in team_A_alive])
+							A_eng_list = A_eng_list / np.sum(A_eng_list)
 
 		return team_A_alive, team_B_alive
 
@@ -375,18 +394,18 @@ class Game:
 
 		vit_list = [member.vitality for member in self.member_list0]
 
-		groups = []
+		group_list = []
 		for group_for_idx in groups_for_idx:
 			group = []
 			for member_idx in group_for_idx:
 				group.append(self.member_list[member_idx])
-			groups.append(group)
+			group_list.append(group)
 
-		for member_list in groups:
+		for group in group_list:
 			killer = None
 			victim = None
-			for member in member_list:
-				for member_2 in member_list:
+			for member in group:
+				for member_2 in group:
 					if member.id == member_2.id:
 						continue
 					if member.kill_decision(member_2, self, vit_list):
@@ -401,7 +420,7 @@ class Game:
 				team_A = [killer]
 				team_B = [victim]
 				# 助战
-				for member in member_list:
+				for member in group:
 					if member == killer or member == victim:
 						continue
 					if member.is_leader == False:
@@ -509,25 +528,25 @@ class Game:
 							member.eat(cargo_share)
 		
 		elif self.judge_result == 1:
-					# coup_leader 胜利
-					for member in team_B:
-						if member.vitality <= 0:
-							cargo_pool += member.cargo
-							member.cargo = 0
-					if killer_leader.vitality > 75:
-						killer_leader_consume = 0
-					else:
-						killer_leader_consume = 75 - killer_leader.vitality
-						if cargo_pool < killer_leader_consume:
-							killer_leader.vitality += cargo_pool
-						else:
-							killer_leader.vitality = 75
-							cargo_pool -= killer_leader_consume
-							cargo_share = cargo_pool / len(team_A_alive)
-							for member in team_A_alive: 
-								if member.id != killer_leader.id:
-									member.cargo += cargo_share
-									member.eat(cargo_share)
+			# coup_leader 胜利
+			for member in team_B:
+				if member.vitality <= 0:
+					cargo_pool += member.cargo
+					member.cargo = 0
+			if killer_leader.vitality > 75:
+				killer_leader_consume = 0
+			else:
+				killer_leader_consume = 75 - killer_leader.vitality
+				if cargo_pool < killer_leader_consume:
+					killer_leader.vitality += cargo_pool
+				else:
+					killer_leader.vitality = 75
+					cargo_pool -= killer_leader_consume
+					cargo_share = cargo_pool / len(team_A_alive)
+					for member in team_A_alive: 
+						if member.id != killer_leader.id:
+							member.cargo += cargo_share
+							member.eat(cargo_share)
 
 	def distribute(self):
 		print("-分配-")
@@ -556,9 +575,21 @@ class Game:
 		if self.leader.tactic == "政党":
 			party_number = int(len(self.share_list) / 2) + 1
 			# print(self.leader.id)
+
+			party_member = [self.leader]
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
-			party_member = []
-			party_member.append(self.member_list0[self.leader.id]) #将分配者自己加入list
+			i = 0
+			while len(party_member) < party_number:
+				if self.member_list0[id_list[i]] == self.leader:
+					i += 1
+					continue
+				if self.member_list0[id_list[i]].vitality <= 0:
+					i += 1
+					continue
+				party_member.append(self.member_list0[id_list[i]])
+				i += 1
+			print("party member: ", [member.name for member in party_member])
+				
 			j = 0
 			for i in id_list:
 				# print(i)
@@ -577,11 +608,21 @@ class Game:
 					cargo_pool -= member.cargo
 		if self.leader.tactic == "寡头":
 			party_number = 5
-			if len(self.share_list) * 0.5 <= party_number:
-				party_number = np.ceil(len(self.share_list) * 0.2)
+
+			party_member = [self.leader]
 			id_list = np.argsort(self.like[self.leader.id])[::-1]
-			party_member = []
-			party_member.append(self.member_list0[self.leader.id]) #将分配者自己加入list
+			i = 0
+			while len(party_member) < party_number:
+				if self.member_list0[id_list[i]] == self.leader:
+					i += 1
+					continue
+				if self.member_list0[id_list[i]].vitality <= 0:
+					i += 1
+					continue
+				party_member.append(self.member_list0[id_list[i]])
+				i += 1
+			print("party member: ", [member.name for member in party_member])
+			
 			t = sum(self.like[self.leader.id])/len(self.like[self.leader.id]) * FRIEND_THRESHOLD
 			j = 0
 			for i in id_list:
@@ -627,18 +668,25 @@ class Game:
 				cargo_pool -= i.cargo
 
 		# 好感度更新
-		print("对领袖好感度：")
+		# print("对领袖好感度：")
 		for f in self.share_list:
-			self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
-			print(f"{self.like[self.leader.id, f.id]:.2f}({(f.cargo - avg_share) * INEQUALITY_AVERSION:.2f})")
+			if not f.is_leader:
+				self.like[self.leader.id, f.id] += (f.cargo - avg_share) * INEQUALITY_AVERSION
+				# print(f"{self.like[self.leader.id, f.id]:.2f} ({(f.cargo - avg_share) * INEQUALITY_AVERSION:.2f})")
 		self.like[self.leader.id, self.leader.id] = 0
 			
 	def candidate(self):
-		respect_sum = np.sum(self.respect, 1)
-		respect_sum_max = np.max(respect_sum)
-		respect_maximum_index = np.array(np.where(respect_sum == respect_sum_max))
-		leader_id = np.random.choice(respect_maximum_index[0]) #&相同数值处理
-		return leader_id
+		max_respect_member = []
+		max_respect = -np.inf
+		for member in self.member_list:
+			current_respect = np.sum(self.respect[member.id, :])
+			if current_respect > max_respect:
+				max_respect_member = [member]
+				max_respect = current_respect
+			elif current_respect == max_respect:
+				max_respect_member.append(member)
+		
+		return np.random.choice(max_respect_member).id
 
 	def elect(self):
 		leader_id = self.candidate()
@@ -679,11 +727,11 @@ class Game:
 				self.leader.engagement = 1
 
 				print(f"{coup_leader.name} {[helper.name for helper in team_A]} 对 {self.leader.name} {[helper.name for helper in team_B]} 发动政变")
-				print("政变成员情况")
-				for member in team_A:
-					print(f"team A: {member.name} ({member.vitality})")
-				for member in team_B:
-					print(f"team B: {member.name} ({member.vitality})")
+				# print("政变成员情况")
+				# for member in team_A:
+				# 	print(f"team A: {member.name} ({member.vitality})")
+				# for member in team_B:
+				# 	print(f"team B: {member.name} ({member.vitality})")
 				team_A_alive, team_B_alive = self.fight(team_A, team_B, A_leader=coup_leader, B_leader=self.leader, print_fight_details=True)
 
 				# 结算
@@ -745,7 +793,7 @@ class Game:
 			elif self.judge_result == 2:
 				self.elect()
 
-		else:
+		else: # 起义
 			share_list_respect = []
 			share_respect_sum = np.sum(self.respect, 1)
 			for r in revolutionist:
@@ -823,6 +871,7 @@ class Game:
 
 			print(self.judge_result)
 			if self.judge_result == 1:
+				self.leader.is_leader = False
 				self.leader = revolution_leader
 				self.leader.is_leader = True
 			elif self.judge_result == 2:
