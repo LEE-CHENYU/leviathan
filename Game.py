@@ -1,11 +1,10 @@
-from math import ceil
+from ast import excepthandler
 import numpy as np
 import random
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from sniffio import current_async_library
-from sympy import total_degree
+# from sniffio import current_async_library
 
 NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
 
@@ -45,7 +44,7 @@ SURRENDER_THRESHOLD_LIKE = 2
 
 # Distribute
 INEQUALITY_AVERSION = 0.25 	#分配小于平均值时，好感度下降
-REVOLUTION_THRESHOLD_LIKE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量
+REVOLUTION_THRESHOLD_LIKE = INEQUALITY_AVERSION * -20	#可调整数据为分配低于平均值数量, 必须小于零
 REVOLUTION_THRESHOLD_MEMBER_PORTION = 0.5	#share_list人数比例达到多少发动革命
 PARTY_SHARE = 0.6
 FRIEND_THRESHOLD = 1.5 		# 好感度与平均水平比例高于此值时，成为寡头成员
@@ -115,7 +114,7 @@ class Game:
 
 	def plot_like_and_respect(self, fig, ax0, ax1):
 		cmap = plt.cm.RdYlGn
-		fontsize = np.min([15, 150/self.counts])
+		fontsize = np.min([12, 150/self.counts])
 
 		# Like
 		img0 = ax0.imshow(self.like, vmax=np.max(np.abs(self.like)), vmin=-np.max(np.abs(self.like)), cmap=cmap)
@@ -160,7 +159,7 @@ class Game:
 
 	def plot_vit(self, ax):
 		# 仅在每轮末尾使用
-		fontsize = np.min([15, 150/self.counts])
+		fontsize = np.min([12, 150/self.counts])
 
 		fig_length = 10
 		while fig_length <= self.round:
@@ -180,9 +179,9 @@ class Game:
 				leader = self.leader_tracker[t]
 				ax.scatter([round_list[t]], [self.vit_tracker[t][leader.id]], color=self.member_color_list[leader.id], marker="*")
 
-	def plot_status(self):
+	def plot_status(self, fig):
 		# 仅在每轮末尾使用
-		fig = plt.figure(figsize=(8, 8))
+		plt.clf()
 
 		ax00 = fig.add_subplot(221)
 		ax01 = fig.add_subplot(222)
@@ -192,10 +191,14 @@ class Game:
 		self.plot_vit(ax1)
 
 		plt.tight_layout()
-		plt.show()
+		plt.draw()
+		
 
 	def run(self):
-		while True:
+		fig = plt.figure(figsize=(8, 8))
+
+		def refresh_on_click(event):
+
 			print("#" * 30 + f"  回合: {self.round}  " + "#" * 30)
 
 			np.random.shuffle(self.member_list)
@@ -216,12 +219,15 @@ class Game:
 
 			self.track_data(end_of_round=True)
 
-			self.plot_status()
-
-
-			#self.end()
+			self.plot_status(fig)
 
 			self.round += 1
+
+		refresh_on_click(1)
+
+		fig.canvas.mpl_connect('button_press_event', refresh_on_click)
+		plt.show()
+		plt.draw()
 
 
 	def map(self):
@@ -263,13 +269,13 @@ class Game:
 
 			# 更新是否投降（调整engagement）
 			for member in team_A_alive:
-				if member.vitality < SURRENDER_THRESHOLD_VITA:
+				if member.vitality < SURRENDER_THRESHOLD_VITA and member.engagement != 0:
 					if member.like_calculator(team_A_alive, team_B_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
 						print(f"\tA: {member.name}({member.vitality:.1f}) 投降了")
 
 			for member in team_B_alive:
-				if member.vitality < SURRENDER_THRESHOLD_VITA:
+				if member.vitality < SURRENDER_THRESHOLD_VITA and member.engagement != 0:
 					if member.like_calculator(team_B_alive, team_A_alive, self.like) < SURRENDER_THRESHOLD_LIKE:
 						member.engagement = 0
 						print(f"\tB: {member.name}({member.vitality:.1f}) 投降了")
@@ -376,6 +382,9 @@ class Game:
 							team_A_alive.remove(target)
 							A_eng_list = np.array([member.engagement for member in team_A_alive])
 							A_eng_list = A_eng_list / np.sum(A_eng_list)
+
+				if not continue_fight():
+					break
 
 		return team_A_alive, team_B_alive
 
@@ -631,7 +640,7 @@ class Game:
 			# 		break
 
 			party_member_share = (cargo_pool * PARTY_SHARE) / party_number
-			if len(self.share_list) == party_number:
+			if len(self.share_list) > party_number:
 				opposition_party_member_share = (cargo_pool * (1 - PARTY_SHARE)) / (len(self.share_list) - party_number)
 			for member in self.share_list:
 				if member in party_member:
@@ -810,15 +819,17 @@ class Game:
 				self.elect()
 
 		else: # 起义
-			share_list_respect = []
-			share_respect_sum = np.sum(self.respect, 1)
-			for r in revolutionist:
-				share_list_respect.append(share_respect_sum[r.id])
-				share_respect_sum_max = np.max(share_list_respect)
-				share_respect_maximum_index = np.array(np.where(share_respect_sum == share_respect_sum_max))
-				revolution_leader_id = np.random.choice(share_respect_maximum_index[0])		#&相同数值处理
-			
-			revolution_leader = self.member_list0[revolution_leader_id]
+			max_respect_member = []
+			max_respect = -np.inf
+			for member in revolutionist:
+				current_respect = np.sum(self.respect[member.id, :])
+				if current_respect > max_respect:
+					max_respect_member = [member]
+					max_respect = current_respect
+				elif current_respect == max_respect:
+					max_respect_member.append(member)
+
+			revolution_leader = np.random.choice(max_respect_member)
 			print(f"共有{len(revolutionist)}人发动起义，由{revolution_leader.name}领导")
 
 			if revolution_leader is not None and revolution_leader is not self.leader:
