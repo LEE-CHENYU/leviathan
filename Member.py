@@ -24,7 +24,7 @@ class Members:
 
 	def load(self):
 		if not self.is_leader:
-			self.cargo += int(np.random.rand() * self.productivity)
+			self.cargo += self.productivity		#&可以增加随机性
 
 	def consume(self):
 		self.vitality -= VIT_CONSUME
