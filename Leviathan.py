@@ -16,7 +16,7 @@ NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
 VIT_CONSUME = 20
 
 # Fight
-SPECTATOR_HELP = 0.2	# 参战加成的比例
+SPECTATOR_HELP = 0.2		# 参战加成的比例
 
 MIN_ATTACK = 0.3
 MAX_ATTACK = 0.5
