@@ -857,7 +857,7 @@ class Game:
 				team_B = [self.leader]
 				# 助战
 				for member in self.member_list:
-					if member == revolution_leader or member == self.leader:
+					if member in revolutionist or member == self.leader:
 						continue
 					member.assist_decision(self, team_A, team_B, A_leader=revolution_leader, B_leader=self.leader)
 				revolution_leader.engagement = 1

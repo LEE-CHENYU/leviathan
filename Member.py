@@ -48,13 +48,13 @@ class Members:
 		like_difference[np.abs(like_difference) <= 2] = 0	# 小于2不参战
 		# 助战方攻击力
 		assist_like = np.copy(like_difference)
-		assist_like[assist_like < 2] = 0
-		assist_engagement = assist_like / LIKE_WHEN_ATTACKING
+		assist_like[assist_like < 2 * LIKE_WHEN_HELPING] = 0
+		assist_engagement = np.min([assist_like / LIKE_WHEN_ATTACKING, 1])
 		assist_attack = np.sum(assist_engagement * vit_list)
 		# 敌对方攻击力
 		enemy_like = np.copy(like_difference)
-		enemy_like[enemy_like > -2] = 0
-		enemy_engagement = enemy_like / LIKE_WHEN_ATTACKING
+		enemy_like[enemy_like > -2 * LIKE_WHEN_HELPING] = 0
+		enemy_engagement = np.min([enemy_like / LIKE_WHEN_ATTACKING, 1])
 		enemy_attack = np.sum(enemy_engagement * vit_list)
 		# 当本队攻击力不足以击杀敌方首领，不杀		
 		if (self.vitality + assist_attack) * self.courage < other.vitality * (np.sum(enemy_engagement) + 1):
@@ -141,3 +141,24 @@ class Members:
 			like_difference = team_B_like - team_A_like
 		like_difference = like_difference/((len(team_A_alive) + len(team_B_alive)) * 0.5)  #由于like_difference为累计量，需除以人数
 		return like_difference
+
+	def distribute(self, Game, tactic):
+		# 领导模拟/实现分配，返回参数是更新后的成员和like
+
+
+	def distribute_decision(self, Game):
+		# 领导思考如何分配
+
+		def evaluation():
+			# 评估当前决策的好坏
+			# 利好群体：
+			# 	- 血量不平等程度（标准差）* 公平 EQUALITY
+			#	- 小康线以下人数 * 同情 SYMPATHY
+			#	- 富裕线以上人数 * 共产	COMMUNIST
+			# 利好自身：
+			# 	+ 个人血量 * 自私 SELFNESS
+			# 	+ 富裕线以上Like增量 * 精英 ELITIST
+			# 	+ 小康线一下Like增量 * 群众 POPULIST
+			# 	- 对手——respect高的人——血量增量 * 多疑 SUSPICION
+			# 	- 预备起义者血量和 / Share_list人数 / REVOLUTION_THRESHOLD_MEMBER_PORTION * 警戒 CAUTION
+			#	- （高Like者战斗力 - 低Like战斗力）* 团结 SOLIDARITY  【高Like：Like > LIKE_WHEN_HELPING + Like平均值】
