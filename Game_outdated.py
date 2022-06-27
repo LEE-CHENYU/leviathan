@@ -53,7 +53,7 @@ FRIEND_THRESHOLD = LIKE_THRESHOLD 		# 好感度高于此值时，成为寡头成
 CRUELTY = 1 				# 独裁模式下，分配额与消耗量的比例
 WELFARE_DONATION = 0.3 		# 福利模式下，最多从健康人群处扣除多少生活必需品
 
-from Member import Members
+from Member_outdated import Members
 
 class Game:
 	def __init__(self):
