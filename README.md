@@ -1,6 +1,8 @@
 # leviathan
-Examining if individual decisions and simple social rules can emerge into a complex system similar to Hobbesian Leviathan. 
+Examining if individual decisions and simple relationships can emerge into a complex system similar to Hobbesian Leviathan. 
+
 试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
+
 
 # 构想
 
