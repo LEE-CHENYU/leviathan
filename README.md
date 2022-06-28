@@ -3,7 +3,7 @@ Examining if individual decisions and simple social rules can emerge into a comp
 
 # 构想
 
-##参数、选择函数、规则、进化、死亡
+## 参数、选择函数、规则、进化、死亡
 
 参数就是游戏中代表个体特征的数，定义了环境以及自身；
 选择函数会让个体根据环境以及自身的参数进行选择；
