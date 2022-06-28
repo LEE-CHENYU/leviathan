@@ -1,5 +1,5 @@
 # leviathan
-Examining if individual decisions and simple relationships can emerge into a complex system similar to Hobbesian Leviathan. 
+Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan. 
 
 试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
 
