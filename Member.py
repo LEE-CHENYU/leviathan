@@ -16,10 +16,11 @@ class Member():
     def born(cls, parent_1, parent_2):
         pass
 
-    def __init__(self, name, id) -> None:
+    def __init__(self, name, id, surviver_id) -> None:
 
         self.name = name
         self.id = id
+        self.surviver_id = surviver_id      # Island.current_members中的编号
 
         self.productivity = np.random.uniform(Member.MIN_PRODUCTIVITY, Member.MAX_PRODUCTIVITY)
 
