@@ -1,6 +1,8 @@
 import numpy as np
+from sympy import Li
 from Member import Member
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from time import time
 
 class Island():
     MIN_VICTIM_MEMORY, MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
@@ -8,33 +10,42 @@ class Island():
 
     def __init__(
         self, 
-        init_member_number: int
+        init_member_number: int,
+        random_seed: float = None
     ) -> None:
 
+        # 设置并记录随机数种子
+        if random_seed is not None:
+            self._random_seed = random_seed
+        else:
+            self._random_seed = time()
+        self._rng = np.random.default_rng(self._random_seed)
+
         # 初始人数，当前人数
-        self._NAME_LIST = np.random.permutation(np.loadtxt("./name_list.txt", dtype=str))
+        self._NAME_LIST = self._rng.permutation(np.loadtxt("./name_list.txt", dtype=str))
 
         self.init_member_num = init_member_number
         self.current_member_num = self.init_member_num
 
         # 初始人物列表，全体人物列表，当前人物列表
-        self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i) for i in range(self.init_member_num)]
+        self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
         self.all_members = self._backup_member_list(self.init_members)
         self.current_members = self._backup_member_list(self.init_members)
 
         # 初始人物关系
         # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的记忆（受伤/受赠……）
-        self.victim_memory = np.random.uniform(Island.MIN_VICTIM_MEMORY, Island.MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
+        self.victim_memory = self._rng.uniform(Island.MIN_VICTIM_MEMORY, Island.MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
         self.victim_memory[self.victim_memory < 0] = 0  # 若随机到负值，则该记忆设为0
         np.fill_diagonal(self.victim_memory, np.nan)
 
-        self.benefit_memory = np.random.uniform(Island.MIN_BENEFIT_MEMORY, Island.MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
+        self.benefit_memory = self._rng.uniform(Island.MIN_BENEFIT_MEMORY, Island.MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
         self.benefit_memory[self.benefit_memory < 0] = 0  # 若随机到负值，则该记忆设为0
         np.fill_diagonal(self.benefit_memory, np.nan)
 
         self._relationships = [self.victim_memory, self.benefit_memory]
 
-
+    #########################################################################
+    ################################ 基本操作 ################################# 
 
     def _backup_member_list(
         self, 
@@ -57,7 +68,7 @@ class Island():
         """
         appended_num = len(append)
         prev_member_num = self.current_member_num
-
+ 
         assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
         assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
 
@@ -155,12 +166,58 @@ class Island():
 
         return
 
-        
-
     def relationship_modify(self):
         """保证自身nan"""
         pass
 
+    
+
+    def _split_into_groups(
+        self, 
+        group_size: int = 10, 
+        prob_group_in_action: float = 1.0
+        ) -> List[List[Member]]:
+
+        shuffled_members = self._backup_member_list(self.current_members)
+        self._rng.shuffle(shuffled_members)
+
+        idx_list_list = np.array_split(np.arange(self.current_member_num, dtype=int), np.round(self.current_member_num / group_size).astype(int))
+
+        group_list = []
+        for idx_list in idx_list_list:
+            group = []
+            for member_idx in idx_list:
+                group.append(self.current_members[member_idx])
+            
+            # 每组按概率发生战斗
+            if self._rng.random() < prob_group_in_action:
+                group_list.append(group)
+
+        return group_list
+
+    def _get_pairs_from_group(self, principal, object)
+
+
     def save_current_island(self):
         pass
 
+    #########################################################################
+    ################################## 模拟 ################################## 
+    def produce(self):
+        for member in self.current_members:
+            member.produce()
+
+    def fight(
+        self, 
+        group_size: int = 10,
+        prob_group_in_fight: float = 1.0
+        ):
+
+        # 打乱顺序，随机分组
+        group_list = self._split_into_groups(group_size, prob_group_in_fight)
+        print(group_list)
+        
+
+        
+
+                
