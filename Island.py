@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from time import time
 
 class Island():
-    MIN_VICTIM_MEMORY, MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
-    MIN_BENEFIT_MEMORY, MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
+    _MIN_VICTIM_MEMORY, _MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
+    _MIN_BENEFIT_MEMORY, _MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
 
     def __init__(
         self, 
@@ -33,12 +33,13 @@ class Island():
         self.current_members = self._backup_member_list(self.init_members)
 
         # 初始人物关系
-        # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的记忆（受伤/受赠……）
-        self.victim_memory = self._rng.uniform(Island.MIN_VICTIM_MEMORY, Island.MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
+        # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
+        # 若要修改（增减）人物关系，需要修改：self.XXX_memory, self._relationships, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
+        self.victim_memory = self._rng.uniform(Island._MIN_VICTIM_MEMORY, Island._MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
         self.victim_memory[self.victim_memory < 0] = 0  # 若随机到负值，则该记忆设为0
         np.fill_diagonal(self.victim_memory, np.nan)
 
-        self.benefit_memory = self._rng.uniform(Island.MIN_BENEFIT_MEMORY, Island.MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
+        self.benefit_memory = self._rng.uniform(Island._MIN_BENEFIT_MEMORY, Island._MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
         self.benefit_memory[self.benefit_memory < 0] = 0  # 若随机到负值，则该记忆设为0
         np.fill_diagonal(self.benefit_memory, np.nan)
 
@@ -195,7 +196,8 @@ class Island():
 
         return group_list
 
-    def _get_pairs_from_group(self, principal, object)
+    def _get_pairs_from_group(self, principal, object):
+        pass
 
 
     def save_current_island(self):
@@ -216,6 +218,8 @@ class Island():
         # 打乱顺序，随机分组
         group_list = self._split_into_groups(group_size, prob_group_in_fight)
         print(group_list)
+
+
         
 
         
