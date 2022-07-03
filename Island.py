@@ -169,9 +169,7 @@ class Island():
 
     def relationship_modify(self):
         """保证自身nan"""
-        pass
-
-    
+        pass    
 
     def _split_into_groups(
         self, 
