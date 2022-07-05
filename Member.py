@@ -13,7 +13,13 @@ class Member():
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
     _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 1000           # 初始年龄
     # CONSUMPTION 
-    
+
+    # 上限
+    _MAX_VITALITY = 100
+    _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
+    _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
+
+
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
         "self_productivity",
@@ -24,14 +30,17 @@ class Member():
         "obj_vitality",
         "obj_cargo",
         "obj_age",
-        "victim_passive_passive",           # victim_passive_passive代表victim记忆中，self所拥的行，乘以obj所拥的行
-        "victim_passive_active",            # 第一个p/a代表self的记忆，第二个p/a代表obj的记忆
-        "victim_active_passive",            # passive - 行，active - 列
-        "victim_active_active",
-        "benefit_passive_passive",
-        "benefit_passive_active",
-        "benefit_active_passive",
-        "benefit_active_active",
+        "victim_overlap",                   # 关系网重叠部分
+        "benefit_overlap",
+        # 细化关系网内积
+        # "victim_passive_passive",           # victim_passive_passive代表victim记忆中，self所拥的行，乘以obj所拥的行
+        # "victim_passive_active",            # 第一个p/a代表self的记忆，第二个p/a代表obj的记忆
+        # "victim_active_passive",            # passive - 行，active - 列
+        # "victim_active_active",
+        # "benefit_passive_passive",
+        # "benefit_passive_active",
+        # "benefit_active_passive",
+        # "benefit_active_active",
         "victim_passive",                   # self对obj的记忆
         "victim_active",                    # obj对self的记忆
         "benefit_passive",
@@ -73,6 +82,12 @@ class Member():
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
         self.age = int(self._rng.uniform(Member._INIT_MIN_AGE, Member._INIT_MAX_AGE))
 
+        # 决策参数
+        # 攻击决策
+        # self.fight_parameter = np.
+        # 给予决策
+        # 生育决策
+
     def __str__(self):
         """重载print函数表示"""
         return f"{self.name}({self.id})"
@@ -109,46 +124,18 @@ class Member():
         len_input = len(Member._DECISION_INPUT_NAMES)
         input_dict = dict(zip(Member._DECISION_INPUT_NAMES, np.zeros(len_input)))
 
-        input_dict["self_productivity"] = self.productivity
-        input_dict["self_vitality"] = self.vitality
-        input_dict["self_cargo"] = self.cargo
+        input_dict["self_productivity"] = self.productivity / Member._MAX_PRODUCTIVITY
+        input_dict["self_vitality"] = self.vitality / Member._MAX_VITALITY
+        input_dict["self_cargo"] = np.tanh(self.cargo * Member._CARGO_SCALE)
         input_dict["self_age"] = self.age
-        input_dict["obj_productivity"] = object.productivity
-        input_dict["obj_vitality"] = object.vitality
-        input_dict["obj_cargo"] = object.cargo
+        input_dict["obj_productivity"] = object.productivity / Member._MAX_PRODUCTIVITY
+        input_dict["obj_vitality"] = object.vitality / Member._MAX_VITALITY
+        input_dict["obj_cargo"] = np.tanh(object.cargo * Member._CARGO_SCALE)
         input_dict["obj_age"] = object.age
 
-        def inner_prod_of_relations(relation_matrix, self_row=True, obj_row=True) -> float:
-            if self_row:
-                self_slice = (self.surviver_id, slice(None))
-            else:
-                self_slice = (slice(None), self.surviver_id)
-            if obj_row:
-                obj_slice = (object.surviver_id, slice(None))
-            else:
-                obj_slice = (slice(None), object.surviver_id)
-
-            relation_prod = np.nan_to_num(
-            relation_matrix[self_slice] * relation_matrix[obj_slice], 
-            copy=True, 
-            nan=0.0
-            )
-
-            return np.sum(relation_prod)
-
-        input_dict["victim_passive_passive"] = inner_prod_of_relations(island.victim_memory, True, True)
-        input_dict["victim_passive_active"] = inner_prod_of_relations(island.victim_memory, True, False)
-        input_dict["victim_active_passive"] = inner_prod_of_relations(island.victim_memory, False, True)
-        input_dict["victim_active_active"] = inner_prod_of_relations(island.victim_memory, False, False)
-        input_dict["benefit_passive_passive"] = inner_prod_of_relations(island.victim_memory, True, True)
-        input_dict["benefit_passive_active"] = inner_prod_of_relations(island.victim_memory, True, False)
-        input_dict["benefit_active_passive"] = inner_prod_of_relations(island.victim_memory, False, True)
-        input_dict["benefit_active_active"] = inner_prod_of_relations(island.victim_memory, False, False)
+        input_dict["victim_overlap"], input_dict["benefit_overlap"] = island._overlap_of_relations(self, object)
         
-        input_dict["victim_passive"] = island.victim_memory[self.surviver_id, object.surviver_id]
-        input_dict["victim_active"] = island.victim_memory[object.surviver_id, self.surviver_id]
-        input_dict["benefit_passive"] = island.benefit_memory[self.surviver_id, object.surviver_id]
-        input_dict["benefit_active"] = island.benefit_memory[object.surviver_id, self.surviver_id]
+        input_dict["victim_passive"], input_dict["victim_active"], input_dict["benefit_passive"], input_dict["benefit_active"] = island._relations_w_normalize(self, object)
 
         return input_dict
 

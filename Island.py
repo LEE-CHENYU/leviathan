@@ -1,5 +1,4 @@
 import numpy as np
-from sympy import Li
 from Member import Member
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from time import time
@@ -44,6 +43,7 @@ class Island():
         np.fill_diagonal(self.benefit_memory, np.nan)
 
         self._relationships = [self.victim_memory, self.benefit_memory]
+        assert len(self._relationships) == Member._RELATION_SCALES, "关系矩阵数量和关系矩阵缩放量数量不一致"
 
     #########################################################################
     ################################ 基本操作 ################################# 
@@ -166,6 +166,50 @@ class Island():
         )
 
         return
+
+    def _overlap_of_relations(
+        self, 
+        principal: Member, 
+        object: Member
+        ) -> List[float]:
+        """计算关系网内积"""
+
+        def normalize(arr):
+            norm = np.linalg.norm(arr)
+            if norm == 0:
+                return 0
+            else:
+                return arr / norm
+
+        overlaps = []
+        for relationship in self._relationships:
+            pri_row = normalize(relationship[principal.surviver_id, :])
+            pri_col = normalize(relationship[:, principal.surviver_id])
+            obj_row = normalize(relationship[object.surviver_id, :])
+            obj_col = normalize(relationship[:, object.surviver_id])
+
+            overlaps.append((
+                np.sum(pri_row * obj_row)
+                + np.sum(pri_row * obj_col)
+                + np.sum(pri_col * obj_row)
+                + np.sum(pri_col * obj_col)) / 4
+            )
+        
+        return overlaps
+    
+    def _relations_w_normalize(
+        self,
+        principal: Member,
+        object: Member
+    ) -> List[float]:
+        """计算归一化（tanh）后的关系矩阵元"""
+        elements = []
+        for relationship in self._relationships:
+            elements.append(relationship[principal.surviver_id, object.surviver_id])
+            elements.append(relationship[object.surviver_id, principal.surviver_id])
+
+        elements = np.array(elements)
+        return np.tanh(elements * Member._RELATION_SCALES)
 
     def relationship_modify(self):
         """保证自身nan"""
