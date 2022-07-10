@@ -1,6 +1,6 @@
 import numpy as np
 from Member import Member
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 
 class Island():
@@ -10,14 +10,14 @@ class Island():
     def __init__(
         self, 
         init_member_number: int,
-        random_seed: float = None
+        random_seed: int = None
     ) -> None:
 
         # 设置并记录随机数种子
         if random_seed is not None:
-            self._random_seed = random_seed
+            self._random_seed = int(random_seed)
         else:
-            self._random_seed = time()
+            self._random_seed = int(time())
         self._rng = np.random.default_rng(self._random_seed)
 
         # 初始人数，当前人数
@@ -33,20 +33,35 @@ class Island():
 
         # 初始人物关系
         # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
-        # 若要修改（增减）人物关系，需要修改：self.XXX_memory, self._relationships, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
-        self.victim_memory = self._rng.uniform(Island._MIN_VICTIM_MEMORY, Island._MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
-        self.victim_memory[self.victim_memory < 0] = 0  # 若随机到负值，则该记忆设为0
-        np.fill_diagonal(self.victim_memory, np.nan)
+        # 若要修改（增减）人物关系，需要修改：self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
+        _victim_memory = self._rng.uniform(Island._MIN_VICTIM_MEMORY, Island._MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
+        _victim_memory[_victim_memory < 0] = 0  # 若随机到负值，则该记忆设为0
+        np.fill_diagonal(_victim_memory, np.nan)
 
-        self.benefit_memory = self._rng.uniform(Island._MIN_BENEFIT_MEMORY, Island._MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
-        self.benefit_memory[self.benefit_memory < 0] = 0  # 若随机到负值，则该记忆设为0
-        np.fill_diagonal(self.benefit_memory, np.nan)
+        _benefit_memory = self._rng.uniform(Island._MIN_BENEFIT_MEMORY, Island._MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
+        _benefit_memory[_benefit_memory < 0] = 0  # 若随机到负值，则该记忆设为0
+        np.fill_diagonal(_benefit_memory, np.nan)
 
-        self._relationships = [self.victim_memory, self.benefit_memory]
-        assert len(self._relationships) == Member._RELATION_SCALES, "关系矩阵数量和关系矩阵缩放量数量不一致"
+        self.relationship_dict = {
+            "victim": _victim_memory,
+            "benefit": _benefit_memory
+        }
+        assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "关系矩阵数量和关系矩阵缩放量数量不一致"
 
     #########################################################################
     ################################ 基本操作 ################################# 
+    def print_info(self):
+        print("========================== Vitality ==========================")
+        status = ""
+        for member in self.current_members:
+            status += f"\t[{member.name},\t Vit: {member.vitality:.1f},\t Cargo: {member.cargo:.1f}\n" 
+        print(status)
+        print("========================== Victim ==========================")
+        print(self.relationship_dict["victim"])
+        print("========================== Benefit ==========================")
+        print(self.relationship_dict["benefit"])
+
+
 
     def _backup_member_list(
         self, 
@@ -82,9 +97,9 @@ class Island():
             self.current_member_num += 1
 
         # 修改关系矩阵
-        for idx in range(len(self._relationships)):
+        for key in self.relationship_dict.keys():
             # 无法直接进行赋值，需修改原数组尺寸后填入数值
-            tmp_old = self._relationships[idx].copy()
+            tmp_old = self.relationship_dict[key].copy()
             tmp_new = np.zeros((self.current_member_num, self.current_member_num))
             
             tmp_new[:prev_member_num, :prev_member_num] = tmp_old
@@ -92,11 +107,11 @@ class Island():
             tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
             np.fill_diagonal(tmp_new, np.nan)
 
-            self._relationships[idx].resize(
+            self.relationship_dict[key].resize(
                 (self.current_member_num, self.current_member_num), 
                 refcheck=False
             )
-            self._relationships[idx][:] = tmp_new          # 仅修改数组内容，不修改列表里的数组地址
+            self.relationship_dict[key][:] = tmp_new          # 仅修改数组内容，不修改列表里的数组地址
 
         return
 
@@ -132,16 +147,16 @@ class Island():
             self.current_member_num -= 1
 
         # 修改关系矩阵
-        for idx in range(len(self._relationships)):
+        for key in self.relationship_dict.keys():
             # 无法直接进行赋值，需修改原数组尺寸后填入数值
-            tmp = np.delete(self._relationships[idx], drop_sur_id, axis=0)
+            tmp = np.delete(self.relationship_dict[key], drop_sur_id, axis=0)
             tmp = np.delete(tmp, drop_sur_id, axis=1)
             
-            self._relationships[idx].resize(
+            self.relationship_dict[key].resize(
                 (self.current_member_num, self.current_member_num), 
                 refcheck=False
             )
-            self._relationships[idx][:] = tmp    # 仅修改数组内容，不修改列表里的数组地址
+            self.relationship_dict[key][:] = tmp    # 仅修改数组内容，不修改列表里的数组地址
 
         # 重新编号存活成员
         for sur_id in range(self.current_member_num):
@@ -175,6 +190,9 @@ class Island():
         """计算关系网内积"""
 
         def normalize(arr):
+            """剔除nan，归一化向量"""
+            arr[principal.surviver_id] = 0
+            arr[object.surviver_id] = 0
             norm = np.linalg.norm(arr)
             if norm == 0:
                 return 0
@@ -182,11 +200,11 @@ class Island():
                 return arr / norm
 
         overlaps = []
-        for relationship in self._relationships:
-            pri_row = normalize(relationship[principal.surviver_id, :])
-            pri_col = normalize(relationship[:, principal.surviver_id])
-            obj_row = normalize(relationship[object.surviver_id, :])
-            obj_col = normalize(relationship[:, object.surviver_id])
+        for relationship in list(self.relationship_dict.values()):
+            pri_row = normalize(relationship[principal.surviver_id, :].copy())
+            pri_col = normalize(relationship[:, principal.surviver_id].copy())
+            obj_row = normalize(relationship[object.surviver_id, :].copy())
+            obj_col = normalize(relationship[:, object.surviver_id].copy())
 
             overlaps.append((
                 np.sum(pri_row * obj_row)
@@ -204,22 +222,31 @@ class Island():
     ) -> List[float]:
         """计算归一化（tanh）后的关系矩阵元"""
         elements = []
-        for relationship in self._relationships:
+        for relationship in list(self.relationship_dict.values()):
             elements.append(relationship[principal.surviver_id, object.surviver_id])
             elements.append(relationship[object.surviver_id, principal.surviver_id])
 
         elements = np.array(elements)
-        return np.tanh(elements * Member._RELATION_SCALES)
+        return np.tanh(elements * np.repeat(Member._RELATION_SCALES, 2))
 
-    def relationship_modify(self):
+    def relationship_modify(
+        self, 
+        relationship_name,
+        member_1: Member, 
+        member_2: Member, 
+        add_value: float
+    ) -> None:
         """保证自身nan"""
-        pass    
+        assert member_1 is not member_2, "不能修改关系矩阵中的对角元素"
+        relationship = self.relationship_dict[relationship_name]
+        relationship[member_1.surviver_id, member_2.surviver_id] += add_value
 
     def _split_into_groups(
         self, 
         group_size: int = 10, 
         prob_group_in_action: float = 1.0
         ) -> List[List[Member]]:
+        """打乱，随机分组"""
 
         shuffled_members = self._backup_member_list(self.current_members)
         self._rng.shuffle(shuffled_members)
@@ -238,9 +265,45 @@ class Island():
 
         return group_list
 
-    def _get_pairs_from_group(self, principal, object):
-        pass
+    def _get_pairs_from_group(
+        self, 
+        decision_name: str,
+        group: List[Member],
+        other_requirements: Callable = None,
+        bilateral: bool = False
+    ) -> List[List[Member]]:
+        """
+        根据决策函数，从小组中选出人物对
+        decision_name: Member.parameter_dict的keys之一
+        other_requirements: 函数，输入为两个Member，输出True（通过要求）/False
+        bilateral: 设为True后，决策函数的判定为双向符合
+        """
+        group_size = len(group)
+        selected = np.zeros(group_size)
+        pairs = []
+        for mem_idx_1 in range(group_size):
+                mem1 = group[mem_idx_1]
+                for mem_idx_2 in range(mem_idx_1 + 1, group_size):
+                    if not selected[mem_idx_2] and not selected[mem_idx_1]:
+                        mem2 = group[mem_idx_2]
 
+                        if other_requirements is not None:
+                            if other_requirements(mem1, mem2):
+                                continue
+                        if not mem1.decision(decision_name, mem2, self) > 1:
+                            continue
+
+                        if not bilateral:
+                            pairs.append([mem1, mem2])
+                            selected[mem_idx_1] = 1
+                            selected[mem_idx_2] = 1
+                            continue
+                        if mem2.decision(decision_name, mem1, self) > 1:
+                            pairs.append([mem1, mem2])
+                            selected[mem_idx_1] = 1
+                            selected[mem_idx_2] = 1
+
+        return pairs
 
     def save_current_island(self):
         pass
@@ -251,15 +314,100 @@ class Island():
         for member in self.current_members:
             member.produce()
 
+    def _attack(
+        self, 
+        member_1: Member, 
+        member_2: Member
+    ) -> None:
+        # 计算攻击、偷盗值
+        strength_1 = member_1.strength
+        strength_2 = member_2.strength
+
+        steal_1 = member_1.steal
+        steal_2 = member_2.steal
+        if steal_1 > member_2.cargo:
+            steal_1 = member_2.cargo
+        if steal_2 > member_1.cargo:
+            steal_2 = member_1.cargo
+
+        # 结算攻击、偷盗
+        member_1.vitality -= strength_2
+        member_2.vitality -= strength_1
+        member_1.cargo -= steal_2
+        member_2.cargo -= steal_1
+
+        # 修改关系矩阵
+        self.relationship_modify("victim", member_1, member_2, strength_2 + steal_2)
+        self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
+
+        # 结算死亡
+        if member_1.vitality <= 0:
+            member_1.vitality = 0
+            self.member_list_modify(drop=[member_1])
+        if member_2.vitality <= 0:
+            member_2.vitality = 0
+            self.member_list_modify(drop=[member_2])
+
     def fight(
         self, 
         group_size: int = 10,
         prob_group_in_fight: float = 1.0
         ):
-
         # 打乱顺序，随机分组
         group_list = self._split_into_groups(group_size, prob_group_in_fight)
-        print(group_list)
+
+        # 从每组内选出交战双方
+        for group in group_list:
+            pairs = self._get_pairs_from_group(
+                "attack", 
+                group, 
+                other_requirements=None,
+                bilateral=False
+            )
+            for mem0, mem1 in pairs:
+                print(mem0, mem1)
+                self._attack(mem0, mem1)
+
+    def _offer(
+        self, 
+        member_1: Member, 
+        member_2: Member
+    ) -> None:
+        """member_1 给予 member_2"""
+        offer = member_1.offer
+
+        # 结算给予
+        member_2.cargo += offer
+        member_1.cargo -= offer
+
+        # 修改关系矩阵
+        self.relationship_modify("benefit", member_2, member_1, offer)
+
+        # 被给予者的参数受到影响
+        member_2.parameter_absorb([member_1, member_2])
+
+
+    def trade(
+        self,
+        group_size: int = 10,
+        prob_group_in_trade: float = 1.0
+        ):
+
+        # 打乱顺序，随机分组
+        group_list = self._split_into_groups(group_size, prob_group_in_trade)
+
+        # 从每组内选出交战双方
+        for group in group_list:
+            pairs = self._get_pairs_from_group(
+                "offer", 
+                group, 
+                other_requirements=None,
+                bilateral=False
+            )
+            for mem0, mem1 in pairs:
+                print(mem0, mem1)
+                self._offer(mem0, mem1)
+                
 
 
         
