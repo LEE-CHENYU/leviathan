@@ -18,14 +18,11 @@ class Member():
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
     _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
-<<<<<<< HEAD
-=======
     # 行动量表
     _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.2             # 攻击力占当前血量之比
     _MIN_STEAL, _MAX_STEAL = 0.1, 0.2                   # 偷盗值占当前血量之比
     _MIN_OFFER, _MAX_OFFER = 0.1, 0.2                   # 给予值占当前仓库之比
 
->>>>>>> 159b9d01f4f3492a9a40f062f50b16c033afaf89
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
         "self_productivity",
