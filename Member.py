@@ -19,7 +19,6 @@ class Member():
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
     _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
-
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
         "self_productivity",
@@ -110,14 +109,13 @@ class Member():
         """
         pass
 
-
     #########################################################################
     ################################## 动作 ################################## 
     def _generate_decision_inputs(
         self, 
         object: Member, 
         island: Island
-        ) -> Dict:
+    ) -> Dict:
 
         assert self is not object, "决策函数中主体和对象不能相同"
 

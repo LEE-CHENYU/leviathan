@@ -28,7 +28,7 @@ class Members:
 
 	def consume(self):
 		self.vitality -= VIT_CONSUME
-		self.eat() #后面改（可能是需要拆成两个func）
+		self.eat() # 后面改（可能是需要拆成两个func）
 
 	def kill_decision(self, other, game, vit_list):
 		# Leader 不杀人、不被杀		
