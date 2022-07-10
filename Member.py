@@ -5,23 +5,33 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import Island
 
 class Member():
+    # 上限
+    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 10, 20     # 生产力属性
+    _MAX_VITALITY = 100
+
+    # 决策函数缩放参数
+    _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
+    _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
     # 初始值
-    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 10, 20     # 生产力属性
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
     _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 1000           # 初始年龄
-    # CONSUMPTION 
 
-    # 上限
-    _MAX_VITALITY = 100
-    _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
-    _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
+    # 消耗相关计算参数
+    _CONSUMPTION_BASE = 10                              # 基础消耗量
+    _COMSUMPTION_CLIMBING_AGE = 800                     # 消耗量开始显著增长的年龄
+    _MAX_AGE = 999                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
+    __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
     _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.2             # 攻击力占当前血量之比
     _MIN_STEAL, _MAX_STEAL = 0.1, 0.2                   # 偷盗值占当前血量之比
     _MIN_OFFER, _MAX_OFFER = 0.1, 0.2                   # 给予值占当前仓库之比
+
+    # 生育
+    _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
+    _PARAMETER_FLUCTUATION = 0.05                       # 参数继承的浮动
 
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
@@ -51,12 +61,54 @@ class Member():
     ]
 
     @classmethod
+    def _inherited_parameter_w_fluctuation(
+        cls, 
+        parameter_1: float, 
+        parameter_2: float, 
+        min_range: float, 
+        max_range: float, 
+        rng: np.random.Generator
+    ):
+        new_parameter = (parameter_1 + parameter_2) / 2
+        new_parameter *= rng.uniform(1 - cls._PARAMETER_FLUCTUATION, 1 + cls._PARAMETER_FLUCTUATION)
+        
+        if new_parameter > max_range:
+            new_parameter = max_range
+        elif new_parameter < min_range:
+            new_parameter = min_range
+        return new_parameter
+
+    @classmethod
     def born(
         cls, 
         parent_1: Member, 
-        parent_2: Member
-        ) -> Member:
-        pass
+        parent_2: Member,
+        name: str,
+        id: int,
+        surviver_id: int,
+        rng: np.random.Generator
+    ) -> Member:
+
+        child = Member(name, id, surviver_id, rng)
+        child.parent_1 = parent_1
+        child.parent_2 = parent_2
+
+        child.productivity = cls._inherited_parameter_w_fluctuation(
+            parent_1.productivity, 
+            parent_2.productivity, 
+            cls._MIN_PRODUCTIVITY, 
+            cls._MAX_PRODUCTIVITY,
+            rng
+        )
+
+        child.parameter_absorb(
+            [parent_1, parent_2],
+            fluctuation_amplitude=cls._PARAMETER_FLUCTUATION
+        )
+
+        return child
+
+        
 
     def __init__(
         self, 
@@ -132,10 +184,22 @@ class Member():
         
     @property
     def consumption(self) -> float:
-        """
-        每轮消耗量
-        """
-        pass
+        """每轮消耗量"""
+        return (Member._CONSUMPTION_BASE 
+            + np.exp(Member.__AGING_EXPOENT * (self.age - Member._COMSUMPTION_CLIMBING_AGE))
+        )
+
+    def autopsy(self) -> bool:
+        """验尸，在Member类中结算死亡，返回是否死亡"""
+        if self.vitality <= 0:
+            self.vitality = 0
+            print(self, "死了")
+            return True
+        return False
+
+    @property
+    def is_qualified_to_reproduce(self):
+        return self.age >= Member._MIN_REPRODUCE_AGE
 
     #########################################################################
     ################################## 动作 ################################## 
@@ -154,11 +218,11 @@ class Member():
         input_dict["self_productivity"] = self.productivity / Member._MAX_PRODUCTIVITY
         input_dict["self_vitality"] = self.vitality / Member._MAX_VITALITY
         input_dict["self_cargo"] = np.tanh(self.cargo * Member._CARGO_SCALE)
-        input_dict["self_age"] = self.age / 1000
+        input_dict["self_age"] = self.age / Member._MAX_AGE
         input_dict["obj_productivity"] = object.productivity / Member._MAX_PRODUCTIVITY
         input_dict["obj_vitality"] = object.vitality / Member._MAX_VITALITY
         input_dict["obj_cargo"] = np.tanh(object.cargo * Member._CARGO_SCALE)
-        input_dict["obj_age"] = object.age / 1000
+        input_dict["obj_age"] = object.age / Member._MAX_AGE
 
         input_dict["victim_overlap"], input_dict["benefit_overlap"] = island._overlap_of_relations(self, object)
         
@@ -176,20 +240,32 @@ class Member():
 
     def parameter_absorb(
         self,
-        contributor_list: List[Member] = []
+        contributor_list: List[Member] = [],
+        fluctuation_amplitude = 0,
     ) -> None:
+        """产生多个人的决策参数平均值"""
         new_dict = {key: contributor_list[0].parameter_dict[key].copy() for key in contributor_list[0].parameter_dict.keys()}
         for contributor in contributor_list[1:]:
             for key in new_dict.keys():
                 new_dict[key] += contributor.parameter_dict[key]
         for key in new_dict.keys():
             new_dict[key] /= len(contributor_list)
+            if fluctuation_amplitude > 0:
+                new_dict[key] *= self._rng.uniform(1 - fluctuation_amplitude, 1 + fluctuation_amplitude)
         self.parameter_dict = new_dict
 
     def produce(self) -> None:
+        """生产，将收获装入cargo"""
         self.cargo += self.productivity
 
-    
+    def consume(self) -> bool:
+        """消耗vitality"""
+        self.vitality -= self.productivity
+        if self.die():
+            self.vitality = 0
 
-    
-
+    def recover(self) -> None:
+        """使用cargo恢复vitality"""
+        amount = np.min([self.cargo, Member._MAX_VITALITY - self.vitality])
+        self.vitality += amount
+        self.cargo -= amount

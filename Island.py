@@ -3,9 +3,19 @@ from Member import Member
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 
+def _requirement_for_reproduction(
+    member_1: Member, 
+    member_2: Member
+) -> bool:
+    return (member_1.vitality + member_1.cargo
+        + member_2.vitality + member_2.cargo
+    ) >= Island._REPRODUCE_REQUIREMENT
+    
 class Island():
     _MIN_VICTIM_MEMORY, _MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
     _MIN_BENEFIT_MEMORY, _MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
+
+    _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
 
     def __init__(
         self, 
@@ -244,22 +254,29 @@ class Island():
     def _split_into_groups(
         self, 
         group_size: int = 10, 
-        prob_group_in_action: float = 1.0
+        prob_group_in_action: float = 1.0,
+        to_split = None,
         ) -> List[List[Member]]:
         """打乱，随机分组"""
 
-        shuffled_members = self._backup_member_list(self.current_members)
+        if to_split is None:
+            to_split = self.current_members
+            total_num = self.current_member_num
+        else:
+            total_num = len(to_split)
+
+        shuffled_members = self._backup_member_list(to_split)
         self._rng.shuffle(shuffled_members)
 
-        idx_list_list = np.array_split(np.arange(self.current_member_num, dtype=int), np.round(self.current_member_num / group_size).astype(int))
+        idx_list_list = np.array_split(np.arange(total_num, dtype=int), np.round(total_num / group_size).astype(int))
 
         group_list = []
         for idx_list in idx_list_list:
             group = []
             for member_idx in idx_list:
-                group.append(self.current_members[member_idx])
+                group.append(to_split[member_idx])
             
-            # 每组按概率发生战斗
+            # 每组按概率发生行为
             if self._rng.random() < prob_group_in_action:
                 group_list.append(group)
 
@@ -311,6 +328,11 @@ class Island():
     #########################################################################
     ################################## 模拟 ################################## 
     def produce(self):
+        """
+        生产  
+
+            1. 根据生产力，增加食物存储
+        """
         for member in self.current_members:
             member.produce()
 
@@ -341,11 +363,9 @@ class Island():
         self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
 
         # 结算死亡
-        if member_1.vitality <= 0:
-            member_1.vitality = 0
+        if member_1.die():
             self.member_list_modify(drop=[member_1])
-        if member_2.vitality <= 0:
-            member_2.vitality = 0
+        if member_2.die():
             self.member_list_modify(drop=[member_2])
 
     def fight(
@@ -353,6 +373,15 @@ class Island():
         group_size: int = 10,
         prob_group_in_fight: float = 1.0
         ):
+        """
+        战斗
+
+            1. 随机分组、组内排序。  
+            2. 按概率设定某组相互开战与否（为了减少运算消耗）  
+            3. 在开战的组内，遍历组员。根据【攻击决策】函数，选出所有攻击者与被攻击者的组合  
+            4. 双方互相攻击，互相造成对方扣除与自身生命值相关的血量；双方互相偷盗对方的财产，数额与自身生命值相关  
+            5. 若有死亡案例，更新集体列表，更新编号，更新关系矩阵  
+        """
         # 打乱顺序，随机分组
         group_list = self._split_into_groups(group_size, prob_group_in_fight)
 
@@ -392,6 +421,14 @@ class Island():
         group_size: int = 10,
         prob_group_in_trade: float = 1.0
         ):
+        """
+        交易与交流
+
+            1. 随机分组、组内排序。
+            2. 根据【给予决策】函数，选出一个（或零个）给予对象，给予与决策函数相关的仓库数额（为了避免bug，此数额要小于等于仓库存储量）
+            3. 【给予决策】函数：需要考虑双方的关系网，如把对其他人记忆的内积作为输入。
+            4. 被给予者的记忆会被帮助者影响，记忆改变为两人的均值
+        """
 
         # 打乱顺序，随机分组
         group_list = self._split_into_groups(group_size, prob_group_in_trade)
@@ -407,10 +444,109 @@ class Island():
             for mem0, mem1 in pairs:
                 print(mem0, mem1)
                 self._offer(mem0, mem1)
-                
+
+    def consume(
+        self, 
+    ):
+        """
+        消费
+
+            1. 计算消耗量。消耗量会随着年龄逐步提升 
+            2. 从血量中扣除消耗量，若血量小于零则记为死亡
+            3. 从仓库中吃食物回满血
+            4. 若有死亡案例，更新集体列表，更新编号，更新关系矩阵
+        """
+        dead_member = []
+        for member in self.current_members:
+            member.consume()
+            if member.die():
+                dead_member.append(member)
+        self.member_list_modify(drop=dead_member)
+
+        for member in self.current_members:
+            member.recover()
+
+    def _bear(
+        self,
+        member_1, 
+        member_2,
+    ):
+        
+        # vitality_base = (Member._INIT_MIN_VIT + Member._INIT_MAX_VIT) / 2
+
+        # # 双方资源总量
+        # parent_1_total = parent_1.cargo + parent_1.vitality
+        # parent_2_total = parent_2.cargo + parent_2.vitality
+        # total = parent_1_total + parent_2_total
+
+        # # 按比例扣除损失
+        # parent_1_give = vitality_base * parent_1_total / total
+        # parent_2_give = vitality_base * parent_2_total / total
+        # if parent_1.cargo >= parent_1_give:
+        #     parent_1.cargo -= parent_1_give
+        # else:
+        #     parent_1.vitality -= (parent_1_give - parent_1.cargo)
+        #     parent_1.cargo = 0
+        # if parent_2.cargo >= parent_2_give:
+        #     parent_2.cargo -= parent_2_give
+        # else:
+        #     parent_2.vitality -= (parent_2_give - parent_2.cargo)
+        #     parent_2.cargo = 0
+
+        
+
+        # # 孩子记住父母的付出
+        # island.relationship_modify()
+
+
+
+    def reproduce(
+        self, 
+        group_size: int = 10,
+        prob_group_in_reproduce: float = 1.0
+    ):
+        """
+        生育
+
+            1. 择出满足年龄条件的人
+            2. 随机分组，组内排序。
+            3. 每组内便利，根据【生育决策】函数，判断互相好感，选择父母
+            4. 判断双方是否满足生育条件（血量和仓库之和）
+            5. 父母扣除固定仓库数，仓库不足时扣除血量。
+            6. 产生孩子。设定孩子年龄（0），父母。孩子随机继承父母的基本属性与决策参数，添加**少许**随机浮动。孩子的初始血量为固定值（小于父母消耗值），存储……
+            7. 若有出生案例，更新集体列表，更新编号，更新关系矩阵
+        """
+        # 选择年龄达标成员
+        qualified_member = [member for member in self.current_members if member.is_qualified_to_reproduce]
+
+        # 随即分组、组内排序
+        group_list = self._split_into_groups(
+            group_size, 
+            prob_group_in_reproduce, 
+            to_split=qualified_member
+        )
+
+        # 选出双亲
+        for group in group_list:
+            pairs = self._get_pairs_from_group(
+                "reproduce", 
+                group, 
+                other_requirements=_requirement_for_reproduction,
+                bilateral=True
+            )
+
+            for mem0, mem1 in pairs:
+                print(mem0, mem1)
+                self._bear(mem0, mem1)
+
+        
+
+
 
 
         
+
+            
 
         
 
