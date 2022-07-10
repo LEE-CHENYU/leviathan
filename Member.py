@@ -1,9 +1,8 @@
+from __future__ import annotations
 import numpy as np
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from __future__ import annotations
-
-from Island import Island
+import Island
 
 class Member():
 
@@ -19,6 +18,10 @@ class Member():
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
     _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
+    # 行动量表
+    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.2             # 攻击力占当前血量之比
+    _MIN_STEAL, _MAX_STEAL = 0.1, 0.2                   # 偷盗值占当前血量之比
+    _MIN_OFFER, _MAX_OFFER = 0.1, 0.2                   # 给予值占当前仓库之比
 
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
@@ -84,9 +87,16 @@ class Member():
 
         # 决策参数
         # 攻击决策
-        # self.fight_parameter = np.
+        _attack_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
         # 给予决策
+        _offer_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
         # 生育决策
+        _reproduce_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
+        self.parameter_dict = {
+            "attack": _attack_parameter,
+            "offer": _offer_parameter,
+            "reproduce": _reproduce_parameter
+        }
 
     def __str__(self):
         """重载print函数表示"""
@@ -98,11 +108,28 @@ class Member():
     
     @property
     def strength(self) -> float:
-        """
-        战斗力：每次攻击造成的伤害
-        """
-        pass
+        """战斗力：每次攻击造成的伤害"""
+        return (
+            self._rng.uniform(Member._MIN_STRENGTH, Member._MAX_STRENGTH)
+            * self.vitality
+        )
+    
+    @property
+    def steal(self) -> float:
+        """每次偷盗的收获"""
+        return (
+            self._rng.uniform(Member._MIN_STEAL, Member._MAX_STEAL) 
+            * self.vitality
+        )
 
+    @property
+    def offer(self) -> float:
+        """每次给予的数额"""
+        return (
+            self._rng.uniform(Member._MIN_OFFER, Member._MAX_OFFER) 
+            * self.cargo
+        )
+        
     @property
     def consumption(self) -> float:
         """
@@ -113,10 +140,11 @@ class Member():
 
     #########################################################################
     ################################## 动作 ################################## 
+
     def _generate_decision_inputs(
         self, 
         object: Member, 
-        island: Island
+        island: Island.Island
         ) -> Dict:
 
         assert self is not object, "决策函数中主体和对象不能相同"
@@ -127,11 +155,11 @@ class Member():
         input_dict["self_productivity"] = self.productivity / Member._MAX_PRODUCTIVITY
         input_dict["self_vitality"] = self.vitality / Member._MAX_VITALITY
         input_dict["self_cargo"] = np.tanh(self.cargo * Member._CARGO_SCALE)
-        input_dict["self_age"] = self.age
+        input_dict["self_age"] = self.age / 1000
         input_dict["obj_productivity"] = object.productivity / Member._MAX_PRODUCTIVITY
         input_dict["obj_vitality"] = object.vitality / Member._MAX_VITALITY
         input_dict["obj_cargo"] = np.tanh(object.cargo * Member._CARGO_SCALE)
-        input_dict["obj_age"] = object.age
+        input_dict["obj_age"] = object.age / 1000
 
         input_dict["victim_overlap"], input_dict["benefit_overlap"] = island._overlap_of_relations(self, object)
         
@@ -139,15 +167,30 @@ class Member():
 
         return input_dict
 
-    def _decision(
+    def decision(
         self, 
-        parameters: np.ndarray, 
-        inputs: np.ndarray
+        parameter_name: str, 
+        object: Member,
+        island: Island.Island
     ) -> float:
-        return np.sum(parameters * inputs)
+        return np.sum(self.parameter_dict[parameter_name] * list(self._generate_decision_inputs(object, island).values()))
+
+    def parameter_absorb(
+        self,
+        contributor_list: List[Member] = []
+    ) -> None:
+        new_dict = {key: contributor_list[0].parameter_dict[key].copy() for key in contributor_list[0].parameter_dict.keys()}
+        for contributor in contributor_list[1:]:
+            for key in new_dict.keys():
+                new_dict[key] += contributor.parameter_dict[key]
+        for key in new_dict.keys():
+            new_dict[key] /= len(contributor_list)
+        self.parameter_dict = new_dict
 
     def produce(self) -> None:
         self.cargo += self.productivity
+
+    
 
     
 
