@@ -28,7 +28,8 @@ class Member():
     # 行动量表
     _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.2             # 攻击力占当前血量之比
     _MIN_STEAL, _MAX_STEAL = 0.1, 0.2                   # 偷盗值占当前血量之比
-    _MIN_OFFER, _MAX_OFFER = 0.1, 0.2                   # 给予值占当前仓库之比
+    _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.2                   # 给予值占当前仓库之比
+    _MIN_OFFER = _MIN_PRODUCTIVITY                      # 给予最小值
 
     # 生育
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
@@ -183,7 +184,7 @@ class Member():
     def offer(self) -> float:
         """每次给予的数额"""
         return (
-            self._rng.uniform(Member._MIN_OFFER, Member._MAX_OFFER) 
+            self._rng.uniform(Member._MIN_OFFER_PERCENTAGE, Member._MAX_OFFER_PERCENTAGE) 
             * self.cargo
         )
         
@@ -267,7 +268,7 @@ class Member():
     def consume(self) -> bool:
         """消耗vitality"""
         self.vitality -= self.consumption
-        if self.autopsy():
+        if self.vitality <= 0:
             self.vitality = 0
 
     def recover(self) -> None:

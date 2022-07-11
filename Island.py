@@ -10,6 +10,12 @@ def _requirement_for_reproduction(
     return (member_1.vitality + member_1.cargo
         + member_2.vitality + member_2.cargo
     ) >= Island._REPRODUCE_REQUIREMENT
+
+def _requirement_for_offer(
+    member_1: Member, 
+    member_2: Member
+) -> bool:
+    return member_1.cargo * Member._MIN_OFFER_PERCENTAGE >= Member._MIN_OFFER
     
 class Island():
     _MIN_VICTIM_MEMORY, _MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
@@ -66,13 +72,13 @@ class Island():
         status = ""
         for member in self.current_members:
             space_after_name = " " * (10 - len(member.name))
-            space_after_age = " " * (3 - np.ceil(np.log10(member.age)).astype(int))
-            status += f"\t[{member.name}:{space_after_name} Age: {member.age},{space_after_age} Vit: {member.vitality:.1f}, Cargo: {member.cargo:.1f}\n" 
+            space_after_age = " "
+            status += f"\t[{member.id}] {member.name}:{space_after_name} Age: {member.age},{space_after_age} Vit: {member.vitality:.1f}, Cargo: {member.cargo:.1f}\n" 
         print(status)
-        print("========================== Victim ==========================")
-        print(self.relationship_dict["victim"])
-        print("========================== Benefit ==========================")
-        print(self.relationship_dict["benefit"])
+        # print("========================== Victim ==========================")
+        # print(self.relationship_dict["victim"])
+        # print("========================== Benefit ==========================")
+        # print(self.relationship_dict["benefit"])
 
 
 
@@ -279,13 +285,16 @@ class Island():
         shuffled_members = self._backup_member_list(to_split)
         self._rng.shuffle(shuffled_members)
 
-        idx_list_list = np.array_split(np.arange(total_num, dtype=int), np.round(total_num / group_size).astype(int))
+        group_num = np.round(total_num / group_size).astype(int)
+        if group_num < 1:
+            group_num = 1
+        idx_list_list = np.array_split(np.arange(total_num, dtype=int), group_num)
 
         group_list = []
         for idx_list in idx_list_list:
             group = []
             for member_idx in idx_list:
-                group.append(to_split[member_idx])
+                group.append(shuffled_members[member_idx])
             
             # 每组按概率发生行为
             if self._rng.random() < prob_group_in_action:
@@ -316,7 +325,7 @@ class Island():
                         mem2 = group[mem_idx_2]
 
                         if other_requirements is not None:
-                            if other_requirements(mem1, mem2):
+                            if not other_requirements(mem1, mem2):
                                 continue
                         if not mem1.decision(decision_name, mem2, self) > 1:
                             continue
@@ -452,7 +461,7 @@ class Island():
             pairs = self._get_pairs_from_group(
                 "offer", 
                 group, 
-                other_requirements=None,
+                other_requirements=_requirement_for_offer,
                 bilateral=False
             )
             for mem0, mem1 in pairs:
@@ -572,15 +581,3 @@ class Island():
                 print(mem0, mem1)
                 self._bear(mem0, mem1)
 
-        
-
-
-
-
-        
-
-            
-
-        
-
-                
