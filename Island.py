@@ -16,6 +16,7 @@ class Island():
     _MIN_BENEFIT_MEMORY, _MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
 
     _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
+    assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
     def __init__(
         self, 
@@ -64,7 +65,9 @@ class Island():
         print("========================== Vitality ==========================")
         status = ""
         for member in self.current_members:
-            status += f"\t[{member.name},\t Vit: {member.vitality:.1f},\t Cargo: {member.cargo:.1f}\n" 
+            space_after_name = " " * (10 - len(member.name))
+            space_after_age = " " * (3 - np.ceil(np.log10(member.age)).astype(int))
+            status += f"\t[{member.name}:{space_after_name} Age: {member.age},{space_after_age} Vit: {member.vitality:.1f}, Cargo: {member.cargo:.1f}\n" 
         print(status)
         print("========================== Victim ==========================")
         print(self.relationship_dict["victim"])
@@ -94,7 +97,11 @@ class Island():
         """
         appended_num = len(append)
         prev_member_num = self.current_member_num
- 
+
+        if not isinstance(appended_rela_columnes, np.ndarray):
+            raise ValueError("关系矩阵增添的列应该是ndarray类型")
+        if not isinstance(appended_rela_rows, np.ndarray):
+            raise ValueError("关系矩阵增添的行应该是ndarray类型")
         assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
         assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
 
@@ -178,17 +185,19 @@ class Island():
         self, 
         append: List[Member] = [], 
         drop: List[Member] = [], 
-        appended_rela_rows: np.ndarray = [], 
-        appended_rela_columnes: np.ndarray = []
+        appended_rela_rows: np.ndarray = np.empty(0), 
+        appended_rela_columnes: np.ndarray = np.empty(0)
     ) -> None:
-        """修改member_list，先增加人物，后修改""" 
-        self._member_list_append(
-            append=append, 
-            appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
-        )
-        self._member_list_drop(
-            drop=drop
-        )
+        """修改member_list，先增加人物，后修改"""
+        if append != []:
+            self._member_list_append(
+                append=append, 
+                appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
+            )
+        if drop != []:
+            self._member_list_drop(
+                drop=drop
+            )
 
         return
 
@@ -246,7 +255,9 @@ class Island():
         member_2: Member, 
         add_value: float
     ) -> None:
-        """保证自身nan"""
+        """
+        增加矩阵元[member_1.surviver_id, member_2.surviver_id]
+        """
         assert member_1 is not member_2, "不能修改关系矩阵中的对角元素"
         relationship = self.relationship_dict[relationship_name]
         relationship[member_1.surviver_id, member_2.surviver_id] += add_value
@@ -363,9 +374,9 @@ class Island():
         self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
 
         # 结算死亡
-        if member_1.die():
+        if member_1.autopsy():
             self.member_list_modify(drop=[member_1])
-        if member_2.die():
+        if member_2.autopsy():
             self.member_list_modify(drop=[member_2])
 
     def fight(
@@ -400,20 +411,23 @@ class Island():
     def _offer(
         self, 
         member_1: Member, 
-        member_2: Member
+        member_2: Member,
+        parameter_influence: bool = True
     ) -> None:
         """member_1 给予 member_2"""
-        offer = member_1.offer
+
+        amount = member_1.offer
 
         # 结算给予
-        member_2.cargo += offer
-        member_1.cargo -= offer
+        member_2.cargo += amount
+        member_1.cargo -= amount
 
         # 修改关系矩阵
-        self.relationship_modify("benefit", member_2, member_1, offer)
+        self.relationship_modify("benefit", member_2, member_1, amount)
 
         # 被给予者的参数受到影响
-        member_2.parameter_absorb([member_1, member_2])
+        if parameter_influence:
+            member_2.parameter_absorb([member_1, member_2])
 
 
     def trade(
@@ -443,7 +457,7 @@ class Island():
             )
             for mem0, mem1 in pairs:
                 print(mem0, mem1)
-                self._offer(mem0, mem1)
+                self._offer(mem0, mem1, parameter_influence=True)
 
     def consume(
         self, 
@@ -459,7 +473,7 @@ class Island():
         dead_member = []
         for member in self.current_members:
             member.consume()
-            if member.die():
+            if member.autopsy():
                 dead_member.append(member)
         self.member_list_modify(drop=dead_member)
 
@@ -468,37 +482,55 @@ class Island():
 
     def _bear(
         self,
-        member_1, 
-        member_2,
+        member_1: Member, 
+        member_2: Member,
     ):
+        child_id = len(self.all_members)
+        child_sur_id = self.current_member_num
+
+        child = Member.born(
+            member_1,
+            member_2,
+            self._NAME_LIST[child_id],
+            child_id,
+            child_sur_id,
+            self._rng
+        )
+        self.member_list_modify(
+            append=[child],
+            appended_rela_columnes=np.zeros((self.current_member_num, 1)),
+            appended_rela_rows=np.zeros((1, self.current_member_num)),
+        )
         
-        # vitality_base = (Member._INIT_MIN_VIT + Member._INIT_MAX_VIT) / 2
+        # 计算双亲给予孩子初始血量
+        vitality_base = Member._CHILD_VITALITY
+        # 双方资源总量
+        member_1_total = member_1.cargo + member_1.vitality
+        member_2_total = member_2.cargo + member_2.vitality
+        total = member_1_total + member_2_total
+        # 按比例扣除损失
+        member_1_give = vitality_base * member_1_total / total
+        member_2_give = vitality_base * member_2_total / total
+        if member_1.cargo >= member_1_give:
+            member_1.cargo -= member_1_give
+        else:
+            member_1.vitality -= (member_1_give - member_1.cargo)
+            member_1.cargo = 0
+        if member_2.cargo >= member_2_give:
+            member_2.cargo -= member_2_give
+        else:
+            member_2.vitality -= (member_2_give - member_2.cargo)
+            member_2.cargo = 0
+        # 孩子记住父母的付出
+        self.relationship_modify("benefit", child, member_1, member_1_give)
+        self.relationship_modify("benefit", child, member_2, member_2_give)
 
-        # # 双方资源总量
-        # parent_1_total = parent_1.cargo + parent_1.vitality
-        # parent_2_total = parent_2.cargo + parent_2.vitality
-        # total = parent_1_total + parent_2_total
+        # 父母无条件地offer孩子一次
+        self._offer(member_1, child, parameter_influence=False)
+        self._offer(member_2, child, parameter_influence=False)
 
-        # # 按比例扣除损失
-        # parent_1_give = vitality_base * parent_1_total / total
-        # parent_2_give = vitality_base * parent_2_total / total
-        # if parent_1.cargo >= parent_1_give:
-        #     parent_1.cargo -= parent_1_give
-        # else:
-        #     parent_1.vitality -= (parent_1_give - parent_1.cargo)
-        #     parent_1.cargo = 0
-        # if parent_2.cargo >= parent_2_give:
-        #     parent_2.cargo -= parent_2_give
-        # else:
-        #     parent_2.vitality -= (parent_2_give - parent_2.cargo)
-        #     parent_2.cargo = 0
-
-        
-
-        # # 孩子记住父母的付出
-        # island.relationship_modify()
-
-
+        # 孩子计算、恢复血量
+        child.recover()
 
     def reproduce(
         self, 
@@ -512,9 +544,10 @@ class Island():
             2. 随机分组，组内排序。
             3. 每组内便利，根据【生育决策】函数，判断互相好感，选择父母
             4. 判断双方是否满足生育条件（血量和仓库之和）
-            5. 父母扣除固定仓库数，仓库不足时扣除血量。
+            5. 父母按比例扣除仓库数，总和为固定值，仓库不足时扣除血量。
             6. 产生孩子。设定孩子年龄（0），父母。孩子随机继承父母的基本属性与决策参数，添加**少许**随机浮动。孩子的初始血量为固定值（小于父母消耗值），存储……
-            7. 若有出生案例，更新集体列表，更新编号，更新关系矩阵
+            7. 父母无条件地offer孩子一次
+            8. 若有出生案例，更新集体列表，更新编号，更新关系矩阵
         """
         # 选择年龄达标成员
         qualified_member = [member for member in self.current_members if member.is_qualified_to_reproduce]

@@ -17,6 +17,7 @@ class Member():
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
     _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 1000           # 初始年龄
+    _CHILD_VITALITY = 50                                # 出生时血量
 
     # 消耗相关计算参数
     _CONSUMPTION_BASE = 10                              # 基础消耗量
@@ -106,6 +107,10 @@ class Member():
             fluctuation_amplitude=cls._PARAMETER_FLUCTUATION
         )
 
+        child.vitality = 0
+        child.cargo = 0
+        child.age = 0
+
         return child
 
         
@@ -185,9 +190,10 @@ class Member():
     @property
     def consumption(self) -> float:
         """每轮消耗量"""
-        return (Member._CONSUMPTION_BASE 
+        amount = (Member._CONSUMPTION_BASE 
             + np.exp(Member.__AGING_EXPOENT * (self.age - Member._COMSUMPTION_CLIMBING_AGE))
         )
+        return amount 
 
     def autopsy(self) -> bool:
         """验尸，在Member类中结算死亡，返回是否死亡"""
@@ -260,8 +266,8 @@ class Member():
 
     def consume(self) -> bool:
         """消耗vitality"""
-        self.vitality -= self.productivity
-        if self.die():
+        self.vitality -= self.consumption
+        if self.autopsy():
             self.vitality = 0
 
     def recover(self) -> None:
