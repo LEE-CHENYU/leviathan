@@ -16,13 +16,13 @@ class Member():
     # 初始值
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
-    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 1000           # 初始年龄
+    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 100           # 初始年龄
     _CHILD_VITALITY = 50                                # 出生时血量
 
     # 消耗相关计算参数
-    _CONSUMPTION_BASE = 10                              # 基础消耗量
-    _COMSUMPTION_CLIMBING_AGE = 800                     # 消耗量开始显著增长的年龄
-    _MAX_AGE = 999                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
+    _CONSUMPTION_BASE = 15                              # 基础消耗量
+    _COMSUMPTION_CLIMBING_AGE = 80                     # 消耗量开始显著增长的年龄
+    _MAX_AGE = 99                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
@@ -187,7 +187,7 @@ class Member():
             self._rng.uniform(Member._MIN_OFFER_PERCENTAGE, Member._MAX_OFFER_PERCENTAGE) 
             * self.cargo
         )
-        
+
     @property
     def consumption(self) -> float:
         """每轮消耗量"""
@@ -200,7 +200,6 @@ class Member():
         """验尸，在Member类中结算死亡，返回是否死亡"""
         if self.vitality <= 0:
             self.vitality = 0
-            print(self, "死了")
             return True
         return False
 
@@ -243,7 +242,10 @@ class Member():
         object: Member,
         island: Island.Island
     ) -> float:
-        return np.sum(self.parameter_dict[parameter_name] * list(self._generate_decision_inputs(object, island).values()))
+        return (
+            np.sum(self.parameter_dict[parameter_name] 
+            * list(self._generate_decision_inputs(object, island).values()))
+        )
 
     def parameter_absorb(
         self,
@@ -261,15 +263,21 @@ class Member():
                 new_dict[key] *= self._rng.uniform(1 - fluctuation_amplitude, 1 + fluctuation_amplitude)
         self.parameter_dict = new_dict
 
-    def produce(self) -> None:
+    def produce(self) -> float:
         """生产，将收获装入cargo"""
-        self.cargo += self.productivity
+        productivity = self.productivity
+        self.cargo += productivity
+        return productivity
 
-    def consume(self) -> bool:
+    def consume(self) -> float:
         """消耗vitality"""
-        self.vitality -= self.consumption
-        if self.vitality <= 0:
+        consumption = self.consumption
+        if self.vitality > consumption:
+            self.vitality -= self.consumption
+        else:
+            consumption = self.vitality
             self.vitality = 0
+        return consumption
 
     def recover(self) -> None:
         """使用cargo恢复vitality"""

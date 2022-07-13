@@ -16,13 +16,16 @@ def _requirement_for_offer(
     member_2: Member
 ) -> bool:
     return member_1.cargo * Member._MIN_OFFER_PERCENTAGE >= Member._MIN_OFFER
-    
+
 class Island():
     _MIN_VICTIM_MEMORY, _MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
     _MIN_BENEFIT_MEMORY, _MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
 
     _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
+
+    # 记录/输出周期
+    _RECORD_PERIOD = 10
 
     def __init__(
         self, 
@@ -64,6 +67,24 @@ class Island():
             "benefit": _benefit_memory
         }
         assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "关系矩阵数量和关系矩阵缩放量数量不一致"
+
+        # 记录动作 （每Island._RECORD_PERIOD输出、清空一次）
+        self.record_attack = {}
+        self.record_benefit = {}
+        self.record_born = []
+        self.record_death = []
+
+        # 记录状态 （每Island._RECORD_PERIOD向末尾增append一个0）
+        self.record_total_production = [0]
+        self.record_total_consumption = [0]
+        self.record_total_attack = [0]
+        self.record_total_benefit = [0]
+
+        # 记录生死人数
+
+        # 回合数
+        self.current_round = 0
+
 
     #########################################################################
     ################################ 基本操作 ################################# 
@@ -119,6 +140,9 @@ class Island():
 
             self.current_member_num += 1
 
+        # 记录出生
+        self.record_born = self.record_born + append
+
         # 修改关系矩阵
         for key in self.relationship_dict.keys():
             # 无法直接进行赋值，需修改原数组尺寸后填入数值
@@ -169,6 +193,9 @@ class Island():
             del self.current_members[sur_id_to_drop]
             self.current_member_num -= 1
 
+        # 记录死亡
+        self.record_death = self.record_death + drop
+
         # 修改关系矩阵
         for key in self.relationship_dict.keys():
             # 无法直接进行赋值，需修改原数组尺寸后填入数值
@@ -194,7 +221,10 @@ class Island():
         appended_rela_rows: np.ndarray = np.empty(0), 
         appended_rela_columnes: np.ndarray = np.empty(0)
     ) -> None:
-        """修改member_list，先增加人物，后修改"""
+        """
+        修改member_list，先增加人物，后修改
+        记录出生、死亡
+        """
         if append != []:
             self._member_list_append(
                 append=append, 
@@ -239,7 +269,7 @@ class Island():
             )
         
         return overlaps
-    
+
     def _relations_w_normalize(
         self,
         principal: Member,
@@ -342,6 +372,24 @@ class Island():
 
         return pairs
 
+    def _record_actions(
+        self, 
+        record: Dict[Tuple, float], 
+        member_1: Member, 
+        member_2: Member, 
+        value_1: float, 
+        value_2: float = None
+    ):
+        try:
+            record[(member_1.id, member_2.id)] += value_1
+        except KeyError:
+            record[(member_1.id, member_2.id)] = value_1
+        if value_2 is not None:
+            try:
+                record[(member_2.id, member_1.id)] += value_2
+            except KeyError:
+                record[(member_2.id, member_1.id)] = value_2
+
     def save_current_island(self):
         pass
 
@@ -354,7 +402,7 @@ class Island():
             1. 根据生产力，增加食物存储
         """
         for member in self.current_members:
-            member.produce()
+            self.record_total_production[-1] += member.produce()
 
     def _attack(
         self, 
@@ -381,6 +429,16 @@ class Island():
         # 修改关系矩阵
         self.relationship_modify("victim", member_1, member_2, strength_2 + steal_2)
         self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
+
+        # 记录动作
+        self._record_actions(
+            self.record_attack,
+            member_1,
+            member_2,
+            strength_1 + steal_1,
+            strength_2 + steal_2
+        )
+        self.record_total_attack[-1] += strength_1 + steal_1 + strength_2 + steal_2
 
         # 结算死亡
         if member_1.autopsy():
@@ -414,7 +472,6 @@ class Island():
                 bilateral=False
             )
             for mem0, mem1 in pairs:
-                print(mem0, mem1)
                 self._attack(mem0, mem1)
 
     def _offer(
@@ -424,7 +481,6 @@ class Island():
         parameter_influence: bool = True
     ) -> None:
         """member_1 给予 member_2"""
-
         amount = member_1.offer
 
         # 结算给予
@@ -433,6 +489,16 @@ class Island():
 
         # 修改关系矩阵
         self.relationship_modify("benefit", member_2, member_1, amount)
+
+        # 记录
+        self._record_actions(
+            self.record_benefit,
+            member_1,
+            member_2,
+            amount,
+            None
+        )
+        self.record_total_benefit[-1] += amount
 
         # 被给予者的参数受到影响
         if parameter_influence:
@@ -452,7 +518,6 @@ class Island():
             3. 【给予决策】函数：需要考虑双方的关系网，如把对其他人记忆的内积作为输入。
             4. 被给予者的记忆会被帮助者影响，记忆改变为两人的均值
         """
-
         # 打乱顺序，随机分组
         group_list = self._split_into_groups(group_size, prob_group_in_trade)
 
@@ -465,7 +530,6 @@ class Island():
                 bilateral=False
             )
             for mem0, mem1 in pairs:
-                print(mem0, mem1)
                 self._offer(mem0, mem1, parameter_influence=True)
 
     def consume(
@@ -481,7 +545,10 @@ class Island():
         """
         dead_member = []
         for member in self.current_members:
-            member.consume()
+            consumption = member.consume()
+
+            # 记录
+            self.record_total_consumption[-1] += consumption
             if member.autopsy():
                 dead_member.append(member)
         self.member_list_modify(drop=dead_member)
@@ -530,6 +597,7 @@ class Island():
         else:
             member_2.vitality -= (member_2_give - member_2.cargo)
             member_2.cargo = 0
+        child.vitality = vitality_base
         # 孩子记住父母的付出
         self.relationship_modify("benefit", child, member_1, member_1_give)
         self.relationship_modify("benefit", child, member_2, member_2_give)
@@ -578,6 +646,55 @@ class Island():
             )
 
             for mem0, mem1 in pairs:
-                print(mem0, mem1)
                 self._bear(mem0, mem1)
+
+    def new_round(self):
+        # 输出内容
+        if self.current_round % Island._RECORD_PERIOD == 0:
+            # 动作
+            print("#" * 21, f"{self.current_round:d}", "#" * 21)
+            print("=" * 21, "攻击", "=" * 21)
+            if self.record_attack != {}:
+                for key, value in self.record_attack.items():
+                    member_1 = self.all_members[key[0]]
+                    member_2 = self.all_members[key[1]]
+                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
+                self.record_attack = {}
+            print("=" * 21, "给予", "=" * 21)
+            if self.record_benefit != {}:
+                for key, value in self.record_benefit.items():
+                    member_1 = self.all_members[key[0]]
+                    member_2 = self.all_members[key[1]]
+                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
+                self.record_benefit = {}
+            print("=" * 50)
+            print(f"本轮出生：{self.record_born}")
+            self.record_born = []
+            print(f"本轮死亡：{self.record_death}")
+            self.record_death = []
+            print(f"本轮总给予：{self.record_total_benefit[-1]}")
+            print(f"本轮总攻击：{self.record_total_attack[-1]}")
+            print(f"本轮总产量：{self.record_total_production[-1]}")
+            print(f"本轮总消耗：{self.record_total_consumption[-1]}")
+
+            # 状态
+            print("=" * 50)
+            status = "\t" + " " + "id" + "   "  + "Name" + "       " + "Age" + "    " + "Vit" + "     " + "Cargo\n"
+            for member in self.current_members:
+                space_after_name = " " * (10 - len(member.name))
+                status += f"\t[{member.id}] {member.name}:{space_after_name} {member.age},   {member.vitality:.2f},   {member.cargo:.2f}\n" 
+            print(status)
+
+        # 回合数+1
+        self.current_round += 1
+
+        # 每个存活成员增加一岁
+        for member in self.current_members:
+            member.age += 1
+
+        # 向记录列表末尾增加一个元素
+        self.record_total_attack.append(0)
+        self.record_total_benefit.append(0)
+        self.record_total_production.append(0)
+        self.record_total_consumption.append(0)
 
