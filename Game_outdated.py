@@ -53,7 +53,7 @@ FRIEND_THRESHOLD = LIKE_THRESHOLD 		# 好感度高于此值时，成为寡头成
 CRUELTY = 1 				# 独裁模式下，分配额与消耗量的比例
 WELFARE_DONATION = 0.3 		# 福利模式下，最多从健康人群处扣除多少生活必需品
 
-from Member import Members
+from Member_outdated import Members
 
 class Game:
 	def __init__(self):
@@ -857,7 +857,7 @@ class Game:
 				team_B = [self.leader]
 				# 助战
 				for member in self.member_list:
-					if member == revolution_leader or member == self.leader:
+					if member in revolutionist or member == self.leader:
 						continue
 					member.assist_decision(self, team_A, team_B, A_leader=revolution_leader, B_leader=self.leader)
 				revolution_leader.engagement = 1

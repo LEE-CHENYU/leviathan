@@ -1,4 +1,4 @@
-from Game import Game
+from Game_outdated import Game
 
 engine = Game()
 engine.run()
