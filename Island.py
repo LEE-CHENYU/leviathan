@@ -658,7 +658,7 @@ class Island():
                 self._bear(mem0, mem1)
 
     def new_round(self):
-        # 输出内容
+        # 输出内容与重制记录
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 动作
             print("#" * 21, f"{self.current_round:d}", "#" * 21)
@@ -700,16 +700,16 @@ class Island():
                 ))
             print(status)
 
+            # 向记录列表末尾增加一个元素
+            self.record_total_attack.append(0)
+            self.record_total_benefit.append(0)
+            self.record_total_production.append(0)
+            self.record_total_consumption.append(0)
+
         # 回合数+1
         self.current_round += 1
 
         # 每个存活成员增加一岁
         for member in self.current_members:
             member.age += 1
-
-        # 向记录列表末尾增加一个元素
-        self.record_total_attack.append(0)
-        self.record_total_benefit.append(0)
-        self.record_total_production.append(0)
-        self.record_total_consumption.append(0)
 
