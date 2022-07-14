@@ -31,5 +31,5 @@ class Engine():
     def save(self):
         pass
 
-engine = Engine(100, 2022)
+engine = Engine(50, 2022)
 engine.run()

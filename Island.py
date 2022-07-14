@@ -1,5 +1,5 @@
 import numpy as np
-from Member import Member
+from Member import Member, colored
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 
@@ -25,7 +25,7 @@ class Island():
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
     # 记录/输出周期
-    _RECORD_PERIOD = 10
+    _RECORD_PERIOD = 100
 
     def __init__(
         self, 
@@ -402,7 +402,7 @@ class Island():
             1. 根据生产力，增加食物存储
         """
         for member in self.current_members:
-            self.record_total_production[-1] += member.produce()
+            self.record_total_production[-1] += member.produce(self.current_member_num)
 
     def _attack(
         self, 
@@ -411,23 +411,23 @@ class Island():
     ) -> None:
         # 计算攻击、偷盗值
         strength_1 = member_1.strength
-        strength_2 = member_2.strength
+        # strength_2 = member_2.strength
 
         steal_1 = member_1.steal
-        steal_2 = member_2.steal
+        # steal_2 = member_2.steal
         if steal_1 > member_2.cargo:
             steal_1 = member_2.cargo
-        if steal_2 > member_1.cargo:
-            steal_2 = member_1.cargo
+        # if steal_2 > member_1.cargo:
+        #     steal_2 = member_1.cargo
 
         # 结算攻击、偷盗
-        member_1.vitality -= strength_2
+        # member_1.vitality -= strength_2
         member_2.vitality -= strength_1
-        member_1.cargo -= steal_2
+        # member_1.cargo -= steal_2
         member_2.cargo -= steal_1
 
         # 修改关系矩阵
-        self.relationship_modify("victim", member_1, member_2, strength_2 + steal_2)
+        # self.relationship_modify("victim", member_1, member_2, strength_2 + steal_2)
         self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
 
         # 记录动作
@@ -436,13 +436,14 @@ class Island():
             member_1,
             member_2,
             strength_1 + steal_1,
-            strength_2 + steal_2
+            # strength_2 + steal_2,
         )
-        self.record_total_attack[-1] += strength_1 + steal_1 + strength_2 + steal_2
+        self.record_total_attack[-1] += strength_1 + steal_1
+        # self.record_total_attack[-1] += strength_2 + steal_2
 
         # 结算死亡
-        if member_1.autopsy():
-            self.member_list_modify(drop=[member_1])
+        # if member_1.autopsy():
+        #     self.member_list_modify(drop=[member_1])
         if member_2.autopsy():
             self.member_list_modify(drop=[member_2])
 
@@ -491,14 +492,15 @@ class Island():
         self.relationship_modify("benefit", member_2, member_1, amount)
 
         # 记录
-        self._record_actions(
-            self.record_benefit,
-            member_1,
-            member_2,
-            amount,
-            None
-        )
-        self.record_total_benefit[-1] += amount
+        if amount > 1e-15:
+            self._record_actions(
+                self.record_benefit,
+                member_1,
+                member_2,
+                amount,
+                None
+            )
+            self.record_total_benefit[-1] += amount
 
         # 被给予者的参数受到影响
         if parameter_influence:
@@ -679,10 +681,16 @@ class Island():
 
             # 状态
             print("=" * 50)
-            status = "\t" + " " + "id" + "   "  + "Name" + "       " + "Age" + "    " + "Vit" + "     " + "Cargo\n"
+            status = "\t id   Name         Age    Vit     Cargo    prod\n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
-                status += f"\t[{member.id}] {member.name}:{space_after_name} {member.age},   {member.vitality:.2f},   {member.cargo:.2f}\n" 
+                status += colored(member._current_color, (
+                    f"\t[{member.id}] {member.name}:{space_after_name}"
+                    + f"   {member.age}," 
+                    + f"   {member.vitality:.2f},"
+                    + f"   {member.cargo:.2f}"
+                    + f"   {member.productivity:.2f}\n"
+                ))
             print(status)
 
         # 回合数+1

@@ -4,9 +4,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import Island
 
+def colored(rgb, text):
+    r, g, b = rgb
+    return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
+
 class Member():
     # 上限
-    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 10, 20     # 生产力属性
+    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 14, 16     # 生产力属性
+    _PRODUCE_ELASTICITY = 0.5                        # 生产力弹性，生产力随人口增长而减少的幂的相反数
+    _BASE_POPULATION = 50                              # 人口标准，在这个人口时，每轮的产量等于productivity
     _MAX_VITALITY = 100
 
     # 决策函数缩放参数
@@ -16,13 +22,13 @@ class Member():
     # 初始值
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
-    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 100           # 初始年龄
+    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 499           # 初始年龄
     _CHILD_VITALITY = 50                                # 出生时血量
 
     # 消耗相关计算参数
     _CONSUMPTION_BASE = 15                              # 基础消耗量
-    _COMSUMPTION_CLIMBING_AGE = 80                     # 消耗量开始显著增长的年龄
-    _MAX_AGE = 99                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
+    _MAX_AGE = _INIT_MAX_AGE                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
+    _COMSUMPTION_CLIMBING_AGE = int(0.5 * _MAX_AGE)                     # 消耗量开始显著增长的年龄
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
@@ -33,7 +39,7 @@ class Member():
 
     # 生育
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
-    _PARAMETER_FLUCTUATION = 0.05                       # 参数继承的浮动
+    _PARAMETER_FLUCTUATION = 0.1                       # 参数继承的浮动
 
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
@@ -62,6 +68,60 @@ class Member():
         "benefit_active",
     ]
 
+    # 初始决策参数，列表的每行表示各个参数，列表示最小值、最大值
+    # attack
+    _ATTACK_PARAMETER = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 0],
+        [-1, 0],
+        [0, 1],
+        [0, 0],
+        [-1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, 0],
+        [-1, 0],
+        [0, 0]
+    ])
+    # offer
+    _OFFER_PARAMETER = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [-1, 0],
+        [-1, 0],
+        [-1, 0],
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [-1, 0],
+        [0, 0],
+        [0, 1],
+        [0, 0]
+    ])
+    # reproduce
+    _REPRODUCE_PARAMETER = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [-1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, 1]
+    ])
+
+
     @classmethod
     def _inherited_parameter_w_fluctuation(
         cls, 
@@ -71,8 +131,11 @@ class Member():
         max_range: float, 
         rng: np.random.Generator
     ):
-        new_parameter = (parameter_1 + parameter_2) / 2
-        new_parameter *= rng.uniform(1 - cls._PARAMETER_FLUCTUATION, 1 + cls._PARAMETER_FLUCTUATION)
+        new_parameter = rng.uniform(min_range, max_range)
+        new_parameter += (
+            ((parameter_1 + parameter_2) / 2 - (min_range + max_range) / 2)
+            * rng.uniform(0, cls._PARAMETER_FLUCTUATION)
+        )
         
         if new_parameter > max_range:
             new_parameter = max_range
@@ -114,8 +177,6 @@ class Member():
 
         return child
 
-        
-
     def __init__(
         self, 
         name: str, 
@@ -137,6 +198,12 @@ class Member():
         self.parent_2 = None
         self.child = []
 
+        # 人物颜色
+        self._color = [0, 0, 0]
+        while np.std(self._color) < 100:
+            self._color = np.round(self._rng.uniform(0, 255, size=3)).astype(int)
+        self._current_color = self._color.copy()
+
         # 生产相关的属性和状态
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
         self.vitality = self._rng.uniform(Member._INIT_MIN_VIT, Member._INIT_MAX_VIT)
@@ -145,11 +212,23 @@ class Member():
 
         # 决策参数
         # 攻击决策
-        _attack_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
+        _attack_parameter = (
+            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
+            * (Member._ATTACK_PARAMETER[:, 1] - Member._ATTACK_PARAMETER[:, 0])
+            + Member._ATTACK_PARAMETER[:, 0]
+        )
         # 给予决策
-        _offer_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
+        _offer_parameter = (
+            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
+            * (Member._OFFER_PARAMETER[:, 1] - Member._OFFER_PARAMETER[:, 0])
+            + Member._OFFER_PARAMETER[:, 0]
+        )
         # 生育决策
-        _reproduce_parameter = self._rng.uniform(-1, 1, size=len(Member._DECISION_INPUT_NAMES))
+        _reproduce_parameter = (
+            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
+            * (Member._REPRODUCE_PARAMETER[:, 1] - Member._REPRODUCE_PARAMETER[:, 0])
+            + Member._REPRODUCE_PARAMETER[:, 0]
+        )
         self.parameter_dict = {
             "attack": _attack_parameter,
             "offer": _offer_parameter,
@@ -158,7 +237,7 @@ class Member():
 
     def __str__(self):
         """重载print函数表示"""
-        return f"{self.name}({self.id})"
+        return colored(self._current_color, f"{self.name}({self.id})")
 
     def __repr__(self):
         """重载其他print形式的表示"""
@@ -260,12 +339,16 @@ class Member():
         for key in new_dict.keys():
             new_dict[key] /= len(contributor_list)
             if fluctuation_amplitude > 0:
-                new_dict[key] *= self._rng.uniform(1 - fluctuation_amplitude, 1 + fluctuation_amplitude)
+                new_dict[key] += self._rng.uniform(
+                    -fluctuation_amplitude, 
+                    fluctuation_amplitude,
+                    size=new_dict[key].size
+                )
         self.parameter_dict = new_dict
 
-    def produce(self) -> float:
+    def produce(self, population) -> float:
         """生产，将收获装入cargo"""
-        productivity = self.productivity
+        productivity = self.productivity * (population / Member._BASE_POPULATION)**(-Member._PRODUCE_ELASTICITY)
         self.cargo += productivity
         return productivity
 
