@@ -1,5 +1,5 @@
 import numpy as np
-from Member import Member, colored
+from Member import Member
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 
@@ -569,7 +569,7 @@ class Island():
         child = Member.born(
             member_1,
             member_2,
-            self._NAME_LIST[child_id],
+            self._NAME_LIST[child_id % len(self._NAME_LIST)],
             child_id,
             child_sur_id,
             self._rng
@@ -684,13 +684,13 @@ class Island():
             status = "\t id   Name         Age    Vit     Cargo    prod\n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
-                status += colored(member._current_color, (
+                status += (
                     f"\t[{member.id}] {member.name}:{space_after_name}"
                     + f"   {member.age}," 
                     + f"   {member.vitality:.2f},"
                     + f"   {member.cargo:.2f}"
                     + f"   {member.productivity:.2f}\n"
-                ))
+                )
             print(status)
 
         # 回合数+1
