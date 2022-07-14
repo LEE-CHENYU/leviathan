@@ -447,6 +447,10 @@ class Island():
         if member_2.autopsy():
             self.member_list_modify(drop=[member_2])
 
+        # 若攻击目标的颜色和自身相同，攻击者恢复颜色（退出组织）
+        if np.allclose(member_1._current_color, member_2._current_color):
+            member_1._current_color = member_1._color.copy()
+
     def fight(
         self, 
         group_size: int = 10,
@@ -505,6 +509,9 @@ class Island():
         # 被给予者的参数受到影响
         if parameter_influence:
             member_2.parameter_absorb([member_1, member_2])
+
+        # 被给予者被染色
+        member_2._current_color = member_1._current_color
 
 
     def trade(
@@ -569,7 +576,7 @@ class Island():
         child = Member.born(
             member_1,
             member_2,
-            self._NAME_LIST[child_id],
+            self._NAME_LIST[child_id % len(self._NAME_LIST)],
             child_id,
             child_sur_id,
             self._rng
