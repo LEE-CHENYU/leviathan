@@ -390,7 +390,6 @@ class Member():
 
         # 存储决策参数
         for key, paras in self.parameter_dict.items():
-            print(key)
             parameters = pd.DataFrame(
                 dict(zip(
                     Member._parameter_name_dict[key], 
