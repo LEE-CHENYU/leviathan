@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import Island
@@ -64,6 +65,17 @@ class Member():
         "benefit_passive",
         "benefit_active",
     ]
+    _DECISION_NAMES = [
+        "attack",
+        "offer",
+        "reproduce"
+    ]
+    _parameter_name_dict = {}               # 参数的名字
+    for key in _DECISION_NAMES:
+        _parameter_name_dict[key] = []
+        for name in _DECISION_INPUT_NAMES:
+            _parameter_name_dict[key].append(key + "_" + name)
+
 
     # 初始决策参数，列表的每行表示各个参数，列表示最小值、最大值
     # attack
@@ -225,6 +237,7 @@ class Member():
             "offer": _offer_parameter,
             "reproduce": _reproduce_parameter
         }
+        assert list(self.parameter_dict.keys()) == Member._DECISION_NAMES
 
     def __str__(self):
         """重载print函数表示"""
@@ -358,3 +371,35 @@ class Member():
         amount = np.min([self.cargo, Member._MAX_VITALITY - self.vitality])
         self.vitality += amount
         self.cargo -= amount
+
+# ================================== 保存 =======================================
+    def save_to_row(self):
+
+        info_df = pd.DataFrame({
+            "name": [self.name],
+            "surviver_id": [self.surviver_id],
+            "productivity": [self.productivity],
+            "vitality": [self.vitality],
+            "cargo": [self.cargo],
+            "age": [self.age],
+        }, index=[self.id])
+        if self.parent_1 is not None:
+            info_df["parent_1"] = [self.parent_1.id]
+        if self.parent_2 is not None:
+            info_df["parent_2"] = [self.parent_2.id]
+
+        # 存储决策参数
+        for key, paras in self.parameter_dict.items():
+            print(key)
+            parameters = pd.DataFrame(
+                dict(zip(
+                    Member._parameter_name_dict[key], 
+                    paras.reshape(-1, 1)
+                )),
+                index=[self.id]
+            )
+            info_df = pd.concat([info_df, parameters], axis=1)
+
+        return info_df
+
+
