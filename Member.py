@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import Island
 
+def colored(rgb, text):
+    r, g, b = rgb
+    return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
 class Member():
     # 上限
@@ -207,6 +210,12 @@ class Member():
         self.parent_2 = None
         self.child = []
 
+        # 人物颜色
+        self._color = [0, 0, 0]
+        while np.std(self._color) < 100:
+            self._color = np.round(self._rng.uniform(0, 255, size=3)).astype(int)
+        self._current_color = self._color.copy()
+
         # 生产相关的属性和状态
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
         self.vitality = self._rng.uniform(Member._INIT_MIN_VIT, Member._INIT_MAX_VIT)
@@ -241,7 +250,7 @@ class Member():
 
     def __str__(self):
         """重载print函数表示"""
-        return f"{self.name}({self.id})"
+        return colored(self._current_color, f"{self.name}({self.id})")
 
     def __repr__(self):
         """重载其他print形式的表示"""
