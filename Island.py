@@ -25,7 +25,7 @@ class Island():
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
     # 记录/输出周期
-    _RECORD_PERIOD = 100
+    _RECORD_PERIOD = 10
 
     def __init__(
         self, 
@@ -681,22 +681,23 @@ class Island():
             self.record_born = []
             print(f"本轮死亡：{self.record_death}")
             self.record_death = []
-            print(f"本轮总给予：{self.record_total_benefit[-1]}")
-            print(f"本轮总攻击：{self.record_total_attack[-1]}")
-            print(f"本轮总产量：{self.record_total_production[-1]}")
-            print(f"本轮总消耗：{self.record_total_consumption[-1]}")
+            print(f"本轮总给予：{self.record_total_benefit[-1]:.1f}")
+            print(f"本轮总攻击：{self.record_total_attack[-1]:.1f}")
+            print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
+            print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
 
             # 状态
             print("=" * 50)
-            status = "\t id   Name         Age    Vit     Cargo    prod\n"
+            status = "\t ID   姓名          年龄   血量    仓库    \n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
                 status += colored(member._current_color, (
                     f"\t[{member.id}] {member.name}:{space_after_name}"
                     + f"   {member.age}," 
-                    + f"   {member.vitality:.2f},"
-                    + f"   {member.cargo:.2f}"
-                    + f"   {member.productivity:.2f}\n"
+                    + f"   {member.vitality:.1f},"
+                    + f"   {member.cargo:.1f}"
+                    # + f"   {member.productivity:.2f}"
+                    + "\n"
                 ))
             print(status)
 

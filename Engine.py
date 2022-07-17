@@ -33,7 +33,7 @@ class Engine():
                 self.interupt(1000)
 
     def interupt(self, wait_time):
-        get_input, _, _ = select([stdin], [], [], 0.1)
+        get_input, _, _ = select([stdin], [], [], 0.01)
         if get_input and stdin.readline().strip() == "p":
             print("按回车继续")
             get_input, _, _ = select([stdin], [], [], wait_time)
