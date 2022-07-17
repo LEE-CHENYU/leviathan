@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Member import Member
+from Member import Member, colored
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 import os
@@ -729,13 +729,16 @@ class Island():
             status = "\t ID   姓名          年龄   血量    仓库    \n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
-                status += (
-                    f"\t[{member.id}] {member.name}:{space_after_name}"
-                    + f"   {member.age}," 
-                    + f"   {member.vitality:.1f},"
-                    + f"   {member.cargo:.1f}"
-                    # + f"   {member.productivity:.2f}"
-                    + "\n"
+                status += colored(
+                    member._current_color,
+                    (
+                        f"\t[{member.id}] {member.name}:{space_after_name}"
+                        + f"   {member.age}," 
+                        + f"   {member.vitality:.1f},"
+                        + f"   {member.cargo:.1f}"
+                        # + f"   {member.productivity:.2f}"
+                        + "\n"
+                    )
                 )
             print(status)
 

@@ -17,7 +17,7 @@ class Engine():
             random_seed
         )
         
-        Island._RECORD_PERIOD = 1000
+        Island._RECORD_PERIOD = 100
 
         self.record_path = record_path
         if not os.path.exists(self.record_path):
@@ -53,5 +53,5 @@ class Engine():
     def save(self):
         pass
 
-engine = Engine(50, 2022, record_path="test3/")
+engine = Engine(50, 2022, record_path="test6/")
 engine.run()
