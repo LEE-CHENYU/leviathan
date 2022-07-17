@@ -1,7 +1,9 @@
 import numpy as np
-from Member import Member, colored
+import pandas as pd
+from Member import Member
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
+import os
 
 def _requirement_for_reproduction(
     member_1: Member, 
@@ -34,6 +36,8 @@ class Island():
     ) -> None:
 
         # 设置并记录随机数种子
+        self._create_from_file = False
+        self._file_name = ""
         if random_seed is not None:
             self._random_seed = int(random_seed)
         else:
@@ -80,29 +84,12 @@ class Island():
         self.record_total_attack = [0]
         self.record_total_benefit = [0]
 
-        # 记录生死人数
-
         # 回合数
         self.current_round = 0
 
 
     #########################################################################
     ################################ 基本操作 ################################# 
-    def print_info(self):
-        print("========================== Vitality ==========================")
-        status = ""
-        for member in self.current_members:
-            space_after_name = " " * (10 - len(member.name))
-            space_after_age = " "
-            status += f"\t[{member.id}] {member.name}:{space_after_name} Age: {member.age},{space_after_age} Vit: {member.vitality:.1f}, Cargo: {member.cargo:.1f}\n" 
-        print(status)
-        # print("========================== Victim ==========================")
-        # print(self.relationship_dict["victim"])
-        # print("========================== Benefit ==========================")
-        # print(self.relationship_dict["benefit"])
-
-
-
     def _backup_member_list(
         self, 
         member_list: List[Member]
@@ -390,8 +377,55 @@ class Island():
             except KeyError:
                 record[(member_2.id, member_1.id)] = value_2
 
-    def save_current_island(self):
-        pass
+    def save_current_island(self, path):
+        current_member_df = self.current_members[0].save_to_row()
+        for sur_id in range(1, self.current_member_num):
+            current_member_df = pd.concat([
+                current_member_df,
+                self.current_members[sur_id].save_to_row()],
+                axis=0
+            )
+        
+        info_df = pd.DataFrame({
+            "_create_from_file": [self._create_from_file],
+            "_file_name": [self._file_name],
+            "_seed": [self._random_seed],
+            "init_member_num": [self.init_member_num],
+            "current_member_num": [self.current_member_num],
+            "current_round": [self.current_round]
+        })
+
+        relationship_df = pd.DataFrame()
+        for key, rela in self.relationship_dict.items():
+            rela_df = pd.DataFrame(rela, index=None, columns=None)
+            relationship_df = pd.concat([relationship_df, rela_df], axis=0)
+
+        # 本轮之前保存的动作
+        attack_info = [[key[0], key[1], value] for key, value in self.record_attack.items()]
+        attack_df = pd.DataFrame(
+            attack_info,
+            columns=["attack_1", "attack_2", "value"]
+        )
+        benefit_info = [[key[0], key[1], value] for key, value in self.record_benefit.items()]
+        benefit_df = pd.DataFrame(
+            benefit_info,
+            columns=["benefit_1", "benefit_2", "value"]
+        )
+        born_df = pd.DataFrame(
+            [member.id for member in self.record_born], 
+            columns=["born"]
+        )
+        death_df = pd.DataFrame(
+            [member.id for member in self.record_death], 
+            columns=["death"]
+        )
+        action_df = pd.concat([attack_df, benefit_df, born_df, death_df], axis=1)
+        
+        current_member_df.to_csv(path + "members.csv")
+        info_df.to_csv(path + "island_info.csv")
+        relationship_df.to_csv(path + "relationships.csv")
+        action_df.to_csv(path + "action.csv")
+
 
     #########################################################################
     ################################## 模拟 ################################## 
@@ -657,9 +691,13 @@ class Island():
             for mem0, mem1 in pairs:
                 self._bear(mem0, mem1)
 
-    def new_round(self):
-        # 输出内容与重制记录
+    def new_round(self, record_path=None):
+        # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
+            # 保存
+            if record_path is not None:
+                os.mkdir(record_path + f"{self.current_round:d}/")
+                self.save_current_island(record_path + f"{self.current_round:d}/")
             # 动作
             print("#" * 21, f"{self.current_round:d}", "#" * 21)
             print("=" * 21, "攻击", "=" * 21)
@@ -691,7 +729,7 @@ class Island():
             status = "\t ID   姓名          年龄   血量    仓库    \n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
-                status += colored(member._current_color, (
+                status += (
                     f"\t[{member.id}] {member.name}:{space_after_name}"
                     + f"   {member.age}," 
                     + f"   {member.vitality:.1f},"
@@ -700,12 +738,6 @@ class Island():
                     + "\n"
                 ))
             print(status)
-
-            # 向记录列表末尾增加一个元素
-            self.record_total_attack.append(0)
-            self.record_total_benefit.append(0)
-            self.record_total_production.append(0)
-            self.record_total_consumption.append(0)
 
         # 回合数+1
         self.current_round += 1
