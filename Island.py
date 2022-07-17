@@ -3,6 +3,7 @@ import pandas as pd
 from Member import Member
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
+import os
 
 def _requirement_for_reproduction(
     member_1: Member, 
@@ -683,9 +684,13 @@ class Island():
             for mem0, mem1 in pairs:
                 self._bear(mem0, mem1)
 
-    def new_round(self):
+    def new_round(self, record_path=None):
         # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
+            # 保存
+            if record_path is not None:
+                os.mkdir(record_path + f"{self.current_round:d}/")
+                self.save_current_island(record_path + f"{self.current_round:d}/")
             # 动作
             print("#" * 21, f"{self.current_round:d}", "#" * 21)
             print("=" * 21, "攻击", "=" * 21)
@@ -725,6 +730,9 @@ class Island():
                     + f"   {member.productivity:.2f}\n"
                 )
             print(status)
+
+            
+
 
         # 回合数+1
         self.current_round += 1
