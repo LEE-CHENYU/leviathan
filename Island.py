@@ -736,7 +736,7 @@ class Island():
                     + f"   {member.cargo:.1f}"
                     # + f"   {member.productivity:.2f}"
                     + "\n"
-                ))
+                )
             print(status)
 
         # 回合数+1
