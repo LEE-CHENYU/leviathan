@@ -8,8 +8,8 @@ import Island
 
 class Member():
     # 上限
-    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 14, 16     # 生产力属性
-    _PRODUCE_ELASTICITY = 0.5                        # 生产力弹性，生产力随人口增长而减少的幂的相反数
+    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 7, 8        # 生产力属性
+    _PRODUCE_ELASTICITY = 0.5                          # 生产力弹性，生产力随人口增长而减少的幂的相反数
     _BASE_POPULATION = 50                              # 人口标准，在这个人口时，每轮的产量等于productivity
     _MAX_VITALITY = 100
 
@@ -18,6 +18,7 @@ class Member():
     _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
     # 初始值
+    _INIT_MIN_LAND, _INIT_MAX_LAND = 7, 8
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
     _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 499           # 初始年龄
@@ -25,8 +26,8 @@ class Member():
 
     # 消耗相关计算参数
     _CONSUMPTION_BASE = 15                              # 基础消耗量
-    _MAX_AGE = _INIT_MAX_AGE                                     # 理论年龄最大值（消耗值等于最大生命值的年龄）
-    _COMSUMPTION_CLIMBING_AGE = int(0.5 * _MAX_AGE)                     # 消耗量开始显著增长的年龄
+    _MAX_AGE = _INIT_MAX_AGE                            # 理论年龄最大值（消耗值等于最大生命值的年龄）
+    _COMSUMPTION_CLIMBING_AGE = int(0.5 * _MAX_AGE)     # 消耗量开始显著增长的年龄
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
@@ -75,7 +76,6 @@ class Member():
         _parameter_name_dict[key] = []
         for name in _DECISION_INPUT_NAMES:
             _parameter_name_dict[key].append(key + "_" + name)
-
 
     # 初始决策参数，列表的每行表示各个参数，列表示最小值、最大值
     # attack
@@ -129,7 +129,6 @@ class Member():
         [0, 1],
         [0, 1]
     ])
-
 
     @classmethod
     def _inherited_parameter_w_fluctuation(
@@ -208,6 +207,7 @@ class Member():
         self.child = []
 
         # 生产相关的属性和状态
+        self.land = self._rng.uniform(Member._INIT_MIN_LAND, Member._INIT_MAX_LAND)
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
         self.vitality = self._rng.uniform(Member._INIT_MIN_VIT, Member._INIT_MAX_VIT)
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
@@ -352,7 +352,7 @@ class Member():
 
     def produce(self, population) -> float:
         """生产，将收获装入cargo"""
-        productivity = self.productivity * (population / Member._BASE_POPULATION)**(-Member._PRODUCE_ELASTICITY)
+        productivity = self.productivity + self.land
         self.cargo += productivity
         return productivity
 
