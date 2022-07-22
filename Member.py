@@ -391,6 +391,12 @@ class Member():
             "vitality": [self.vitality],
             "cargo": [self.cargo],
             "age": [self.age],
+            "color_R": [self._color[0]],
+            "color_G": [self._color[1]],
+            "color_B": [self._color[2]],
+            "current_R": [self._current_color[0]],
+            "current_G": [self._current_color[1]],
+            "current_B": [self._current_color[2]],
         }, index=[self.id])
         if self.parent_1 is not None:
             info_df["parent_1"] = [self.parent_1.id]
