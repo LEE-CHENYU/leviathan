@@ -1,7 +1,9 @@
-def colored(r, g, b, text):
-    return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
+from sys import stdin 
+from select import select
 
-text = "red"
-colored_text = colored(0, 200, 0, text)
+i, o, e = select([stdin], [], [], 1)
 
-print(colored_text)
+if (i):
+    print("you said", stdin.readline().strip())
+else:
+    print("you said nothing")
