@@ -43,6 +43,9 @@ class Member():
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
     _PARAMETER_FLUCTUATION = 0.1                       # 参数继承的浮动
 
+    # 交易
+    _PARAMETER_INFLUENCE = 0.1                       # 交易后的参数影响
+
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
         "self_productivity",
@@ -72,7 +75,8 @@ class Member():
     _DECISION_NAMES = [
         "attack",
         "offer",
-        "reproduce"
+        "reproduce",
+        "clear"
     ]
     _parameter_name_dict = {}               # 参数的名字
     for key in _DECISION_NAMES:
@@ -117,6 +121,23 @@ class Member():
     ])
     # reproduce
     _REPRODUCE_PARAMETER = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [-1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, 1]
+    ])
+    # clear
+    _CLEAR_PARAMETER = np.array([
         [0, 1],
         [0, 1],
         [0, 1],
@@ -215,6 +236,13 @@ class Member():
             self._color = np.round(self._rng.uniform(0, 255, size=3)).astype(int)
         self._current_color = self._color.copy()
 
+        # 领地
+        self.owned_land = []
+        self.current_clear_list = []
+        self.current_self_blocked_list = []
+        self.current_neighbor_blocked_list = []
+        self.current_empty_loc_list = []
+
         # 生产相关的属性和状态
         self.land = self._rng.uniform(Member._INIT_MIN_LAND, Member._INIT_MAX_LAND)
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
@@ -241,10 +269,17 @@ class Member():
             * (Member._REPRODUCE_PARAMETER[:, 1] - Member._REPRODUCE_PARAMETER[:, 0])
             + Member._REPRODUCE_PARAMETER[:, 0]
         )
+        # 通行决策
+        _clear_parameter = (
+            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
+            * (Member._CLEAR_PARAMETER[:, 1] - Member._CLEAR_PARAMETER[:, 0])
+            + Member._CLEAR_PARAMETER[:, 0]
+        )
         self.parameter_dict = {
             "attack": _attack_parameter,
             "offer": _offer_parameter,
-            "reproduce": _reproduce_parameter
+            "reproduce": _reproduce_parameter,
+            "clear": _clear_parameter
         }
         assert list(self.parameter_dict.keys()) == Member._DECISION_NAMES
 
@@ -333,29 +368,35 @@ class Member():
         parameter_name: str, 
         object: Member,
         island: Island.Island
-    ) -> float:
+    ) -> bool:
+
         return (
             np.sum(self.parameter_dict[parameter_name] 
             * list(self._generate_decision_inputs(object, island).values()))
-        )
+        ) > 1
 
     def parameter_absorb(
         self,
         contributor_list: List[Member] = [],
+        weight_list: List[float] = [],
         fluctuation_amplitude = 0,
     ) -> None:
-        """产生多个人的决策参数平均值"""
-        new_dict = {key: contributor_list[0].parameter_dict[key].copy() for key in contributor_list[0].parameter_dict.keys()}
-        for contributor in contributor_list[1:]:
+        """产生多个人的决策参数加权平均值"""
+        # 加权平均
+        new_dict = {key: contributor_list[0].parameter_dict[key].copy() * weight_list[0] for key in contributor_list[0].parameter_dict.keys()}
+
+        for idx in range(1, len(contributor_list)):
+            contributor = contributor_list[idx]
             for key in new_dict.keys():
-                new_dict[key] += contributor.parameter_dict[key]
-        for key in new_dict.keys():
-            new_dict[key] /= len(contributor_list)
-            if fluctuation_amplitude > 0:
+                new_dict[key] += contributor.parameter_dict[key] * weight_list[idx]
+
+        # 浮动
+        if fluctuation_amplitude > 0:
+            for key in new_dict.keys():
                 new_dict[key] += self._rng.uniform(
                     -fluctuation_amplitude, 
                     fluctuation_amplitude,
-                    size=new_dict[key].size
+                    size = new_dict[key].size
                 )
         self.parameter_dict = new_dict
 
