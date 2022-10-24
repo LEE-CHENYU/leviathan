@@ -14,7 +14,7 @@ class Land():
 
     ):
         self.shape = shape
-        self.owner = []
+        self.owner: List[List[Member]] = []
         for _ in range(shape[0]):
             self.owner.append([None] * self.shape[1])
 
@@ -23,6 +23,14 @@ class Land():
             return self.owner[key[0]][key[1]]
         else:
             raise ValueError("土地目前只接受元组查询")
+
+    def __str__(self):
+        """重载print函数表示"""
+        return self.owner.__str__()
+
+    def __repr__(self):
+        """重载其他print形式的表示"""
+        return self.owner.__repr__()
 
     def _find_neighbors(
         self, 
@@ -44,14 +52,16 @@ class Land():
         in_owned_land = (member == land_owner)
 
         loc_to_pass = [
-            (loc_0, (loc_1 + 1) % self.shape[1]),
-            ((loc_0 + 1) % self.shape[0], loc_1),
-            (loc_0, (loc_1 - 1) % self.shape[1]),
-            ((loc_0 - 1) % self.shape[0], loc_1),
+            [loc_0, (loc_1 + 1) % self.shape[1]],
+            [(loc_0 + 1) % self.shape[0], loc_1],
+            [loc_0, (loc_1 - 1) % self.shape[1]],
+            [(loc_0 - 1) % self.shape[0], loc_1],
         ]
+        island._rng.shuffle(loc_to_pass, axis=0)
 
-        # 遍历四个方向：上下左右
+        # 遍历四个方向
         for direction in loc_to_pass:
+            direction = tuple(direction)
             if not is_passed[direction[0], direction[1] % self.shape[1]]:
                 member_to_pass = self[direction]
 
@@ -131,7 +141,7 @@ class Land():
         for land in member.owned_land:
             if is_passed[land]:
                 continue
-            land._find_neighbors(
+            self._find_neighbors(
                 clear_list,
                 self_blocked_list,
                 neighbor_blocked_list,
@@ -149,4 +159,15 @@ class Land():
             neighbor_blocked_list,
             empty_loc_list
         )
-        
+
+    def owner_id(
+        self,
+    ) -> np.ndarray:
+        data = np.zeros(self.shape, dtype=int)
+        for idx, _ in np.ndenumerate(data):
+            if self[idx] is not None:
+                data[idx] = self[idx].id
+            else:
+                data[idx] = -1
+
+        return data

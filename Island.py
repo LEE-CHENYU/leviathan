@@ -107,6 +107,7 @@ class Island():
         self.record_total_consumption = [0]
         self.record_total_attack = [0]
         self.record_total_benefit = [0]
+        self.record_land = [self.land.owner_id]
 
         # 回合数
         self.current_round = 0
@@ -114,6 +115,20 @@ class Island():
 
     ############################################################################
     ################################ 基本操作 #################################### 
+
+    def member_by_name(
+        self,
+        name: str,
+    ) -> Member:
+        for member in self.current_members:
+            if member.name == name:
+                return member
+        
+        for member in self.all_members:
+            if member.name == name:
+                return member
+
+        raise KeyError(f"Member {name} not found!")
 
     # =============================== 成员增减 ===================================
     def _backup_member_list(
@@ -127,13 +142,13 @@ class Island():
         self, 
         append: List[Member] = [], 
         appended_rela_rows: np.ndarray = [], 
-        appended_rela_columnes: np.ndarray = []
+        appended_rela_columnes: np.ndarray = [],
     ) -> None:
         """
-        向current_members，all_members增加人物，
+        向current_members，all_members增加一个列表的人物，
         增加current_member_num，
         修改relationships矩阵，
-        修改人物surviver_id
+        修改人物surviver_id，
         """
         appended_num = len(append)
         prev_member_num = self.current_member_num
@@ -189,6 +204,8 @@ class Island():
         drop_sur_id = np.array([member.surviver_id for member in drop])
 
         assert not (drop_sur_id == None).any(), "被删除对象没有surviver_id"
+        for member in drop:
+            assert member.owned_land == [], "被删除对象应该没有土地"
 
         # 排序，确保正确移除
         argsort_sur_id = np.argsort(drop_sur_id)[::-1]
@@ -322,7 +339,7 @@ class Island():
 
         loc_0, loc_1 = location
         self.land.owner[loc_0][loc_1] = member
-        member.owned_land.append(location)
+        member.acquire_land(location)
 
     def _discard_land(
         self,
@@ -334,7 +351,7 @@ class Island():
 
         loc_0, loc_1 = location
         self.land.owner[loc_0][loc_1] = None
-        member.owned_land.remove(location)
+        member.discard_land(location)
 
     def _get_neighbors(self, member: Member) -> None:
         """
@@ -349,7 +366,8 @@ class Island():
             member.current_self_blocked_list,
             member.current_neighbor_blocked_list,
             member.current_empty_loc_list,
-        ) = self.land.neighbors(member)
+        ) = self.land.neighbors(member, self)
+
 
     def _find_targets(
         self,
@@ -375,7 +393,7 @@ class Island():
         selected_target = []
         for tgt in target_list:
 
-            if self._rng.uniform(0, 1) < prob_of_action:
+            if self._rng.uniform(0, 1) > prob_of_action:
                 continue
 
             # 检查tgt是元组（包含地主）还是单一成员
@@ -415,6 +433,8 @@ class Island():
                     continue
 
             selected_target.append(obj)
+
+        return selected_target
 
 # ##############################################################################
 # ##################################### 记录 ####################################
@@ -503,7 +523,7 @@ class Island():
             1. 根据生产力和土地，增加食物存储
         """
         for member in self.current_members:
-            self.record_total_production[-1] += member.produce(self.current_member_num)
+            self.record_total_production[-1] += member.produce()
 
     def _attack(
         self, 
@@ -512,8 +532,8 @@ class Island():
     ) -> None:
         # 计算攻击、偷盗值
         strength_1 = member_1.strength
-
         steal_1 = member_1.steal
+
         if steal_1 > member_2.cargo:
             steal_1 = member_2.cargo
 
@@ -535,7 +555,13 @@ class Island():
 
         # 结算死亡
         if member_2.autopsy():
+            # 立即丢失所有土地
+            for loc in member_2.owned_land.copy():
+                self._discard_land(member_2, loc)
+            # 清除member_2
             self.member_list_modify(drop=[member_2])
+            # member_1 立即获得扩张机会一次
+            self._expand(member_1)
 
         # 若攻击目标的颜色和自身相同，攻击者恢复颜色（退出组织）
         if np.allclose(member_1._current_color, member_2._current_color):
@@ -549,17 +575,17 @@ class Island():
         战斗
         """
         for member in self.shuffled_members:
-            (
-                clear_list, 
-                self_blocked_list, 
-                neighbor_blocked_list,
-                _
-            ) = self._get_neighbors(member)
+            self._get_neighbors(member)
             
             # 从邻居中寻找目标
+            target_list = (
+                member.current_clear_list 
+                + member.current_self_blocked_list 
+                + member.current_neighbor_blocked_list
+            )
             attack_list = self._find_targets(
                 member = member,
-                target_list = clear_list + self_blocked_list + neighbor_blocked_list,
+                target_list = target_list,
                 decision_name = "attack",
                 prob_of_action = prob_to_fight,
                 other_requirements = None,
@@ -600,14 +626,13 @@ class Island():
         # 被给予者的参数受到影响
         if parameter_influence:
             member_2.parameter_absorb(
-                [member_1, member_2]
+                [member_1, member_2],
                 [1 - Member._PARAMETER_INFLUENCE, Member._PARAMETER_INFLUENCE],
                 0
             )
 
         # 被给予者被染色
         member_2._current_color = member_1._current_color
-
 
     def trade(
         self,
@@ -617,17 +642,16 @@ class Island():
         交易与交流
         """
         for member in self.shuffled_members:
-            (
-                clear_list, 
-                self_blocked_list, 
-                neighbor_blocked_list,
-                _
-            ) = self._get_neighbors(member)
+            self._get_neighbors(member)
             
             # 从邻居中寻找目标
             trade_list = self._find_targets(
                 member = member,
-                target_list = clear_list + self_blocked_list + neighbor_blocked_list,
+                target_list = (
+                    member.current_clear_list 
+                    + member.current_self_blocked_list 
+                    + member.current_neighbor_blocked_list
+                ),
                 decision_name = "offer",
                 prob_of_action = prob_to_trade,
                 other_requirements = _requirement_for_offer,
@@ -637,6 +661,26 @@ class Island():
 
             for target in trade_list:
                 self._offer(member, target, parameter_influence=True)
+
+    def _expand(
+        self,
+        member: Member,
+    ):
+        """
+        扩张
+        """
+        self._get_neighbors(member)
+        if len(member.current_empty_loc_list) > 0:
+            self._acquire_land(member, member.current_empty_loc_list[0])
+
+    def colonize(
+        self,
+    ) -> None:
+        """
+        集体扩张
+        """
+        for member in self.shuffled_members:
+            self._expand(member)
 
     def consume(
         self, 
@@ -754,6 +798,20 @@ class Island():
             for target in partner_list:
                 self._bear(member, target)
 
+    def record_init_per_period(
+        self,
+    ):
+        self.record_benefit = {}
+        self.record_benefit = {}
+
+        self.record_total_attack.append(0)
+        self.record_total_benefit.append(0)
+        self.record_total_consumption.append(0)
+        self.record_total_production.append(0)
+
+        self.record_born = []
+        self.record_death = []
+
 
     def new_round(self, record_path=None):
         # 输出内容
@@ -762,38 +820,51 @@ class Island():
             if record_path is not None:
                 os.mkdir(record_path + f"{self.current_round:d}/")
                 self.save_current_island(record_path + f"{self.current_round:d}/")
-            # 动作
-            print("#" * 21, f"{self.current_round:d}", "#" * 21)
-            print("=" * 21, "攻击", "=" * 21)
-            if self.record_attack != {}:
-                for key, value in self.record_attack.items():
-                    member_1 = self.all_members[key[0]]
-                    member_2 = self.all_members[key[1]]
-                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
-                self.record_attack = {}
-            print("=" * 21, "给予", "=" * 21)
-            if self.record_benefit != {}:
-                for key, value in self.record_benefit.items():
-                    member_1 = self.all_members[key[0]]
-                    member_2 = self.all_members[key[1]]
-                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
-                self.record_benefit = {}
-            print("=" * 50)
-            print(f"本轮出生：{self.record_born}")
-            self.record_born = []
-            print(f"本轮死亡：{self.record_death}")
-            self.record_death = []
-            print(f"本轮总给予：{self.record_total_benefit[-1]:.1f}")
-            print(f"本轮总攻击：{self.record_total_attack[-1]:.1f}")
-            print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
-            print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
+
+            # 输出
+            self.print_status(record_path)
+
+            # 初始化存储
+            self.record_init_per_period()
+
+        # 回合数+1
+        self.current_round += 1
+
+        # 每个存活成员增加一岁
+        for member in self.current_members:
+            member.age += 1
+
+    def print_status(self):
+        print("#" * 21, f"{self.current_round:d}", "#" * 21)
+
+        print("=" * 21, "攻击", "=" * 21)
+        if self.record_attack != {}:
+            for (mem_1, mem_2), value in self.record_attack.items():
+                member_1 = self.all_members[mem_1]
+                member_2 = self.all_members[mem_2]
+                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+
+        print("=" * 21, "给予", "=" * 21)
+        if self.record_benefit != {}:
+            for (mem_1, mem_2), value in self.record_benefit.items():
+                member_1 = self.all_members[mem_1]
+                member_2 = self.all_members[mem_2]
+                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+
+        print("=" * 50)
+        print(f"本轮出生：{self.record_born}")
+        print(f"本轮死亡：{self.record_death}")
+        print(f"本轮总给予：{self.record_total_benefit[-1]:.1f}")
+        print(f"本轮总攻击：{self.record_total_attack[-1]:.1f}")
+        print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
+        print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
 
             # 状态
-            print("=" * 50)
-            status = "\t ID   姓名          年龄   血量    仓库    \n"
-            for member in self.current_members:
-                space_after_name = " " * (10 - len(member.name))
-                status += colored(
+        print("=" * 50)
+        status = "\t ID   姓名          年龄   血量    仓库    \n"
+        for member in self.current_members:
+            space_after_name = " " * (10 - len(member.name))
+            status += colored(
                     member._current_color,
                     (
                         f"\t[{member.id}] {member.name}:{space_after_name}"
@@ -804,12 +875,5 @@ class Island():
                         + "\n"
                     )
                 )
-            print(status)
-
-        # 回合数+1
-        self.current_round += 1
-
-        # 每个存活成员增加一岁
-        for member in self.current_members:
-            member.age += 1
+        print(status)
 

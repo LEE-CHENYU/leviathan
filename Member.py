@@ -10,10 +10,11 @@ def colored(rgb, text):
     return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
 class Member():
-    # 上限
-    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 7, 8        # 生产力属性
-    _PRODUCE_ELASTICITY = 0.5                          # 生产力弹性，生产力随人口增长而减少的幂的相反数
-    _BASE_POPULATION = 50                              # 人口标准，在这个人口时，每轮的产量等于productivity
+    # 生产力
+    # prod * (land / standard)**0.5
+    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 15, 20       # 生产力属性
+    _PRODUCE_ELASTICITY = 0.5                           # 生产力弹性，生产力随土地增长而增加的幂
+    _STD_LAND = 3                                       # 土地标准，在这个土地时，每轮的产量等于productivity
     _MAX_VITALITY = 100
 
     # 决策函数缩放参数
@@ -21,7 +22,6 @@ class Member():
     _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
 
     # 初始值
-    _INIT_MIN_LAND, _INIT_MAX_LAND = 7, 8
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
     _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
     _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 499           # 初始年龄
@@ -52,10 +52,12 @@ class Member():
         "self_vitality",
         "self_cargo",
         "self_age",
+        "self_land",
         "obj_productivity",
         "obj_vitality",
         "obj_cargo",
         "obj_age",
+        "obj_land",
         "victim_overlap",                   # 关系网重叠部分
         "benefit_overlap",
         # 细化关系网内积
@@ -91,12 +93,14 @@ class Member():
         [0, 1],
         [0, 1],
         [0, 0],
+        [-1, 1],
         [0, 0],
         [-1, 0],
         [0, 1],
         [0, 0],
         [-1, 0],
         [-1, 0],
+        [-1, 1],
         [0, 1],
         [0, 0],
         [-1, 0],
@@ -108,10 +112,12 @@ class Member():
         [0, 1],
         [0, 1],
         [0, 0],
+        [0, 1],
         [-1, 0],
         [-1, 0],
         [-1, 0],
         [0, 0],
+        [-1, 0],
         [0, 1],
         [0, 1],
         [-1, 0],
@@ -126,9 +132,11 @@ class Member():
         [0, 1],
         [0, 0],
         [0, 1],
+        [0, 1], 
         [0, 1],
         [0, 1],
         [0, 0],
+        [0, 1],
         [0, 1],
         [0, 1],
         [-1, 0],
@@ -138,13 +146,15 @@ class Member():
     ])
     # clear
     _CLEAR_PARAMETER = np.array([
-        [0, 1],
-        [0, 1],
-        [0, 1],
         [0, 0],
-        [0, 1],
-        [0, 1],
-        [0, 1],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
         [0, 0],
         [0, 1],
         [0, 1],
@@ -238,13 +248,14 @@ class Member():
 
         # 领地
         self.owned_land = []
+        self.land_num = 0
+
         self.current_clear_list = []
         self.current_self_blocked_list = []
         self.current_neighbor_blocked_list = []
         self.current_empty_loc_list = []
 
         # 生产相关的属性和状态
-        self.land = self._rng.uniform(Member._INIT_MIN_LAND, Member._INIT_MAX_LAND)
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
         self.vitality = self._rng.uniform(Member._INIT_MIN_VIT, Member._INIT_MAX_VIT)
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
@@ -367,13 +378,13 @@ class Member():
         self, 
         parameter_name: str, 
         object: Member,
-        island: Island.Island
+        island: Island.Island,
     ) -> bool:
-
-        return (
+        inner = (
             np.sum(self.parameter_dict[parameter_name] 
             * list(self._generate_decision_inputs(object, island).values()))
-        ) > 1
+        )
+        return inner > -1
 
     def parameter_absorb(
         self,
@@ -400,10 +411,21 @@ class Member():
                 )
         self.parameter_dict = new_dict
 
-    def produce(self, population) -> float:
+    def acquire_land(self, land_location: Tuple[int, int]):
+        self.owned_land.append(land_location)
+        self.land_num += 1
+
+    def discard_land(self, land_location: Tuple[int, int]):
+        assert land_location in self.owned_land, "只能丢弃拥有的土地"
+
+        self.owned_land.remove(land_location)
+        self.land_num -= 1
+
+    def produce(self) -> float:
         """生产，将收获装入cargo"""
-        productivity = self.productivity + self.land
+        productivity = self.productivity * (self.land_num / Member._STD_LAND)**Member._PRODUCE_ELASTICITY
         self.cargo += productivity
+
         return productivity
 
     def consume(self) -> float:
