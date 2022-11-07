@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+import matplotlib.pyplot as plt
 
 from Member import Member
 import Island
@@ -14,13 +15,11 @@ class Land():
 
     ):
         self.shape = shape
-        self.owner: List[List[Member]] = []
-        for _ in range(shape[0]):
-            self.owner.append([None] * self.shape[1])
+        self.owner: np.ndarray[Member] = np.ndarray(shape, dtype=Member)
 
     def __getitem__(self, key) -> Member:
         if isinstance(key, tuple):
-            return self.owner[key[0]][key[1]]
+            return self.owner[key]
         else:
             raise ValueError("土地目前只接受元组查询")
 
@@ -171,3 +170,47 @@ class Land():
                 data[idx] = -1
 
         return data
+
+    def _color_map(
+        self, 
+        original_color = True,
+        ):
+        map = np.zeros(self.shape + (3,), dtype=int)
+        for idx in np.ndindex(self.shape):
+            mem: Member = self.owner[idx]
+            if mem is not None:
+                if original_color:
+                    map[idx] = mem._color
+                else:
+                    map[idx] = mem._current_color
+            else:
+                map[idx] = [255, 255, 255]
+
+        return map
+
+    def _plot_map(
+        self,
+        ax,
+        map
+    ):
+
+        ax.imshow(map)
+
+        for (i, j), owner in np.ndenumerate(self.owner):
+            if owner is not None:
+                ax.text(j, i, f"{owner.surviver_id:d}", ha='center', va='center', c="white", fontsize=5)
+
+    def plot(
+        self
+    ):
+        fig, axs = plt.subplots(1, 2, figsize=np.array(self.shape)[::-1]*0.3, dpi=150)
+
+        ax = axs[0]
+        original_map = self._color_map(original_color=True)
+        self._plot_map(ax, original_map)
+
+        ax = axs[1]
+        current_map = self._color_map(original_color=False)
+        self._plot_map(ax, current_map)
+
+        plt.show()

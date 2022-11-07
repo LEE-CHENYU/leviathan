@@ -28,15 +28,24 @@ def _requirement_for_offer(
 ) -> bool:
     return member_1.cargo * Member._MIN_OFFER_PERCENTAGE >= Member._MIN_OFFER
 
+def _requirement_for_offer_land(
+    member_1: Member, 
+    member_2: Member
+) -> bool:
+    return member_1.land_num > 1
+
 class Island():
-    _MIN_VICTIM_MEMORY, _MAX_VICTIM_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
-    _MIN_BENEFIT_MEMORY, _MAX_BENEFIT_MEMORY = -50, 100        # 若随机到负值，则该记忆设为0
+    _MIN_MAX_INIT_RELATION = {
+        "victim": [-50, 100],                # 若随机到负值，则该记忆初始化为0
+        "benefit": [-50, 100],        
+        "benefit_land": [-3, 3],           
+    }
 
     _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
     # 记录/输出周期
-    _RECORD_PERIOD = 10
+    _RECORD_PERIOD = 1
 
     def __init__(
         self, 
@@ -64,7 +73,6 @@ class Island():
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
         self.all_members = self._backup_member_list(self.init_members)
         self.current_members = self._backup_member_list(self.init_members)
-        self.shuffled_members = self._backup_member_list(self.init_members)
 
         # 地图
         assert land_shape[0] * land_shape[1] > init_member_number, "土地面积应该大于初始人口"
@@ -82,31 +90,37 @@ class Island():
         # 初始人物关系
         # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
         # 若要修改（增减）人物关系，需要修改：self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
-        _victim_memory = self._rng.uniform(Island._MIN_VICTIM_MEMORY, Island._MAX_VICTIM_MEMORY, size=(self.init_member_num, self.init_member_num))
-        _victim_memory[_victim_memory < 0] = 0  # 若随机到负值，则该记忆设为0
-        np.fill_diagonal(_victim_memory, np.nan)
+        self.relationship_dict = {}
+        for key, (min, max) in Island._MIN_MAX_INIT_RELATION.items():
+            rela = self._rng.uniform(
+                min, 
+                max, 
+                size=(self.init_member_num, self.init_member_num)
+            )
+            rela[rela < 0] = 0  # 若随机到负值，则该记忆设为0
+            np.fill_diagonal(rela, np.nan)
 
-        _benefit_memory = self._rng.uniform(Island._MIN_BENEFIT_MEMORY, Island._MAX_BENEFIT_MEMORY, size=(self.init_member_num, self.init_member_num))
-        _benefit_memory[_benefit_memory < 0] = 0  # 若随机到负值，则该记忆设为0
-        np.fill_diagonal(_benefit_memory, np.nan)
+            self.relationship_dict[key] = rela
 
-        self.relationship_dict = {
-            "victim": _victim_memory,
-            "benefit": _benefit_memory
-        }
         assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "关系矩阵数量和关系矩阵缩放量数量不一致"
 
         # 记录动作 （每Island._RECORD_PERIOD输出、清空一次）
-        self.record_attack = {}
-        self.record_benefit = {}
+        self.record_action_dict = {
+            "attack": {},
+            "benefit": {},
+            "benefit_land": {},
+        }
         self.record_born = []
         self.record_death = []
 
         # 记录状态 （每Island._RECORD_PERIOD向末尾增append一个0）
         self.record_total_production = [0]
         self.record_total_consumption = [0]
-        self.record_total_attack = [0]
-        self.record_total_benefit = [0]
+        self.record_total_dict = {
+            "attack": [0],
+            "benefit": [0],
+            "benefit_land": [0],
+        }
         self.record_land = [self.land.owner_id]
 
         # 回合数
@@ -203,7 +217,9 @@ class Island():
         drop_id = np.array([member.id for member in drop])            # 校对id，确保正确删除
         drop_sur_id = np.array([member.surviver_id for member in drop])
 
-        assert not (drop_sur_id == None).any(), "被删除对象没有surviver_id"
+        if (drop_sur_id == None).any():
+            raise AttributeError(f"被删除对象应该有surviver_id")
+
         for member in drop:
             assert member.owned_land == [], "被删除对象应该没有土地"
 
@@ -222,9 +238,6 @@ class Island():
 
             del self.current_members[sur_id_to_drop]
             self.current_member_num -= 1
-
-        # 记录死亡
-        self.record_death = self.record_death + drop
 
         # 修改关系矩阵
         for key in self.relationship_dict.keys():
@@ -405,6 +418,10 @@ class Island():
             else:
                 raise ValueError("请在列表中输入正确的目标：成员、或（土地主人，成员）")
 
+            # 检查是否重复判断obj
+            if obj in selected_target:
+                continue
+
             if other_requirements is not None:
                 if not other_requirements(member, obj):
                     continue
@@ -440,21 +457,30 @@ class Island():
 # ##################################### 记录 ####################################
     def _record_actions(
         self, 
-        record: Dict[Tuple, float], 
+        record_name: str, 
         member_1: Member, 
         member_2: Member, 
         value_1: float, 
         value_2: float = None
     ):
+        record_dict = self.record_action_dict[record_name]
+
+        # 记录双方的动作
         try:
-            record[(member_1.id, member_2.id)] += value_1
+            record_dict[(member_1.id, member_2.id)] += value_1
         except KeyError:
-            record[(member_1.id, member_2.id)] = value_1
+            record_dict[(member_1.id, member_2.id)] = value_1
         if value_2 is not None:
             try:
-                record[(member_2.id, member_1.id)] += value_2
+                record_dict[(member_2.id, member_1.id)] += value_2
             except KeyError:
-                record[(member_2.id, member_1.id)] = value_2
+                record_dict[(member_2.id, member_1.id)] = value_2
+
+        # 记录总动作
+        if value_2 is not None:
+            self.record_total_dict[record_name][-1] += value_1 + value_2
+        else:
+            self.record_total_dict[record_name][-1] += value_1
 
     def save_current_island(self, path):
         current_member_df = self.current_members[0].save_to_row()
@@ -480,12 +506,12 @@ class Island():
             relationship_df = pd.concat([relationship_df, rela_df], axis=0)
 
         # 本轮之前保存的动作
-        attack_info = [[key[0], key[1], value] for key, value in self.record_attack.items()]
+        attack_info = [[key[0], key[1], value] for key, value in self.record_action_dict["attack"].items()]
         attack_df = pd.DataFrame(
             attack_info,
             columns=["attack_1", "attack_2", "value"]
         )
-        benefit_info = [[key[0], key[1], value] for key, value in self.record_benefit.items()]
+        benefit_info = [[key[0], key[1], value] for key, value in self.record_action_dict["benefit"].items()]
         benefit_df = pd.DataFrame(
             benefit_info,
             columns=["benefit_1", "benefit_2", "value"]
@@ -507,14 +533,25 @@ class Island():
 
 
     ############################################################################
-    ################################## 模拟 ##################################### 
-    def shuffle_current_members(self) -> None:
+    ################################## 模拟 #####################################
+    @property 
+    def shuffled_members(self) -> List[Member]:
         """
         打乱整个current_members列表
         """
-        self.shuffled_members = self._backup_member_list(self.current_members)
-        self._rng.shuffle(self.shuffled_members)
+        shuffled_members = self._backup_member_list(self.current_members)
+        self._rng.shuffle(shuffled_members)
 
+        return shuffled_members
+
+    def declare_dead(self, member: Member):
+        # 立即丢失所有土地
+        for loc in member.owned_land.copy():
+            self._discard_land(member, loc)
+        # 清除member_2
+        self.member_list_modify(drop=[member])
+        # 记录死亡
+        self.record_death.append(member)
 
     def produce(self) -> None:
         """
@@ -546,20 +583,16 @@ class Island():
 
         # 记录动作
         self._record_actions(
-            self.record_attack,
+            "attack",
             member_1,
             member_2,
             strength_1 + steal_1,
         )
-        self.record_total_attack[-1] += strength_1 + steal_1
 
         # 结算死亡
         if member_2.autopsy():
-            # 立即丢失所有土地
-            for loc in member_2.owned_land.copy():
-                self._discard_land(member_2, loc)
-            # 清除member_2
-            self.member_list_modify(drop=[member_2])
+            # 结算死亡
+            self.declare_dead(member_2)
             # member_1 立即获得扩张机会一次
             self._expand(member_1)
 
@@ -602,8 +635,14 @@ class Island():
         member_2: Member,
         parameter_influence: bool = True
     ) -> None:
-        """member_1 给予 member_2"""
+        """
+        member_1 给予 member_2
+        若member_1没有cargo，不会给予
+        """
         amount = member_1.offer
+
+        if amount < 1e-14:
+            return 
 
         # 结算给予
         member_2.cargo += amount
@@ -615,13 +654,12 @@ class Island():
         # 记录
         if amount > 1e-15:
             self._record_actions(
-                self.record_benefit,
+                "benefit",
                 member_1,
                 member_2,
                 amount,
                 None
             )
-            self.record_total_benefit[-1] += amount
 
         # 被给予者的参数受到影响
         if parameter_influence:
@@ -659,6 +697,7 @@ class Island():
                 land_owner_decision = "offer"
             )
 
+            self._rng.shuffle(trade_list)
             for target in trade_list:
                 self._offer(member, target, parameter_influence=True)
 
@@ -693,18 +732,111 @@ class Island():
             3. 从仓库中吃食物回满血
             4. 若有死亡案例，更新集体列表，更新编号，更新关系矩阵
         """
-        dead_member = []
         for member in self.current_members:
             consumption = member.consume()
 
             # 记录
             self.record_total_consumption[-1] += consumption
+
             if member.autopsy():
-                dead_member.append(member)
-        self.member_list_modify(drop=dead_member)
+                self.declare_dead(member)
 
         for member in self.current_members:
             member.recover()
+
+    def _offer_land(
+        self, 
+        member_1: Member, 
+        member_2: Member,
+        parameter_influence: bool = True,
+        assigned_pos: float = None,
+    ) -> None:
+        """
+        member_1 给予 member_2。  
+        选出离自己最远的，离对方最近的land。  
+        在提供“理想”位置时，会自动在给予者的土地中选出离assigned_pos最近的土地。
+        """
+        
+        # 选出离自己最远的，离对方最近的land
+        if member_1.land_num == 0:
+            raise RuntimeError("给予土地的人应该拥有至少一块土地")
+        if member_1.land_num == 0 and assigned_pos is None:
+            raise RuntimeError("在没有指定位置的情况下，接受土地的人应该拥有至少一块土地")
+
+        pos_1 = member_1.center_of_land()
+        if assigned_pos is None:
+            pos_2 = member_2.center_of_land()
+        else:
+            pos_2 = assigned_pos
+
+        farthest_distance = -np.inf
+        for land in member_1.owned_land:
+            distance = np.sum((pos_1 - land)**2) - np.sum((pos_2 - land)**2)
+            if distance > farthest_distance:
+                farthest_distance = distance
+                farthest_pos = land
+        pos = farthest_pos
+
+        # 结算给予
+        self._discard_land(member_1, pos)
+        self._acquire_land(member_2, pos)
+
+        # 修改关系矩阵
+        self.relationship_modify("benefit_land", member_2, member_1, 1)
+
+        # 记录
+        self._record_actions(
+            "benefit_land",
+            member_1,
+            member_2,
+            1,
+            None
+        )
+
+        # 被给予者的参数受到影响
+        if parameter_influence:
+            member_2.parameter_absorb(
+                [member_1, member_2],
+                [1 - Member._PARAMETER_INFLUENCE, Member._PARAMETER_INFLUENCE],
+                0
+            )
+
+        # 被给予者被染色
+        member_2._current_color = member_1._current_color
+
+    def land_distribute(
+        self,
+        prob_to_distr: float = 1.0
+        ):
+        """
+        交易与交流
+        """
+        for member in self.shuffled_members:
+            self._get_neighbors(member)
+            
+            # 从邻居中寻找目标
+            distr_list = self._find_targets(
+                member = member,
+                target_list = (
+                    member.current_clear_list 
+                    + member.current_self_blocked_list 
+                    + member.current_neighbor_blocked_list
+                ),
+                decision_name = "offer_land",
+                prob_of_action = prob_to_distr,
+                other_requirements = _requirement_for_offer_land,
+                bilateral = False,
+                land_owner_decision = "offer_land"
+            )
+
+            distr_len = len(distr_list)
+            if distr_len > 0:
+                target_idx = self._rng.choice(
+                    range(distr_len),
+                    size = 1
+                )
+                target = distr_list[int(target_idx)]
+                self._offer_land(member, target, parameter_influence=True)
 
     def _bear(
         self,
@@ -756,6 +888,16 @@ class Island():
         self._offer(member_1, child, parameter_influence=False)
         self._offer(member_2, child, parameter_influence=False)
 
+        # 父母无条件给予孩子土地
+        center_pos = (member_1.center_of_land() + member_2.center_of_land()) / 2
+        for _ in range(Member._LAND_HERITAGE):
+            self._offer_land(
+                member_1, child, parameter_influence=False, 
+                assigned_pos=center_pos)
+            self._offer_land(
+                member_2, child, parameter_influence=False, 
+                assigned_pos=center_pos)
+
         # 孩子计算、恢复血量
         child.recover()
 
@@ -774,20 +916,16 @@ class Island():
             6. 产生孩子。设定孩子年龄（0），父母。孩子随机继承父母的基本属性与决策参数，添加**少许**随机浮动。孩子的初始血量为固定值（小于父母消耗值），存储……
             7. 父母无条件地offer孩子一次
             8. 若有出生案例，更新集体列表，更新编号，更新关系矩阵
+            
         """
 
         for member in self.shuffled_members:
-            (
-                clear_list, 
-                self_blocked_list, 
-                neighbor_blocked_list,
-                _
-            ) = self._get_neighbors(member)
+            self._get_neighbors(member)
             
             # 从邻居中寻找目标
             partner_list = self._find_targets(
                 member = member,
-                target_list = clear_list,
+                target_list = member.current_clear_list,
                 decision_name = "reproduce",
                 prob_of_action = prob_of_reproduce,
                 other_requirements = _requirement_for_reproduction,
@@ -795,17 +933,23 @@ class Island():
                 land_owner_decision = ""
             )
 
-            for target in partner_list:
+            distr_len = len(partner_list)
+            if distr_len > 0:
+                target_idx = self._rng.choice(
+                    range(distr_len),
+                    size = 1
+                )
+                target = partner_list[int(target_idx)]
                 self._bear(member, target)
 
-    def record_init_per_period(
+    def _record_init_per_period(
         self,
     ):
-        self.record_benefit = {}
-        self.record_benefit = {}
+        self.record_action_dict["attack"] = {}
+        self.record_action_dict["benefit"] = {}
 
-        self.record_total_attack.append(0)
-        self.record_total_benefit.append(0)
+        self.record_total_dict["attack"].append(0)
+        self.record_total_dict["benefit"].append(0)
         self.record_total_consumption.append(0)
         self.record_total_production.append(0)
 
@@ -822,10 +966,10 @@ class Island():
                 self.save_current_island(record_path + f"{self.current_round:d}/")
 
             # 输出
-            self.print_status(record_path)
+            self.print_status()
 
             # 初始化存储
-            self.record_init_per_period()
+            self._record_init_per_period()
 
         # 回合数+1
         self.current_round += 1
@@ -838,15 +982,22 @@ class Island():
         print("#" * 21, f"{self.current_round:d}", "#" * 21)
 
         print("=" * 21, "攻击", "=" * 21)
-        if self.record_attack != {}:
-            for (mem_1, mem_2), value in self.record_attack.items():
+        if self.record_action_dict["attack"] != {}:
+            for (mem_1, mem_2), value in self.record_action_dict["attack"].items():
                 member_1 = self.all_members[mem_1]
                 member_2 = self.all_members[mem_2]
                 print(f"\t{member_1} --{value:.1f}-> {member_2}")
 
         print("=" * 21, "给予", "=" * 21)
-        if self.record_benefit != {}:
-            for (mem_1, mem_2), value in self.record_benefit.items():
+        if self.record_action_dict["benefit"] != {}:
+            for (mem_1, mem_2), value in self.record_action_dict["benefit"].items():
+                member_1 = self.all_members[mem_1]
+                member_2 = self.all_members[mem_2]
+                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+
+        print("=" * 20, "给予土地", "=" * 20)
+        if self.record_action_dict["benefit_land"] != {}:
+            for (mem_1, mem_2), value in self.record_action_dict["benefit_land"].items():
                 member_1 = self.all_members[mem_1]
                 member_2 = self.all_members[mem_2]
                 print(f"\t{member_1} --{value:.1f}-> {member_2}")
@@ -854,25 +1005,26 @@ class Island():
         print("=" * 50)
         print(f"本轮出生：{self.record_born}")
         print(f"本轮死亡：{self.record_death}")
-        print(f"本轮总给予：{self.record_total_benefit[-1]:.1f}")
-        print(f"本轮总攻击：{self.record_total_attack[-1]:.1f}")
+        print(f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f}")
+        print(f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f}")
         print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
         print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
 
             # 状态
         print("=" * 50)
-        status = "\t ID   姓名          年龄   血量    仓库    \n"
+        status = "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数\n"
         for member in self.current_members:
             space_after_name = " " * (10 - len(member.name))
             status += colored(
                     member._current_color,
                     (
-                        f"\t[{member.id}] {member.name}:{space_after_name}"
-                        + f"   {member.age}," 
-                        + f"   {member.vitality:.1f},"
-                        + f"   {member.cargo:.1f}"
-                        # + f"   {member.productivity:.2f}"
-                        + "\n"
+                        f"\t[{member.id}, {member.surviver_id}] "
+                        f"{member.name}:{space_after_name}"
+                        f"   {member.age}," 
+                        f"   {member.vitality:.1f},"
+                        f"   {member.cargo:.1f}"
+                        f"   {member.land_num:d}({100*member.land_num/np.prod(self.land.shape):.1f}%)"
+                        "\n"
                     )
                 )
         print(status)

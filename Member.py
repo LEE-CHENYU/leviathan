@@ -7,7 +7,8 @@ import Island
 
 def colored(rgb, text):
     r, g, b = rgb
-    return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
+    # return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
+    return text
 
 class Member():
     # 生产力
@@ -19,7 +20,8 @@ class Member():
 
     # 决策函数缩放参数
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
-    _RELATION_SCALES = [0.01, 0.01]                     # 决策函数在计算相互关系是的缩放量
+    _RELATION_SCALES = [0.01, 0.01, 0.01]                     # 决策函数在计算相互关系时的缩放量
+    _MAX_NEIGHBOR = 4                                   # 邻居数量最大值
 
     # 初始值
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
@@ -41,10 +43,11 @@ class Member():
 
     # 生育
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
-    _PARAMETER_FLUCTUATION = 0.1                       # 参数继承的浮动
+    _PARAMETER_FLUCTUATION = 0.3                       # 参数继承的浮动
+    _LAND_HERITAGE = np.ceil(_STD_LAND / 2).astype(int) # 生育给予的土地数量
 
     # 交易
-    _PARAMETER_INFLUENCE = 0.1                       # 交易后的参数影响
+    _PARAMETER_INFLUENCE = 0.02                       # 交易后的参数影响
 
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
@@ -52,14 +55,18 @@ class Member():
         "self_vitality",
         "self_cargo",
         "self_age",
-        "self_land",
+        "self_neighbor",
+
         "obj_productivity",
         "obj_vitality",
         "obj_cargo",
         "obj_age",
-        "obj_land",
+        "obj_neighbor",
+
         "victim_overlap",                   # 关系网重叠部分
         "benefit_overlap",
+        "benefit_land_overlap",
+
         # 细化关系网内积
         # "victim_passive_passive",           # victim_passive_passive代表victim记忆中，self所拥的行，乘以obj所拥的行
         # "victim_passive_active",            # 第一个p/a代表self的记忆，第二个p/a代表obj的记忆
@@ -69,16 +76,20 @@ class Member():
         # "benefit_passive_active",
         # "benefit_active_passive",
         # "benefit_active_active",
+
         "victim_passive",                   # self对obj的记忆
         "victim_active",                    # obj对self的记忆
         "benefit_passive",
         "benefit_active",
+        "benefit_land_passive",
+        "benefit_land_active",
     ]
     _DECISION_NAMES = [
         "attack",
         "offer",
         "reproduce",
-        "clear"
+        "clear",
+        "offer_land",
     ]
     _parameter_name_dict = {}               # 参数的名字
     for key in _DECISION_NAMES:
@@ -87,81 +98,126 @@ class Member():
             _parameter_name_dict[key].append(key + "_" + name)
 
     # 初始决策参数，列表的每行表示各个参数，列表示最小值、最大值
-    # attack
-    _ATTACK_PARAMETER = np.array([
+    _INITIAL_PRAMETER = {}
+    _INITIAL_PRAMETER["attack"] = np.array([
         [0, 1],
         [0, 1],
         [0, 1],
         [0, 0],
         [-1, 1],
+
         [0, 0],
         [-1, 0],
         [0, 1],
         [0, 0],
         [-1, 0],
+
         [-1, 0],
         [-1, 1],
+        [-1, 1],
+
         [0, 1],
         [0, 0],
         [-1, 0],
-        [0, 0]
+        [0, 0],
+        [-1, 0],
+        [0, 0],
     ])
-    # offer
-    _OFFER_PARAMETER = np.array([
+    _INITIAL_PRAMETER["offer"] = np.array([
         [0, 1],
         [0, 1],
         [0, 1],
         [0, 0],
         [0, 1],
+
         [-1, 0],
         [-1, 0],
         [-1, 0],
         [0, 0],
         [-1, 0],
+
         [0, 1],
         [0, 1],
+        [0, 1],
+
         [-1, 0],
         [0, 0],
         [0, 1],
-        [0, 0]
+        [0, 0],
+        [0, 1],
+        [0, 0],
     ])
-    # reproduce
-    _REPRODUCE_PARAMETER = np.array([
+    _INITIAL_PRAMETER["reproduce"] = np.array([
         [0, 1],
         [0, 1],
         [0, 1],
         [0, 0],
         [0, 1],
+
         [0, 1], 
         [0, 1],
         [0, 1],
         [0, 0],
         [0, 1],
+
         [0, 1],
         [0, 1],
+        [0, 1],
+
         [-1, 0],
         [-1, 0],
         [0, 1],
-        [0, 1]
+        [0, 1],
+        [0, 1],
+        [0, 1],
     ])
-    # clear
-    _CLEAR_PARAMETER = np.array([
+    _INITIAL_PRAMETER["clear"] = np.array([
         [0, 0],
         [0, 0],
         [0, 0],
         [0, 0],
         [0, 0],
+
         [0, 0],
         [0, 0],
         [0, 0],
         [0, 0],
         [0, 0],
+
         [0, 1],
         [0, 1],
+        [0, 1],
+
         [-1, 0],
         [-1, 0],
         [0, 1],
-        [0, 1]
+        [0, 1],
+        [0, 1],
+        [0, 1],
+    ])
+    _INITIAL_PRAMETER["offer_land"] = np.array([
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+
+        [-1, 0],
+        [-1, 0],
+        [-1, 0],
+        [0, 0],
+        [-1, 0],
+
+        [0, 1],
+        [0, 1],
+        [0, 1],
+
+        [-1, 0],
+        [0, 0],
+        [0, 1],
+        [0, 0],
+        [0, 1],
+        [0, 0],
     ])
 
     @classmethod
@@ -199,6 +255,8 @@ class Member():
         child = Member(name, id, surviver_id, rng)
         child.parent_1 = parent_1
         child.parent_2 = parent_2
+        parent_1.children.append(child)
+        parent_2.children.append(child)
 
         child.productivity = cls._inherited_parameter_w_fluctuation(
             parent_1.productivity, 
@@ -238,7 +296,7 @@ class Member():
         # 亲人链表
         self.parent_1 = None
         self.parent_2 = None
-        self.child = []
+        self.children = []
 
         # 人物颜色
         self._color = [0, 0, 0]
@@ -247,7 +305,7 @@ class Member():
         self._current_color = self._color.copy()
 
         # 领地
-        self.owned_land = []
+        self.owned_land: List[Tuple[int, int]] = []
         self.land_num = 0
 
         self.current_clear_list = []
@@ -261,38 +319,15 @@ class Member():
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
         self.age = int(self._rng.uniform(Member._INIT_MIN_AGE, Member._INIT_MAX_AGE))
 
-        # 决策参数
-        # 攻击决策
-        _attack_parameter = (
-            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
-            * (Member._ATTACK_PARAMETER[:, 1] - Member._ATTACK_PARAMETER[:, 0])
-            + Member._ATTACK_PARAMETER[:, 0]
-        )
-        # 给予决策
-        _offer_parameter = (
-            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
-            * (Member._OFFER_PARAMETER[:, 1] - Member._OFFER_PARAMETER[:, 0])
-            + Member._OFFER_PARAMETER[:, 0]
-        )
-        # 生育决策
-        _reproduce_parameter = (
-            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
-            * (Member._REPRODUCE_PARAMETER[:, 1] - Member._REPRODUCE_PARAMETER[:, 0])
-            + Member._REPRODUCE_PARAMETER[:, 0]
-        )
-        # 通行决策
-        _clear_parameter = (
-            self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
-            * (Member._CLEAR_PARAMETER[:, 1] - Member._CLEAR_PARAMETER[:, 0])
-            + Member._CLEAR_PARAMETER[:, 0]
-        )
-        self.parameter_dict = {
-            "attack": _attack_parameter,
-            "offer": _offer_parameter,
-            "reproduce": _reproduce_parameter,
-            "clear": _clear_parameter
-        }
-        assert list(self.parameter_dict.keys()) == Member._DECISION_NAMES
+        # 随机初始化决策参数
+        self.parameter_dict = {}
+        for des_name in Member._DECISION_NAMES:
+            para_range = Member._INITIAL_PRAMETER[des_name]
+            self.parameter_dict[des_name] = (
+                self._rng.uniform(0, 1, size=len(Member._DECISION_INPUT_NAMES))
+                * (para_range[:, 1] - para_range[:, 0])
+                + para_range[:, 0]
+            )
 
     def __str__(self):
         """重载print函数表示"""
@@ -301,6 +336,9 @@ class Member():
     def __repr__(self):
         """重载其他print形式的表示"""
         return self.__str__()
+
+# ##############################################################################
+# ##################################### 状态 ####################################
     
     @property
     def strength(self) -> float:
@@ -343,7 +381,19 @@ class Member():
 
     @property
     def is_qualified_to_reproduce(self):
-        return self.age >= Member._MIN_REPRODUCE_AGE
+        return (
+            self.age >= Member._MIN_REPRODUCE_AGE
+            and
+            self.land_num >= Member._LAND_HERITAGE + 1
+        )
+
+    def center_of_land(self,) -> np.ndarray:
+        ave_loc = np.array([0, 0])
+        for land in self.owned_land:
+            ave_loc += np.array(land)
+
+        return ave_loc / self.land_num
+
 
     #########################################################################
     ################################## 动作 ################################## 
@@ -356,21 +406,34 @@ class Member():
 
         assert self is not object, "决策函数中主体和对象不能相同"
 
-        len_input = len(Member._DECISION_INPUT_NAMES)
-        input_dict = dict(zip(Member._DECISION_INPUT_NAMES, np.zeros(len_input)))
+        input_dict = {}
 
         input_dict["self_productivity"] = self.productivity / Member._MAX_PRODUCTIVITY
         input_dict["self_vitality"] = self.vitality / Member._MAX_VITALITY
         input_dict["self_cargo"] = np.tanh(self.cargo * Member._CARGO_SCALE)
         input_dict["self_age"] = self.age / Member._MAX_AGE
+        input_dict["self_neighbor"] = len(self.current_clear_list) / Member._MAX_NEIGHBOR
+
         input_dict["obj_productivity"] = object.productivity / Member._MAX_PRODUCTIVITY
         input_dict["obj_vitality"] = object.vitality / Member._MAX_VITALITY
         input_dict["obj_cargo"] = np.tanh(object.cargo * Member._CARGO_SCALE)
         input_dict["obj_age"] = object.age / Member._MAX_AGE
+        input_dict["obj_neighbor"] = len(object.current_clear_list) / Member._MAX_NEIGHBOR
 
-        input_dict["victim_overlap"], input_dict["benefit_overlap"] = island._overlap_of_relations(self, object)
+        (
+            input_dict["victim_overlap"], 
+            input_dict["benefit_overlap"], 
+            input_dict["benefit_land_overlap"]
+        ) = island._overlap_of_relations(self, object)
         
-        input_dict["victim_passive"], input_dict["victim_active"], input_dict["benefit_passive"], input_dict["benefit_active"] = island._relations_w_normalize(self, object)
+        (
+            input_dict["victim_passive"], 
+            input_dict["victim_active"], 
+            input_dict["benefit_passive"], 
+            input_dict["benefit_active"],
+            input_dict["benefit_land_passive"], 
+            input_dict["benefit_land_active"],
+        ) = island._relations_w_normalize(self, object)
 
         return input_dict
 
@@ -379,12 +442,12 @@ class Member():
         parameter_name: str, 
         object: Member,
         island: Island.Island,
+        threshold: float = 1
     ) -> bool:
-        inner = (
-            np.sum(self.parameter_dict[parameter_name] 
-            * list(self._generate_decision_inputs(object, island).values()))
-        )
-        return inner > -1
+        input_dict = self._generate_decision_inputs(object, island)
+        input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
+        inner = np.sum(self.parameter_dict[parameter_name] * input)
+        return inner > threshold
 
     def parameter_absorb(
         self,
@@ -393,8 +456,15 @@ class Member():
         fluctuation_amplitude = 0,
     ) -> None:
         """产生多个人的决策参数加权平均值"""
+        contr_num = len(contributor_list)
+        if weight_list == []:
+            weight_list = np.ones(contr_num) / contr_num
+
         # 加权平均
-        new_dict = {key: contributor_list[0].parameter_dict[key].copy() * weight_list[0] for key in contributor_list[0].parameter_dict.keys()}
+        new_dict = {
+            key: val.copy() * weight_list[0] 
+            for key, val in contributor_list[0].parameter_dict.items()
+        }
 
         for idx in range(1, len(contributor_list)):
             contributor = contributor_list[idx]
@@ -405,8 +475,8 @@ class Member():
         if fluctuation_amplitude > 0:
             for key in new_dict.keys():
                 new_dict[key] += self._rng.uniform(
-                    -fluctuation_amplitude, 
-                    fluctuation_amplitude,
+                    - fluctuation_amplitude, 
+                    + fluctuation_amplitude,
                     size = new_dict[key].size
                 )
         self.parameter_dict = new_dict
