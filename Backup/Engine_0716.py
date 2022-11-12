@@ -53,5 +53,5 @@ class Engine():
     def save(self):
         pass
 
-engine = Engine(50, 2022, record_path="test2/")
+engine = Engine(50, 2022, record_path="test6/")
 engine.run()
