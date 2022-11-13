@@ -524,6 +524,7 @@ class Member():
             "vitality": [self.vitality],
             "cargo": [self.cargo],
             "age": [self.age],
+            "land_num": [self.land_num],
             "color_R": [self._color[0]],
             "color_G": [self._color[1]],
             "color_B": [self._color[2]],
@@ -531,10 +532,23 @@ class Member():
             "current_G": [self._current_color[1]],
             "current_B": [self._current_color[2]],
         }, index=[self.id])
+
+        land_x = ""
+        land_y = ""
+        for x, y in self.owned_land:
+            land_x = land_x + f"{x:d} "
+            land_y = land_y + f"{y:d} "
+        info_df["land_x"] = [land_x]
+        info_df["land_y"] = [land_y]
+        
         if self.parent_1 is not None:
             info_df["parent_1"] = [self.parent_1.id]
         if self.parent_2 is not None:
             info_df["parent_2"] = [self.parent_2.id]
+        children_str = ""
+        for child in self.children:
+            children_str = children_str + f"{child.id} "
+        info_df["children"] = [children_str]
 
         # 存储决策参数
         for key, paras in self.parameter_dict.items():
@@ -548,5 +562,7 @@ class Member():
             info_df = pd.concat([info_df, parameters], axis=1)
 
         return info_df
+
+    # def load_from_row(self, row):
 
 

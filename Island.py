@@ -1,10 +1,13 @@
 import numpy as np
 import pandas as pd
-from sympy import plot_implicit
 from Member import Member, colored
 from Land import Land
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+
+from utils.save import path_decorator
+
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
+import pickle 
 import os
 
 def _requirement_for_reproduction(
@@ -196,11 +199,7 @@ class Island():
             tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
             np.fill_diagonal(tmp_new, np.nan)
 
-            self.relationship_dict[key].resize(
-                (self.current_member_num, self.current_member_num), 
-                refcheck=False
-            )
-            self.relationship_dict[key][:] = tmp_new          # 仅修改数组内容，不修改列表里的数组地址
+            self.relationship_dict[key] = tmp_new
 
         return
 
@@ -244,12 +243,8 @@ class Island():
             # 无法直接进行赋值，需修改原数组尺寸后填入数值
             tmp = np.delete(self.relationship_dict[key], drop_sur_id, axis=0)
             tmp = np.delete(tmp, drop_sur_id, axis=1)
-            
-            self.relationship_dict[key].resize(
-                (self.current_member_num, self.current_member_num), 
-                refcheck=False
-            )
-            self.relationship_dict[key][:] = tmp    # 仅修改数组内容，不修改列表里的数组地址
+
+            self.relationship_dict[key] = tmp
 
         # 重新编号存活成员
         for sur_id in range(self.current_member_num):
@@ -497,7 +492,8 @@ class Island():
             "_seed": [self._random_seed],
             "init_member_num": [self.init_member_num],
             "current_member_num": [self.current_member_num],
-            "current_round": [self.current_round]
+            "current_round": [self.current_round],
+            "land_shape": [f"{self.land.shape[0]} {self.land.shape[1]}"],
         })
 
         relationship_df = pd.DataFrame()
@@ -506,31 +502,58 @@ class Island():
             relationship_df = pd.concat([relationship_df, rela_df], axis=0)
 
         # 本轮之前保存的动作
-        attack_info = [[key[0], key[1], value] for key, value in self.record_action_dict["attack"].items()]
-        attack_df = pd.DataFrame(
-            attack_info,
-            columns=["attack_1", "attack_2", "value"]
-        )
-        benefit_info = [[key[0], key[1], value] for key, value in self.record_action_dict["benefit"].items()]
-        benefit_df = pd.DataFrame(
-            benefit_info,
-            columns=["benefit_1", "benefit_2", "value"]
-        )
+        action_list = []
+        for action_name, action_dict in self.record_action_dict.items():
+            sub_action_info = [[key[0], key[1], value] for key, value in action_dict.items()]
+            sub_action_df = pd.DataFrame(
+                sub_action_info,
+                columns=[f"{action_name}_1", f"{action_name}_2", "value"]
+            )
+            action_list.append(sub_action_df)
         born_df = pd.DataFrame(
             [member.id for member in self.record_born], 
             columns=["born"]
         )
+        action_list.append(born_df)
         death_df = pd.DataFrame(
             [member.id for member in self.record_death], 
             columns=["death"]
         )
-        action_df = pd.concat([attack_df, benefit_df, born_df, death_df], axis=1)
+        action_list.append(death_df)
+        action_df = pd.concat(action_list, axis=1)
+
+        # 土地
+        land_df = pd.DataFrame(
+            self.land.owner_id()
+        )
         
         current_member_df.to_csv(path + "members.csv")
         info_df.to_csv(path + "island_info.csv")
         relationship_df.to_csv(path + "relationships.csv")
         action_df.to_csv(path + "action.csv")
+        land_df.to_csv(path + "land.csv")
 
+    @classmethod
+    def load_island(cls, path):
+
+        current_member_df = pd.read_csv(path + "members.csv")
+        info_df = pd.read_csv(path + "island_info.csv")
+        relationship_df = pd.read_csv(path + "relationships.csv")
+        action_df = pd.read_csv(path + "action.csv")
+        land_df = pd.read_csv(path + "land.csv")
+
+        """
+        Not finished yet
+        """
+
+    def save_to_pickle(self, file_name: str) -> None:
+        file = open(file_name, 'wb') 
+        pickle.dump(self, file)
+
+    @classmethod
+    def load_from_pickle(cls, file_name: str) -> "Island":
+        file = open(file_name, 'rb') 
+        return pickle.load(file)
 
     ############################################################################
     ################################## 模拟 #####################################
@@ -962,8 +985,8 @@ class Island():
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
             if record_path is not None:
-                os.mkdir(record_path + f"{self.current_round:d}/")
-                self.save_current_island(record_path + f"{self.current_round:d}/")
+                record_path = path_decorator(record_path)
+                self.save_to_pickle(record_path + f"{self.current_round:d}.pkl")
 
             # 输出
             self.print_status()
