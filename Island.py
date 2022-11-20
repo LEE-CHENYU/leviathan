@@ -801,7 +801,7 @@ class Island():
 
         farthest_distance = -np.inf
         for land in member_1.owned_land:
-            distance = np.sum((pos_1 - land)**2) - np.sum((pos_2 - land)**2)
+            distance = self.land.distance(pos_1, land) - self.land.distance(pos_2, land)
             if distance > farthest_distance:
                 farthest_distance = distance
                 farthest_pos = land

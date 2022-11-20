@@ -31,6 +31,18 @@ class Land():
         """重载其他print形式的表示"""
         return self.owner.__repr__()
 
+    def distance(self, loc_1: Tuple[int, int], loc_2: Tuple[int, int]) -> float:
+        dis_in_period = lambda x1, x2, period: np.min([
+            (x1 - x2) % period,
+            (x2 - x1) % period,
+        ])
+        direction = [
+            dis_in_period(loc_1[0], loc_2[0], self.shape[0]),
+            dis_in_period(loc_1[1], loc_2[1], self.shape[1]),
+        ]
+        distance = np.sqrt(np.linalg.norm(direction))
+        return distance
+
     def _find_neighbors(
         self, 
         clear_list: List[Member],
@@ -193,7 +205,6 @@ class Land():
         ax,
         map
     ):
-
         ax.imshow(map)
 
         for (i, j), owner in np.ndenumerate(self.owner):

@@ -20,7 +20,7 @@ class Member():
 
     # 决策函数缩放参数
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
-    _RELATION_SCALES = [0.01, 0.01, 1]                  # 决策函数在计算相互关系时的缩放量
+    _RELATION_SCALES = [0.01, 0.01, 0.25]                  # 决策函数在计算相互关系时的缩放量
     _MAX_NEIGHBOR = 4                                   # 邻居数量最大值
 
     # 初始值
@@ -36,14 +36,14 @@ class Member():
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
-    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # 攻击力占当前血量之比
-    _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # 偷盗值占当前血量之比
+    _MIN_STRENGTH, _MAX_STRENGTH = 0.3, 0.7             # 攻击力占当前血量之比
+    _MIN_STEAL, _MAX_STEAL = 0.3, 0.7                   # 偷盗值占当前血量之比
     _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.2                   # 给予值占当前仓库之比
     _MIN_OFFER = _MIN_PRODUCTIVITY                      # 给予最小值
 
     # 生育
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
-    _PARAMETER_FLUCTUATION = 0.2                       # 参数继承的浮动
+    _PARAMETER_FLUCTUATION = 0.4                       # 参数继承的浮动
     _LAND_HERITAGE = np.ceil(_STD_LAND / 2).astype(int) # 生育给予的土地数量
 
     # 交易

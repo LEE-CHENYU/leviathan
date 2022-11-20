@@ -1,4 +1,5 @@
 import numpy as np 
+import pandas as pd
 import networkx as nx
 
 from Island import Island
@@ -17,6 +18,8 @@ class Analyzer:
     ):
         self.island = island
 
+    # Relationships
+    # ##########################################################################
     def generate_clear_graph(self) -> nx.DiGraph:
 
         self.clear_graph = nx.DiGraph()
@@ -30,11 +33,6 @@ class Analyzer:
 
         return self.clear_graph
 
-    def member_exist(self, member: Member) -> bool:
-        if member in self.island.current_members:
-            return True
-        else: 
-            return False
 
 
     def generate_network_by_decision(self):
@@ -43,13 +41,49 @@ class Analyzer:
         """
         pass
 
-
     def connectivity(self) -> float:
         """
         计算成员之间的连接度
         """
         pass
 
+    # Member
+    # ##########################################################################
+    def look_for_current_member(self, member: Member | int) -> Member:
+        if isinstance(member, Member):
+            id = member.id
+        elif isinstance(member, int): 
+            id = member
+
+
+        for target in self.island.current_members:
+            if id == target.id:
+                return target
+            
+        return None
+
+    def member_exist(self, member: Member | int) -> bool:
+        if self.look_for_current_member(member) is not None:
+            return True
+        else:
+            return False
+        
+    def member_row(self, member: Member | int) -> pd.DataFrame:
+        member = self.look_for_current_member(member)
+        return member.save_to_row()
+
+    def member_info(self) -> pd.DataFrame:
+
+        current_member_df = self.member_row(self.island.current_members[0])
+        
+        for member in self.island.current_members[1:]:
+            current_member_df = pd.concat([
+                current_member_df,
+                self.member_row(member)],
+                axis=0
+            )
+
+        return current_member_df
 
 class Tracer:
     def __init__(
@@ -85,12 +119,30 @@ class Tracer:
 
         return cls(island_list)
 
-
-    def relevant_episode(self, member: Member) -> "Tracer":
+    def relevant_episode(self, member: Member | int) -> "Tracer":
         island_list = []
         for analyzer in self.analyzer_list:
             if analyzer.member_exist(member):
                 island_list.append(analyzer.island)
         return Tracer(island_list)
 
+    def member_info(self, member: Member | int) -> pd.DataFrame:
 
+        current_member_df = self.analyzer_list[0].member_row(member)
+        
+        for analyzer in self.analyzer_list[1:]:
+            current_member_df = pd.concat([
+                current_member_df,
+                analyzer.member_row(member)],
+                axis=0
+            )
+
+        return current_member_df
+
+    def surviver_cohort_matrix(
+        self, 
+        starting_idx: int,
+        ending_idx: int,
+    ) -> np.ndarray:
+
+        pass
