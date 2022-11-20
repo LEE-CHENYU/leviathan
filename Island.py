@@ -8,7 +8,7 @@ from utils.save import path_decorator
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 import pickle 
-import os
+import sys
 
 def _requirement_for_reproduction(
     member_1: Member, 
@@ -274,6 +274,10 @@ class Island():
             )
 
         return
+
+    @property
+    def is_dead(self,) -> bool:
+        return self.current_member_num == 0
 
 # ================================ 关系矩阵修改 ==================================
     def _overlap_of_relations(
@@ -547,6 +551,9 @@ class Island():
         """
 
     def save_to_pickle(self, file_name: str) -> None:
+
+        sys.setrecursionlimit(50000)
+
         file = open(file_name, 'wb') 
         pickle.dump(self, file)
 
@@ -660,11 +667,11 @@ class Island():
     ) -> None:
         """
         member_1 给予 member_2
-        若member_1没有cargo，不会给予
+        若member_1能给予的数量<1，不会给予
         """
         amount = member_1.offer
 
-        if amount < 1e-14:
+        if amount < 1:
             return 
 
         # 结算给予
@@ -968,11 +975,11 @@ class Island():
     def _record_init_per_period(
         self,
     ):
-        self.record_action_dict["attack"] = {}
-        self.record_action_dict["benefit"] = {}
+        for key in self.record_action_dict.keys():
+            self.record_action_dict[key] = {}
+        for key in self.record_total_dict.keys():
+            self.record_total_dict[key].append(0)
 
-        self.record_total_dict["attack"].append(0)
-        self.record_total_dict["benefit"].append(0)
         self.record_total_consumption.append(0)
         self.record_total_production.append(0)
 
@@ -980,7 +987,7 @@ class Island():
         self.record_death = []
 
 
-    def new_round(self, record_path=None):
+    def new_round(self, record_path=None, print_status=False):
         # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
@@ -989,7 +996,8 @@ class Island():
                 self.save_to_pickle(record_path + f"{self.current_round:d}.pkl")
 
             # 输出
-            self.print_status()
+            if print_status:
+                self.print_status()
 
             # 初始化存储
             self._record_init_per_period()
@@ -1001,54 +1009,61 @@ class Island():
         for member in self.current_members:
             member.age += 1
 
-    def print_status(self):
+    def print_status(
+        self,
+        action = False,
+        summary = True,
+        members = True,
+        ):
         print("#" * 21, f"{self.current_round:d}", "#" * 21)
 
-        print("=" * 21, "攻击", "=" * 21)
-        if self.record_action_dict["attack"] != {}:
-            for (mem_1, mem_2), value in self.record_action_dict["attack"].items():
-                member_1 = self.all_members[mem_1]
-                member_2 = self.all_members[mem_2]
-                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+        if action:
+            print("=" * 21, "攻击", "=" * 21)
+            if self.record_action_dict["attack"] != {}:
+                for (mem_1, mem_2), value in self.record_action_dict["attack"].items():
+                    member_1 = self.all_members[mem_1]
+                    member_2 = self.all_members[mem_2]
+                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
 
-        print("=" * 21, "给予", "=" * 21)
-        if self.record_action_dict["benefit"] != {}:
-            for (mem_1, mem_2), value in self.record_action_dict["benefit"].items():
-                member_1 = self.all_members[mem_1]
-                member_2 = self.all_members[mem_2]
-                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+            print("=" * 21, "给予", "=" * 21)
+            if self.record_action_dict["benefit"] != {}:
+                for (mem_1, mem_2), value in self.record_action_dict["benefit"].items():
+                    member_1 = self.all_members[mem_1]
+                    member_2 = self.all_members[mem_2]
+                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
 
-        print("=" * 20, "给予土地", "=" * 20)
-        if self.record_action_dict["benefit_land"] != {}:
-            for (mem_1, mem_2), value in self.record_action_dict["benefit_land"].items():
-                member_1 = self.all_members[mem_1]
-                member_2 = self.all_members[mem_2]
-                print(f"\t{member_1} --{value:.1f}-> {member_2}")
+            print("=" * 20, "给予土地", "=" * 20)
+            if self.record_action_dict["benefit_land"] != {}:
+                for (mem_1, mem_2), value in self.record_action_dict["benefit_land"].items():
+                    member_1 = self.all_members[mem_1]
+                    member_2 = self.all_members[mem_2]
+                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
 
-        print("=" * 50)
-        print(f"本轮出生：{self.record_born}")
-        print(f"本轮死亡：{self.record_death}")
-        print(f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f}")
-        print(f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f}")
-        print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
-        print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
+        if summary:
+            print("=" * 50)
+            print(f"本轮出生：{self.record_born}")
+            print(f"本轮死亡：{self.record_death}")
+            print(f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f}")
+            print(f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f}")
+            print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
+            print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
 
-            # 状态
-        print("=" * 50)
-        status = "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数\n"
-        for member in self.current_members:
-            space_after_name = " " * (10 - len(member.name))
-            status += colored(
-                    member._current_color,
-                    (
-                        f"\t[{member.id}, {member.surviver_id}] "
-                        f"{member.name}:{space_after_name}"
-                        f"   {member.age}," 
-                        f"   {member.vitality:.1f},"
-                        f"   {member.cargo:.1f}"
-                        f"   {member.land_num:d}({100*member.land_num/np.prod(self.land.shape):.1f}%)"
-                        "\n"
+        if members:
+            print("=" * 50)
+            status = "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数\n"
+            for member in self.current_members:
+                space_after_name = " " * (10 - len(member.name))
+                status += colored(
+                        member._current_color,
+                        (
+                            f"\t[{member.id}, {member.surviver_id}] "
+                            f"{member.name}:{space_after_name}"
+                            f"   {member.age}," 
+                            f"   {member.vitality:.1f},"
+                            f"   {member.cargo:.1f}"
+                            f"   {member.land_num:d}({100*member.land_num/np.prod(self.land.shape):.1f}%)"
+                            "\n"
+                        )
                     )
-                )
-        print(status)
+            print(status)
 
