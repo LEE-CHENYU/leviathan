@@ -53,8 +53,12 @@ class Land():
         member: Member, 
         is_passed: np.ndarray,
         iteration_cnt: int,
+        max_iter: int,
         island: Island.Island,
     ) -> None:
+
+        if iteration_cnt >= max_iter:
+            return
 
         is_passed[location] = 1
 
@@ -73,7 +77,7 @@ class Land():
         # 遍历四个方向
         for direction in loc_to_pass:
             direction = tuple(direction)
-            if not is_passed[direction[0], direction[1] % self.shape[1]]:
+            if not is_passed[direction[0], direction[1]]:
                 member_to_pass = self[direction]
 
                 # 如果是边界，记录，并继续遍历四个方向
@@ -101,6 +105,7 @@ class Land():
                         member, 
                         is_passed,
                         iteration_cnt + 1,
+                        max_iter,
                         island
                     )
                     continue
@@ -120,6 +125,7 @@ class Land():
                         member, 
                         is_passed,
                         iteration_cnt + 1,
+                        max_iter,
                         island
                     )
                     continue
@@ -130,10 +136,13 @@ class Land():
                         neighbor_blocked_list.append((land_owner, member_to_pass))
                     continue
 
+        return 
+
     def neighbors(
         self, 
         member: Member, 
-        island: Island
+        island: Island,
+        max_iter: int = np.inf,
     ):
         """
         返回四个列表：
@@ -150,8 +159,8 @@ class Land():
         is_passed = np.zeros(self.shape)
 
         for land in member.owned_land:
-            if is_passed[land]:
-                continue
+            # if is_passed[land]:
+            #     continue
             self._find_neighbors(
                 clear_list,
                 self_blocked_list,
@@ -161,7 +170,8 @@ class Land():
                 member = member,
                 is_passed = is_passed,
                 iteration_cnt = 0,
-                island = island
+                max_iter = max_iter,
+                island = island,
             )
 
         return (

@@ -6,7 +6,7 @@ from Island import Island
 from Member import Member
 from utils.save import path_decorator
 
-from typing import List
+from typing import List, Dict
 
 import os
 
@@ -72,8 +72,7 @@ class Analyzer:
         member = self.look_for_current_member(member)
         return member.save_to_row()
 
-    def member_info(self) -> pd.DataFrame:
-
+    def all_member_info(self) -> pd.DataFrame:
         current_member_df = self.member_row(self.island.current_members[0])
         
         for member in self.island.current_members[1:]:
@@ -84,6 +83,22 @@ class Analyzer:
             )
 
         return current_member_df
+
+    def round_info(self) -> Dict[str, pd.DataFrame]:
+        info = pd.DataFrame({
+            "round": self.island.current_round,
+            "population": self.island.current_member_num,
+        })
+
+        df = self.all_member_info()
+        return {
+            "info": info,
+            "mean": pd.DataFrame(df.mean(0, numeric_only=True)).transpose(),
+            "std": pd.DataFrame(df.std(0, numeric_only=True)).transpose(),
+            "quartile 1/4": pd.DataFrame(df.quantile(0.25, 0, numeric_only=True)).transpose(),
+            "quartile 2/4": pd.DataFrame(df.quantile(0.5, 0, numeric_only=True)).transpose(),
+            "quartile 3/4": pd.DataFrame(df.quantile(0.75, 0, numeric_only=True)).transpose(),
+        }
 
 class Tracer:
     def __init__(
@@ -126,18 +141,44 @@ class Tracer:
                 island_list.append(analyzer.island)
         return Tracer(island_list)
 
-    def member_info(self, member: Member | int) -> pd.DataFrame:
+    def member_history(self, member: Member | int) -> pd.DataFrame:
 
         current_member_df = self.analyzer_list[0].member_row(member)
         
         for analyzer in self.analyzer_list[1:]:
-            current_member_df = pd.concat([
-                current_member_df,
-                analyzer.member_row(member)],
+            current_member_df = pd.concat(
+                [
+                    current_member_df,
+                    analyzer.member_row(member)
+                ],
                 axis=0
             )
 
         return current_member_df
+
+    def all_member_summary_history(self,) -> Dict[str, pd.DataFrame]:
+        all_info_dict = self.analyzer_list[0].round_info()
+
+        for analyzer in self.analyzer_list[1:]:
+            new_info_dict = analyzer.round_info()
+
+            for key, df in all_info_dict.items():
+                df = pd.concat(
+                    [
+                        df,
+                        new_info_dict[key],
+                    ],
+                    axis = 0
+                )
+
+                all_info_dict[key] = df
+
+        index = np.array([ana.island.current_round for ana in self.analyzer_list])
+        for key, df in all_info_dict.items():
+            df = df.set_index(index)
+            all_info_dict[key] = df
+
+        return all_info_dict
 
     def surviver_cohort_matrix(
         self, 

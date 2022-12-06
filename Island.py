@@ -44,6 +44,7 @@ class Island():
         "benefit_land": [-3, 3],           
     }
 
+    _NEIGHBOR_SEARCH_RANGE = 5
     _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
@@ -378,7 +379,7 @@ class Island():
             member.current_self_blocked_list,
             member.current_neighbor_blocked_list,
             member.current_empty_loc_list,
-        ) = self.land.neighbors(member, self)
+        ) = self.land.neighbors(member, self, Island._NEIGHBOR_SEARCH_RANGE)
 
 
     def _find_targets(
