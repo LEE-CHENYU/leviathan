@@ -20,7 +20,7 @@ class Analyzer:
 
     # Relationships
     # ##########################################################################
-    def generate_clear_graph(self) -> nx.DiGraph:
+    def clear_graph(self) -> nx.DiGraph:
 
         self.clear_graph = nx.DiGraph()
 
@@ -33,19 +33,17 @@ class Analyzer:
 
         return self.clear_graph
 
-
-
     def generate_network_by_decision(self):
         """
         
         """
         pass
 
-    def connectivity(self) -> float:
+    def clear_degree(self) -> float:
         """
-        计算成员之间的连接度
+        计算成员之间通行权的连接度
         """
-        pass
+        return self.clear_graph().degree()
 
     # Member
     # ##########################################################################
