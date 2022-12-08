@@ -83,8 +83,8 @@ class Analyzer:
 
     def round_info(self) -> Dict[str, pd.DataFrame]:
         info = pd.DataFrame({
-            "round": self.island.current_round,
-            "population": self.island.current_member_num,
+            "round": [self.island.current_round],
+            "population": [self.island.current_member_num],
         })
 
         df = self.all_member_info()
@@ -185,4 +185,3 @@ class Tracer:
 
         pass
 
-    
