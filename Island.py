@@ -44,7 +44,7 @@ class Island():
         "benefit_land": [-3, 3],           
     }
 
-    _NEIGHBOR_SEARCH_RANGE = 5
+    _NEIGHBOR_SEARCH_RANGE = 7
     _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 

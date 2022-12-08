@@ -60,7 +60,8 @@ class Land():
         if iteration_cnt >= max_iter:
             return
 
-        is_passed[location] = 1
+        # 走到这个格子时候剩余的步数
+        is_passed[location] = max_iter - iteration_cnt
 
         loc_0, loc_1 = location
         land_owner = self[location]
@@ -77,64 +78,68 @@ class Land():
         # 遍历四个方向
         for direction in loc_to_pass:
             direction = tuple(direction)
-            if not is_passed[direction[0], direction[1]]:
-                member_to_pass = self[direction]
 
-                # 如果是边界，记录，并继续遍历四个方向
-                if member_to_pass is None:
-                    empty_loc_list.append(direction)
-                    continue
+            # 如果之前曾经走到过下一个地点，并且当时的剩余步数比现在多，就不用继续探索了
+            if is_passed[direction[0], direction[1]] >= (max_iter - iteration_cnt - 1): 
+                continue
 
-                # 如果成员曾经阻拦
-                if member_to_pass in self_blocked_list:
-                    continue
-                if (land_owner, member_to_pass) in neighbor_blocked_list:
-                    if in_owned_land:
-                        neighbor_blocked_list.remove((land_owner, member_to_pass))
-                        self_blocked_list.append(member_to_pass)
-                    continue
+            member_to_pass = self[direction]
 
-                # 如果成员曾经放行，或遇到自己领地
-                if member_to_pass in clear_list or member_to_pass == member:
-                    self._find_neighbors(
-                        clear_list,
-                        self_blocked_list,
-                        neighbor_blocked_list,
-                        empty_loc_list,
-                        direction, 
-                        member, 
-                        is_passed,
-                        iteration_cnt + 1,
-                        max_iter,
-                        island
-                    )
-                    continue
+            # 如果是边界，记录，并继续遍历四个方向
+            if member_to_pass is None:
+                empty_loc_list.append(direction)
+                continue
 
-                if member_to_pass.decision(
-                    "clear", 
-                    member,
+            # 如果成员曾经阻拦
+            if member_to_pass in self_blocked_list:
+                continue
+            if (land_owner, member_to_pass) in neighbor_blocked_list:
+                if in_owned_land:
+                    neighbor_blocked_list.remove((land_owner, member_to_pass))
+                    self_blocked_list.append(member_to_pass)
+                continue
+
+            # 如果成员曾经放行，或遇到自己领地
+            if member_to_pass in clear_list or member_to_pass == member:
+                self._find_neighbors(
+                    clear_list,
+                    self_blocked_list,
+                    neighbor_blocked_list,
+                    empty_loc_list,
+                    direction, 
+                    member, 
+                    is_passed,
+                    iteration_cnt + 1,
+                    max_iter,
                     island
-                ):
-                    clear_list.append(member_to_pass)
-                    self._find_neighbors(
-                        clear_list,
-                        self_blocked_list,
-                        neighbor_blocked_list,
-                        empty_loc_list,
-                        direction, 
-                        member, 
-                        is_passed,
-                        iteration_cnt + 1,
-                        max_iter,
-                        island
-                    )
-                    continue
+                )
+                continue
+
+            if member_to_pass.decision(
+                "clear", 
+                member,
+                island
+            ):
+                clear_list.append(member_to_pass)
+                self._find_neighbors(
+                    clear_list,
+                    self_blocked_list,
+                    neighbor_blocked_list,
+                    empty_loc_list,
+                    direction, 
+                    member, 
+                    is_passed,
+                    iteration_cnt + 1,
+                    max_iter,
+                    island
+                )
+                continue
+            else:
+                if in_owned_land:
+                    self_blocked_list.append(member_to_pass)
                 else:
-                    if in_owned_land:
-                        self_blocked_list.append(member_to_pass)
-                    else:
-                        neighbor_blocked_list.append((land_owner, member_to_pass))
-                    continue
+                    neighbor_blocked_list.append((land_owner, member_to_pass))
+                continue
 
         return 
 

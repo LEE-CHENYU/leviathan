@@ -2,6 +2,7 @@ from Island import Island
 
 from time import sleep
 from sys import stdin 
+from utils import save
 from select import select
 import os
 
@@ -9,26 +10,22 @@ class Engine():
     def __init__(
         self,
         init_member_num,
+        land_shape,
         random_seed,
         record_path,
     ) -> None:
         self.island = Island(
             init_member_num,
+            land_shape,
             random_seed
         )
         
         Island._RECORD_PERIOD = 100
 
+        if not os.path.exists(record_path):
+            os.mkdir(record_path)
         self.record_path = record_path
-        if not os.path.exists(self.record_path):
-            os.mkdir(self.record_path)
-        else:
-            raise ValueError(f"已经存在路径 {self.record_path}，请指定不存在的文件夹。")
-
-    def save_seed(self):
-        """设置并保存随机种子"""
-        pass
-
+        
     def run(self):
         while self.island.current_member_num > 1:
             self.island.produce()
@@ -49,9 +46,5 @@ class Engine():
         else:
             return
 
-
     def save(self):
         pass
-
-engine = Engine(50, 2022, record_path="test2/")
-engine.run()
