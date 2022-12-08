@@ -218,25 +218,31 @@ class Land():
     def _plot_map(
         self,
         ax,
-        map
+        map,
+        show_id = True,
     ):
         ax.imshow(map)
+
+        if not show_id:
+            return
 
         for (i, j), owner in np.ndenumerate(self.owner):
             if owner is not None:
                 ax.text(j, i, f"{owner.surviver_id:d}", ha='center', va='center', c="white", fontsize=5)
 
     def plot(
-        self
+        self,
+        axs = None,
+        show_id = True,
     ):
-        fig, axs = plt.subplots(1, 2, figsize=np.array(self.shape)[::-1]*0.3, dpi=150)
+        if axs is None: 
+            fig, axs = plt.subplots(1, 2, figsize=np.array(self.shape)[::-1]*0.3, dpi=150)
 
         ax = axs[0]
         original_map = self._color_map(original_color=True)
-        self._plot_map(ax, original_map)
+        self._plot_map(ax, original_map, show_id)
 
         ax = axs[1]
         current_map = self._color_map(original_color=False)
-        self._plot_map(ax, current_map)
+        self._plot_map(ax, current_map, show_id)
 
-        plt.show()
