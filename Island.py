@@ -68,7 +68,7 @@ class Island():
         self._rng = np.random.default_rng(self._random_seed)
 
         # 初始人数，当前人数
-        self._NAME_LIST = self._rng.permutation(np.loadtxt("./name_list.txt", dtype=str))
+        self._NAME_LIST = self._rng.permutation(np.loadtxt("/Users/Harry/Documents/Programs/Leviathan/name_list.txt", dtype=str))
 
         self.init_member_num = init_member_number
         self.current_member_num = self.init_member_num
@@ -379,8 +379,12 @@ class Island():
             member.current_self_blocked_list,
             member.current_neighbor_blocked_list,
             member.current_empty_loc_list,
-        ) = self.land.neighbors(member, self, Island._NEIGHBOR_SEARCH_RANGE)
-
+        ) = self.land.neighbors(
+            member, 
+            self, 
+            Island._NEIGHBOR_SEARCH_RANGE
+            decision_threshold=1,
+        )
 
     def _find_targets(
         self,

@@ -55,6 +55,7 @@ class Land():
         iteration_cnt: int,
         max_iter: int,
         island: Island.Island,
+        decision_threshold: int = 1,
     ) -> None:
 
         if iteration_cnt >= max_iter:
@@ -87,7 +88,8 @@ class Land():
 
             # 如果是边界，记录，并继续遍历四个方向
             if member_to_pass is None:
-                empty_loc_list.append(direction)
+                if direction not in empty_loc_list:
+                    empty_loc_list.append(direction)
                 continue
 
             # 如果成员曾经阻拦
@@ -118,7 +120,8 @@ class Land():
             if member_to_pass.decision(
                 "clear", 
                 member,
-                island
+                island,
+                threshold=decision_threshold,
             ):
                 clear_list.append(member_to_pass)
                 self._find_neighbors(
@@ -148,6 +151,7 @@ class Land():
         member: Member, 
         island: Island,
         max_iter: int = np.inf,
+        decision_threshold: int = 1,
     ):
         """
         返回四个列表：
@@ -177,6 +181,7 @@ class Land():
                 iteration_cnt = 0,
                 max_iter = max_iter,
                 island = island,
+                decision_threshold = decision_threshold,
             )
 
         return (
