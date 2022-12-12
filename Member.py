@@ -4,6 +4,7 @@ import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import Island
+import Land
 
 def colored(rgb, text):
     r, g, b = rgb
@@ -387,13 +388,25 @@ class Member():
             self.land_num >= Member._LAND_HERITAGE + 1
         )
 
-    def center_of_land(self,) -> np.ndarray:
-        ave_loc = np.array([0, 0])
-        for land in self.owned_land:
-            ave_loc += np.array(land)
+    def center_of_land(self, land: Land.Land) -> np.ndarray:
+        """
+        估计土地的中心，方法：
+        计算自己拥有的每一块土地到自己其他土地的“最短距离”，
+        对于每一块土地，计算他离其他所有土地的距离之和，
+        距离之和最短的土地，即为大致的中心
+        """
+        
+        dis_mat = np.zeros((self.land_num, self.land_num))
+        for idx_1, land_1 in enumerate(self.owned_land):
+            for idx_2, land_2 in enumerate(self.owned_land):
+                if idx_1 < idx_2:
+                    dis_mat[idx_1, idx_2] = land.distance(land_1, land_2)**2
+                    dis_mat[idx_2, idx_1] = dis_mat[idx_1, idx_2]
+        
+        total_dis = np.sum(dis_mat, axis=0)
+        approxed_center_id = np.argmin(total_dis)
 
-        return ave_loc / self.land_num
-
+        return np.array(self.owned_land[approxed_center_id])
 
     #########################################################################
     ################################## 动作 ################################## 

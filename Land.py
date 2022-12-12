@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
-from Member import Member
+import Member
 import Island
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
@@ -15,9 +15,9 @@ class Land():
 
     ):
         self.shape = shape
-        self.owner: np.ndarray[Member] = np.ndarray(shape, dtype=Member)
+        self.owner: np.ndarray[Member.Member] = np.ndarray(shape, dtype=Member.Member)
 
-    def __getitem__(self, key) -> Member:
+    def __getitem__(self, key) -> Member.Member:
         if isinstance(key, tuple):
             return self.owner[key]
         else:
@@ -40,17 +40,17 @@ class Land():
             dis_in_period(loc_1[0], loc_2[0], self.shape[0]),
             dis_in_period(loc_1[1], loc_2[1], self.shape[1]),
         ]
-        distance = np.sqrt(np.linalg.norm(direction))
+        distance = np.linalg.norm(direction)
         return distance
 
     def _find_neighbors(
         self, 
-        clear_list: List[Member],
-        self_blocked_list: List[Member],
-        neighbor_blocked_list: List[Tuple(Member, Member)],
+        clear_list: List[Member.Member],
+        self_blocked_list: List[Member.Member],
+        neighbor_blocked_list: List[Tuple(Member.Member, Member.Member)],
         empty_loc_list: List[Tuple[int, int]],
         location: Tuple[int, int], 
-        member: Member, 
+        member: Member.Member, 
         is_passed: np.ndarray,
         iteration_cnt: int,
         max_iter: int,
@@ -63,6 +63,9 @@ class Land():
 
         # 走到这个格子时候剩余的步数
         is_passed[location] = max_iter - iteration_cnt
+
+        # print(f"In inter = {iteration_cnt}, ispassed: ")
+        # print("\t", is_passed)
 
         loc_0, loc_1 = location
         land_owner = self[location]
@@ -80,13 +83,17 @@ class Land():
         for direction in loc_to_pass:
             direction = tuple(direction)
 
+            # print(f"\t Now in pos: {direction}, {is_passed[direction[0], direction[1]]}, {max_iter - iteration_cnt - 1}")
+
             # 如果之前曾经走到过下一个地点，并且当时的剩余步数比现在多，就不用继续探索了
-            if is_passed[direction[0], direction[1]] >= (max_iter - iteration_cnt - 1): 
+            # if is_passed[direction[0], direction[1]] > (max_iter - iteration_cnt - 1): 
+
+            if is_passed[direction[0], direction[1]] > 0: 
                 continue
 
             member_to_pass = self[direction]
 
-            # 如果是边界，记录，并继续遍历四个方向
+            # 如果是边界，记录，并继续遍历
             if member_to_pass is None:
                 if direction not in empty_loc_list:
                     empty_loc_list.append(direction)
@@ -148,7 +155,7 @@ class Land():
 
     def neighbors(
         self, 
-        member: Member, 
+        member: Member.Member, 
         island: Island,
         max_iter: int = np.inf,
         decision_threshold: int = 1,
@@ -209,7 +216,7 @@ class Land():
         ):
         map = np.zeros(self.shape + (3,), dtype=int)
         for idx in np.ndindex(self.shape):
-            mem: Member = self.owner[idx]
+            mem: Member.Member = self.owner[idx]
             if mem is not None:
                 if original_color:
                     map[idx] = mem._color

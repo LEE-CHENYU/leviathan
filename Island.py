@@ -382,7 +382,7 @@ class Island():
         ) = self.land.neighbors(
             member, 
             self, 
-            Island._NEIGHBOR_SEARCH_RANGE
+            Island._NEIGHBOR_SEARCH_RANGE,
             decision_threshold=1,
         )
 
@@ -798,15 +798,16 @@ class Island():
         if member_1.land_num == 0 and assigned_pos is None:
             raise RuntimeError("在没有指定位置的情况下，接受土地的人应该拥有至少一块土地")
 
-        pos_1 = member_1.center_of_land()
+        pos_1 = member_1.center_of_land(self.land)
         if assigned_pos is None:
-            pos_2 = member_2.center_of_land()
+            pos_2 = member_2.center_of_land(self.land)
         else:
             pos_2 = assigned_pos
 
         farthest_distance = -np.inf
         for land in member_1.owned_land:
             distance = self.land.distance(pos_1, land) - self.land.distance(pos_2, land)
+            # distance = np.sum((pos_1 - land)**2) - np.sum((pos_2 - land)**2)
             if distance > farthest_distance:
                 farthest_distance = distance
                 farthest_pos = land
@@ -924,7 +925,7 @@ class Island():
         self._offer(member_2, child, parameter_influence=False)
 
         # 父母无条件给予孩子土地
-        center_pos = (member_1.center_of_land() + member_2.center_of_land()) / 2
+        center_pos = (member_1.center_of_land(self.land) + member_2.center_of_land(self.land)) / 2
         for _ in range(Member._LAND_HERITAGE):
             self._offer_land(
                 member_1, child, parameter_influence=False, 

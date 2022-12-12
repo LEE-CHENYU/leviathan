@@ -1,3 +1,6 @@
+# import sys 
+# sys.path.append("..")
+
 from matplotlib.widgets import Slider, Button
 
 import matplotlib.pyplot as plt
@@ -7,12 +10,12 @@ from Island import Island, Member
 import time
 
 round_min = 10
-round_max = 1120
+round_max = 100
 round_step = 10
 
 island_dict = {}
 for round in range(round_min, round_max, round_step):
-    island = Island.load_from_pickle(f"/Users/Harry/Documents/Programs/Leviathan/data/Nov/20_16-19/{round}.pkl")
+    island = Island.load_from_pickle(f"/Users/Harry/Documents/Programs/Leviathan/data/Dec/11_21-57/{round}.pkl")
     island_dict[round] = island
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 7))
