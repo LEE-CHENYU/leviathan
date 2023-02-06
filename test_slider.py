@@ -9,13 +9,13 @@ from Island import Island, Member
 
 import time
 
-round_min = 10
-round_max = 100
-round_step = 10
+round_min = 0
+round_max = 204
+round_step = 1
 
 island_dict = {}
 for round in range(round_min, round_max, round_step):
-    island = Island.load_from_pickle(f"/Users/Harry/Documents/Programs/Leviathan/data/Dec/11_21-57/{round}.pkl")
+    island = Island.load_from_pickle(f"/Users/Harry/Documents/Programs/Leviathan/data/Dec/11_23-19/{round}.pkl")
     island_dict[round] = island
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 7))
@@ -34,7 +34,7 @@ round_slider = Slider(
 )
 
 def update(val):
-    round = int(round_slider.val / 10) * 10
+    round = int(round_slider.val / round_step) * round_step
     # island = Island.load_from_pickle(f"data/Dec/07_22-10/{round}.pkl")
     island_dict[round].land.plot(axs, show_id=False)
     fig.canvas.draw_idle()
