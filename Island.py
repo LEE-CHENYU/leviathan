@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
-from Member import Member, colored
+from Member import Member, MemberBase, colored
 from Land import Land
 
 from utils.save import path_decorator
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Sequence
 from time import time
 import pickle 
 import sys
@@ -37,7 +37,191 @@ def _requirement_for_offer_land(
 ) -> bool:
     return member_1.land_num > 1
 
-class Island():
+class IslandBase():
+    all_members: List[MemberBase]
+    current_members: List[MemberBase]
+
+    def __init__(
+        self, 
+        init_member_number: int,
+        random_seed: int | None = None
+    ) -> None:
+        
+        self._create_from_file = False
+        self._file_name = ""
+        
+        # 设置并记录随机数种子
+        if random_seed is not None:
+            self._random_seed = int(random_seed)
+        else:
+            self._random_seed = int(time())
+        self._rng = np.random.default_rng(self._random_seed)
+
+        # 初始人数，当前人数
+        self._NAME_LIST = self._rng.permutation(np.loadtxt("/Users/Harry/Documents/Programs/Leviathan/name_list.txt", dtype=str))
+
+        self.init_member_num = init_member_number
+        self.current_member_num = self.init_member_num
+
+        # 初始化关系矩阵
+        self.relationship_dict = {}
+    
+    ############################################################################
+    ################################ 基本操作 #################################### 
+    def member_by_name(
+        self,
+        name: str,
+    ) -> MemberBase:
+        for member in self.current_members:
+            if member.name == name:
+                return member
+        
+        for member in self.all_members:
+            if member.name == name:
+                return member
+
+        raise KeyError(f"Member {name} not found!")
+
+    # =============================== 成员增减 ===================================
+    def _backup_member_list(
+        self, 
+        member_list: List[MemberBase]
+    ) -> List[MemberBase]:
+        """复制member_list"""
+        return [member for member in member_list]
+
+    def _member_list_append(
+        self, 
+        append: List[MemberBase] = [], 
+        appended_rela_rows: np.ndarray | List = [], 
+        appended_rela_columnes: np.ndarray | List = [],
+    ) -> None:
+        """
+        向current_members，all_members增加一个列表的人物，
+        增加current_member_num，
+        修改relationships矩阵，
+        修改人物surviver_id，
+        """
+        appended_num = len(append)
+        prev_member_num = self.current_member_num
+
+        if not isinstance(appended_rela_columnes, np.ndarray):
+            raise ValueError("关系矩阵增添的列应该是ndarray类型")
+        if not isinstance(appended_rela_rows, np.ndarray):
+            raise ValueError("关系矩阵增添的行应该是ndarray类型")
+        
+        if self.relationship_dict != {}:
+            assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
+            assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
+
+        # 向列表中增加人物
+        for member in append:
+            member.surviver_id = self.current_member_num
+            self.current_members.append(member)
+            self.all_members.append(member)
+
+            self.current_member_num += 1
+
+        # 修改关系矩阵
+        for key in self.relationship_dict.keys():
+            # 无法直接进行赋值，需修改原数组尺寸后填入数值
+            tmp_old = self.relationship_dict[key].copy()
+            tmp_new = np.zeros((self.current_member_num, self.current_member_num))
+            
+            tmp_new[:prev_member_num, :prev_member_num] = tmp_old
+            tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columnes
+            tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
+            np.fill_diagonal(tmp_new, np.nan)
+
+            self.relationship_dict[key] = tmp_new
+
+        return
+
+    def _member_list_drop(
+        self, 
+        drop: List[MemberBase] = []
+    ) -> None:
+        """
+        从current_members删除人物，
+        减少current_member_num，
+        修改relationships矩阵，
+        重新修改全体人物surviver_id
+        """
+        drop_id = np.array([member.id for member in drop])            # 校对id，确保正确删除
+        drop_sur_id = np.array([member.surviver_id for member in drop])
+
+        if (drop_sur_id == None).any():
+            raise AttributeError(f"被删除对象应该有surviver_id")
+
+        # 排序，确保正确移除
+        argsort_sur_id = np.argsort(drop_sur_id)[::-1]
+        drop_id = drop_id[argsort_sur_id]
+        drop_sur_id = drop_sur_id[argsort_sur_id]
+        
+        # 从列表中移除人物
+        for idx in range(len(drop_id)):
+            id_to_drop = drop_id[idx]
+            sur_id_to_drop = drop_sur_id[idx]
+            assert self.current_members[sur_id_to_drop].id == id_to_drop, "删除对象不匹配"
+
+            self.current_members[sur_id_to_drop].surviver_id = None
+
+            del self.current_members[sur_id_to_drop]
+            self.current_member_num -= 1
+
+        # 修改关系矩阵
+        for key in self.relationship_dict.keys():
+            # 无法直接进行赋值，需修改原数组尺寸后填入数值
+            tmp = np.delete(self.relationship_dict[key], drop_sur_id, axis=0)
+            tmp = np.delete(tmp, drop_sur_id, axis=1)
+
+            self.relationship_dict[key] = tmp
+
+        # 重新编号存活成员
+        for sur_id in range(self.current_member_num):
+            self.current_members[sur_id].surviver_id = sur_id
+        
+        return
+
+    def member_list_modify(
+        self, 
+        append: List[MemberBase] = [], 
+        drop: List[MemberBase] = [], 
+        appended_rela_rows: np.ndarray = np.empty(0), 
+        appended_rela_columnes: np.ndarray = np.empty(0)
+    ) -> None:
+        """
+        修改member_list，先增加人物，后修改
+        记录出生、死亡
+        """
+        if append != []:
+            self._member_list_append(
+                append=append, 
+                appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
+            )
+        if drop != []:
+            self._member_list_drop(
+                drop=drop
+            )
+
+        return
+
+    @property
+    def is_dead(self,) -> bool:
+        return self.current_member_num == 0
+    
+    @property 
+    def shuffled_members(self) -> List[Member]:
+        """
+        打乱整个current_members列表
+        """
+        shuffled_members = self._backup_member_list(self.current_members)
+        self._rng.shuffle(shuffled_members)
+
+        return shuffled_members
+
+
+class Island(IslandBase):
     _MIN_MAX_INIT_RELATION = {
         "victim": [-50, 100],                # 若随机到负值，则该记忆初始化为0
         "benefit": [-50, 100],        
@@ -55,28 +239,18 @@ class Island():
         self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
-        random_seed: int = None
+        random_seed: int | None = None
     ) -> None:
 
-        # 设置并记录随机数种子
-        self._create_from_file = False
-        self._file_name = ""
-        if random_seed is not None:
-            self._random_seed = int(random_seed)
-        else:
-            self._random_seed = int(time())
-        self._rng = np.random.default_rng(self._random_seed)
-
-        # 初始人数，当前人数
-        self._NAME_LIST = self._rng.permutation(np.loadtxt("/Users/Harry/Documents/Programs/Leviathan/name_list.txt", dtype=str))
-
-        self.init_member_num = init_member_number
-        self.current_member_num = self.init_member_num
+        super().__init__(
+            init_member_number=init_member_number,
+            random_seed=random_seed
+        )
 
         # 初始人物列表，全体人物列表，当前人物列表
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
-        self.all_members = self._backup_member_list(self.init_members)
-        self.current_members = self._backup_member_list(self.init_members)
+        self.all_members: Member = self._backup_member_list(self.init_members)
+        self.current_members: Member = self._backup_member_list(self.init_members)
 
         # 地图
         assert land_shape[0] * land_shape[1] > init_member_number, "土地面积应该大于初始人口"
@@ -94,7 +268,6 @@ class Island():
         # 初始人物关系
         # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
         # 若要修改（增减）人物关系，需要修改：self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
-        self.relationship_dict = {}
         for key, (min, max) in Island._MIN_MAX_INIT_RELATION.items():
             rela = self._rng.uniform(
                 min, 
@@ -130,79 +303,25 @@ class Island():
         # 回合数
         self.current_round = 0
 
-
-    ############################################################################
-    ################################ 基本操作 #################################### 
-
-    def member_by_name(
-        self,
-        name: str,
-    ) -> Member:
-        for member in self.current_members:
-            if member.name == name:
-                return member
-        
-        for member in self.all_members:
-            if member.name == name:
-                return member
-
-        raise KeyError(f"Member {name} not found!")
-
-    # =============================== 成员增减 ===================================
-    def _backup_member_list(
-        self, 
-        member_list: List[Member]
-    ) -> List[Member]:
-        """复制member_list"""
-        return [member for member in member_list]
-
     def _member_list_append(
         self, 
-        append: List[Member] = [], 
-        appended_rela_rows: np.ndarray = [], 
-        appended_rela_columnes: np.ndarray = [],
+        append: List[MemberBase] = [], 
+        appended_rela_rows: np.ndarray | List = [], 
+        appended_rela_columnes: np.ndarray | List = [],
     ) -> None:
         """
-        向current_members，all_members增加一个列表的人物，
+        向current_members增加人物，
         增加current_member_num，
         修改relationships矩阵，
-        修改人物surviver_id，
+        重新修改全体人物surviver_id
         """
-        appended_num = len(append)
-        prev_member_num = self.current_member_num
-
-        if not isinstance(appended_rela_columnes, np.ndarray):
-            raise ValueError("关系矩阵增添的列应该是ndarray类型")
-        if not isinstance(appended_rela_rows, np.ndarray):
-            raise ValueError("关系矩阵增添的行应该是ndarray类型")
-        assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
-        assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
-
-        # 向列表中增加人物
-        for member in append:
-            member.surviver_id = self.current_member_num
-            self.current_members.append(member)
-            self.all_members.append(member)
-
-            self.current_member_num += 1
-
-        # 记录出生
+        super()._member_list_append(
+            append=append,
+            appended_rela_rows=appended_rela_rows,
+            appended_rela_columnes=appended_rela_columnes,
+        )
+                # 记录出生
         self.record_born = self.record_born + append
-
-        # 修改关系矩阵
-        for key in self.relationship_dict.keys():
-            # 无法直接进行赋值，需修改原数组尺寸后填入数值
-            tmp_old = self.relationship_dict[key].copy()
-            tmp_new = np.zeros((self.current_member_num, self.current_member_num))
-            
-            tmp_new[:prev_member_num, :prev_member_num] = tmp_old
-            tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columnes
-            tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
-            np.fill_diagonal(tmp_new, np.nan)
-
-            self.relationship_dict[key] = tmp_new
-
-        return
 
     def _member_list_drop(
         self, 
@@ -214,44 +333,11 @@ class Island():
         修改relationships矩阵，
         重新修改全体人物surviver_id
         """
-        drop_id = np.array([member.id for member in drop])            # 校对id，确保正确删除
-        drop_sur_id = np.array([member.surviver_id for member in drop])
-
-        if (drop_sur_id == None).any():
-            raise AttributeError(f"被删除对象应该有surviver_id")
 
         for member in drop:
             assert member.owned_land == [], "被删除对象应该没有土地"
 
-        # 排序，确保正确移除
-        argsort_sur_id = np.argsort(drop_sur_id)[::-1]
-        drop_id = drop_id[argsort_sur_id]
-        drop_sur_id = drop_sur_id[argsort_sur_id]
-        
-        # 从列表中移除人物
-        for idx in range(len(drop_id)):
-            id_to_drop = drop_id[idx]
-            sur_id_to_drop = drop_sur_id[idx]
-            assert self.current_members[sur_id_to_drop].id == id_to_drop, "删除对象不匹配"
-
-            self.current_members[sur_id_to_drop].surviver_id = None
-
-            del self.current_members[sur_id_to_drop]
-            self.current_member_num -= 1
-
-        # 修改关系矩阵
-        for key in self.relationship_dict.keys():
-            # 无法直接进行赋值，需修改原数组尺寸后填入数值
-            tmp = np.delete(self.relationship_dict[key], drop_sur_id, axis=0)
-            tmp = np.delete(tmp, drop_sur_id, axis=1)
-
-            self.relationship_dict[key] = tmp
-
-        # 重新编号存活成员
-        for sur_id in range(self.current_member_num):
-            self.current_members[sur_id].surviver_id = sur_id
-        
-        return
+        super()._member_list_drop(drop=drop)
 
     def member_list_modify(
         self, 
@@ -569,15 +655,6 @@ class Island():
 
     ############################################################################
     ################################## 模拟 #####################################
-    @property 
-    def shuffled_members(self) -> List[Member]:
-        """
-        打乱整个current_members列表
-        """
-        shuffled_members = self._backup_member_list(self.current_members)
-        self._rng.shuffle(shuffled_members)
-
-        return shuffled_members
 
     def declare_dead(self, member: Member):
         # 立即丢失所有土地

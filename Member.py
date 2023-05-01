@@ -11,7 +11,24 @@ def colored(rgb, text):
     # return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
     return text
 
-class Member():
+class MemberBase():
+    def __init__(
+        self, 
+        name: str, 
+        id: int, 
+        surviver_id: int,
+        rng: np.random.Generator
+    ) -> None:
+
+        # 随机数生成器
+        self._rng = rng
+
+        # 姓名
+        self.name = name
+        self.id = id
+        self.surviver_id = surviver_id      # Island.current_members中的编号
+
+class Member(MemberBase):
     # 生产力
     # prod * (land / standard)**0.5
     _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 15, 20       # 生产力属性
@@ -284,15 +301,9 @@ class Member():
         id: int, 
         surviver_id: int,
         rng: np.random.Generator
-        ) -> None:
+    ) -> None:
 
-        # 随机数生成器
-        self._rng = rng
-
-        # 姓名
-        self.name = name
-        self.id = id
-        self.surviver_id = surviver_id      # Island.current_members中的编号
+        super().__init__(name, id, surviver_id, rng)
 
         # 亲人链表
         self.parent_1 = None
