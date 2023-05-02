@@ -242,27 +242,10 @@ class Island(IslandBase):
         random_seed: int | None = None
     ) -> None:
 
-<<<<<<< HEAD
-        # 设置并记录随机数种子
-        self._create_from_file = False
-        self._file_name = ""
-        if random_seed is not None:
-            self._random_seed = int(random_seed)
-        else:
-            self._random_seed = int(time())
-        self._rng = np.random.default_rng(self._random_seed)
-
-        # 初始人数，当前人数
-        self._NAME_LIST = self._rng.permutation(np.loadtxt("/Users/lichenyu/leviathan/name_list.txt", dtype=str))
-
-        self.init_member_num = init_member_number
-        self.current_member_num = self.init_member_num
-=======
         super().__init__(
             init_member_number=init_member_number,
             random_seed=random_seed
         )
->>>>>>> 5f047dd6240bf2571e759972bb08b16946ff617e
 
         # 初始人物列表，全体人物列表，当前人物列表
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
