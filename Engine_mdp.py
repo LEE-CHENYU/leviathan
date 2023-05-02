@@ -1,4 +1,4 @@
-from Island import Island
+from Island_mdp import Island
 
 from time import sleep
 from sys import stdin 
