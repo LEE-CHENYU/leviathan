@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from Member import Member, colored
-from Land import Land
+from Member_mdp import Member, colored
+from Land_mdp import Land
 
 from utils.save import path_decorator
 
@@ -125,6 +125,8 @@ class Island():
             "benefit": [0],
             "benefit_land": [0],
         }
+        self.record_historic_ratio_list = np.array([(0,0,0,0)])
+        self.record_historic_ranking_list = [(0,0,0,0)]
         self.record_land = [self.land.owner_id]
 
         # 回合数
@@ -485,6 +487,25 @@ class Island():
             self.record_total_dict[record_name][-1] += value_1 + value_2
         else:
             self.record_total_dict[record_name][-1] += value_1
+    
+    def _record_historic_ratio(self):
+        current_attack_ratio = self.record_total_dict['attack'][-1]/(self.record_total_production[-1]+0.00000000000001)
+        current_benefit_ratio = self.record_total_dict['benefit'][-1]/(self.record_total_production[-1]+0.00000000000001)
+        current_benefit_land_ratio = self.record_total_dict['benefit_land'][-1]/(self.record_total_production[-1]+0.00000000000001)
+        # current_attack_ratio = self.record_total_dict[-1]['reproduce']/(self.record_total_production[-1]+0.00000000000001) #预留reproduce
+
+        self.record_historic_ratio_list = np.append(self.record_historic_ratio_list, [[current_attack_ratio, current_benefit_ratio, current_benefit_land_ratio, 0]], axis=0)
+
+    def _record_historic_ranking(self):
+        # 计算排位
+        current_attack_ranking = (sorted(self.record_historic_ratio_list[:,0]).index(self.record_historic_ratio_list[:,0][-1]) + 1)/len(self.record_historic_ratio_list[:,0])
+        current_benefit_ranking = (sorted(self.record_historic_ratio_list[:,1]).index(self.record_historic_ratio_list[:,1][-1]) + 1)/len(self.record_historic_ratio_list[:,1])
+        current_benefit_land_ranking = (sorted(self.record_historic_ratio_list[:,2]).index(self.record_historic_ratio_list[:,2][-1]) + 1)/len(self.record_historic_ratio_list[:,2])
+        self.record_historic_ranking_list.append((current_attack_ranking, current_benefit_ranking, current_benefit_land_ranking))
+
+    def _calculate_histoic_quartile(self):
+
+        current_attack_quartile = 0
 
     def save_current_island(self, path):
         current_member_df = self.current_members[0].save_to_row()
@@ -1002,6 +1023,8 @@ class Island():
                 self.save_to_pickle(record_path + f"{self.current_round:d}.pkl")
 
             # 输出
+            self._record_historic_ratio()
+            self._record_historic_ranking()
             if print_status:
                 self.print_status()
 
@@ -1053,7 +1076,9 @@ class Island():
             print(f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f}")
             print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
             print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
-
+            print(f"本轮活跃比率：{self.record_historic_ratio_list[-1]}")
+            print(f"本轮比率历史排位：{self.record_historic_ranking_list[-1]}")
+            
         if members:
             print("=" * 50)
             status = "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数\n"
