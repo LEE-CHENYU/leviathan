@@ -16,6 +16,16 @@ def suicide_bomber_pay_off(benefit_kill, cost):
 
     return matrix
 
+def RPS_pay_off(win: float, lose: float):
+    # Rock-Paper-Scissors game
+    matrix = np.array([
+        [0.0, -lose, win],
+        [win, 0.0, -lose],
+        [-lose, win, 0.0]
+    ])
+
+    return matrix
+
 class SBAgent(MemberBase):
     def __init__(
         self,
@@ -23,21 +33,23 @@ class SBAgent(MemberBase):
         id,
         surviver_id,
         rng,
-        mixed_strategy = False
+        decision_num = 3,
+        mixed_strategy = False,
     ):
         super().__init__(name, id, surviver_id, rng)
 
         self.fitness = 0
 
+        self.decision_num = decision_num
         self.mixed_strategy = mixed_strategy
-        self.strategy = rng.dirichlet(np.ones(3), size=1)[0]
+        self.strategy = rng.dirichlet(np.ones(self.decision_num), size=1)[0]
 
         self.parent = None
         self.ancestor = self
 
     def decision(self):
         if self.mixed_strategy:
-            return self._rng.choice(3, p=self.strategy)
+            return self._rng.choice(self.decision_num, p=self.strategy)
         else:
             return np.argmax(self.strategy)
     
@@ -62,7 +74,7 @@ class SBAgent(MemberBase):
         return child
 
     def mutation(self):
-        self.strategy = self._rng.dirichlet(np.ones(3), size=1)[0]
+        self.strategy = self._rng.dirichlet(np.ones(self.decision_num), size=1)[0]
         
 
 class Game(IslandBase):
@@ -97,7 +109,6 @@ class Game(IslandBase):
 
         player_1.fitness += self.payoff_matrix[player_1_strategy, player_2_strategy]
         player_2.fitness += self.payoff_matrix[player_2_strategy, player_1_strategy]
-
 
     def multiple_game(self, game_num, cpu_num=1):
         # # use multiprocessing.Pool
