@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 
-from Island import Island
-from Member import Member
+from Leviathan.Island import Island
+from Leviathan.Member import Member
 from utils.save import path_decorator
 
 from typing import List, Dict

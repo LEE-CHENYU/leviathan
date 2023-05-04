@@ -1,6 +1,6 @@
 import numpy as np
 
-from Island import IslandBase, MemberBase
+from Leviathan.Island import IslandBase, MemberBase
 
 from multiprocessing import Pool
 

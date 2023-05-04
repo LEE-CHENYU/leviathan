@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import Island
-import Land
+import Leviathan.Island as Island
+import Leviathan.Land as Land
 
 def colored(rgb, text):
     r, g, b = rgb

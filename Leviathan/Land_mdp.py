@@ -2,8 +2,8 @@ from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
 
-import Member
-import Island
+import Leviathan.Member_mdp as Member_mdp
+import Leviathan.Island_mdp as Island_mdp
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -15,9 +15,9 @@ class Land():
 
     ):
         self.shape = shape
-        self.owner: np.ndarray[Member.Member] = np.ndarray(shape, dtype=Member.Member)
+        self.owner: np.ndarray[Member_mdp.Member] = np.ndarray(shape, dtype=Member_mdp.Member)
 
-    def __getitem__(self, key) -> Member.Member:
+    def __getitem__(self, key) -> Member_mdp.Member:
         if isinstance(key, tuple):
             return self.owner[key]
         else:
@@ -45,16 +45,16 @@ class Land():
 
     def _find_neighbors(
         self, 
-        clear_list: List[Member.Member],
-        self_blocked_list: List[Member.Member],
-        neighbor_blocked_list: List[Tuple(Member.Member, Member.Member)],
+        clear_list: List[Member_mdp.Member],
+        self_blocked_list: List[Member_mdp.Member],
+        neighbor_blocked_list: List[Tuple(Member_mdp.Member, Member_mdp.Member)],
         empty_loc_list: List[Tuple[int, int]],
         location: Tuple[int, int], 
-        member: Member.Member, 
+        member: Member_mdp.Member, 
         is_passed: np.ndarray,
         iteration_cnt: int,
         max_iter: int,
-        island: Island.Island,
+        island: Island_mdp.Island,
         decision_threshold: int = 1,
     ) -> None:
 
@@ -155,8 +155,8 @@ class Land():
 
     def neighbors(
         self, 
-        member: Member.Member, 
-        island: Island,
+        member: Member_mdp.Member, 
+        island: Island_mdp,
         max_iter: int = np.inf,
         decision_threshold: int = 1,
     ):
@@ -216,7 +216,7 @@ class Land():
         ):
         map = np.zeros(self.shape + (3,), dtype=int)
         for idx in np.ndindex(self.shape):
-            mem: Member.Member = self.owner[idx]
+            mem: Member_mdp.Member = self.owner[idx]
             if mem is not None:
                 if original_color:
                     map[idx] = mem._color
