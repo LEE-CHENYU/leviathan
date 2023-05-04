@@ -26,6 +26,13 @@ def RPS_pay_off(win: float, lose: float):
 
     return matrix
 
+def Hawk_Dove_pay_off(resource: float, conflict_lose: float):
+    # Hawk Dove game
+    # it's not a single 
+    matrix = np.array([
+        []
+    ])
+
 class SBAgent(MemberBase):
     def __init__(
         self,
