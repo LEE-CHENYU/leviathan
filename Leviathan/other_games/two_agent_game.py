@@ -326,5 +326,5 @@ class GameWHistory(Game):
     def multiple_game(self, game_num):
         return super().multiple_game(game_num, cpu_num=1)
 
-    def relationship_network(self, )
+    # def relationship_network(self, )
         
