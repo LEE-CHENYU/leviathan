@@ -94,8 +94,8 @@ class IslandBase():
     def _member_list_append(
         self, 
         append: List[MemberBase] = [], 
-        appended_rela_rows: np.ndarray | List = [], 
-        appended_rela_columnes: np.ndarray | List = [],
+        appended_rela_rows: np.ndarray | List | Dict = [], 
+        appended_rela_columns: np.ndarray | List | Dict = [],
     ) -> None:
         """
         向current_members，all_members增加一个列表的人物，
@@ -106,14 +106,17 @@ class IslandBase():
         appended_num = len(append)
         prev_member_num = self.current_member_num
 
-        if not isinstance(appended_rela_columnes, np.ndarray):
+        if not isinstance(appended_rela_columns, np.ndarray):
             raise ValueError("关系矩阵增添的列应该是ndarray类型")
         if not isinstance(appended_rela_rows, np.ndarray):
             raise ValueError("关系矩阵增添的行应该是ndarray类型")
         
-        if self.relationship_dict != {}:
-            assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
-            assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
+        if isinstance(appended_rela_columns, dict):
+            for key, item in appended_rela_columns.items():
+                assert item.shape == (prev_member_num, appended_num), f"对于{key}，输入关系列形状不匹配" 
+        if isinstance(appended_rela_rows, dict):
+            for key, item in appended_rela_rows.items():
+                assert item.shape == (appended_num, prev_member_num), f"对于{key}，输入关系行形状不匹配"
 
         # 向列表中增加人物
         for member in append:
@@ -130,8 +133,15 @@ class IslandBase():
             tmp_new = np.zeros((self.current_member_num, self.current_member_num))
             
             tmp_new[:prev_member_num, :prev_member_num] = tmp_old
-            tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columnes
-            tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
+
+            if isinstance(appended_rela_columns, dict):
+                tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columns[key]
+            else:
+                tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columns
+            if isinstance(appended_rela_rows, dict):
+                tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows[key]
+            else:
+                tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
             np.fill_diagonal(tmp_new, np.nan)
 
             self.relationship_dict[key] = tmp_new
@@ -189,7 +199,7 @@ class IslandBase():
         append: List[MemberBase] = [], 
         drop: List[MemberBase] = [], 
         appended_rela_rows: np.ndarray = np.empty(0), 
-        appended_rela_columnes: np.ndarray = np.empty(0)
+        appended_rela_columns: np.ndarray = np.empty(0)
     ) -> None:
         """
         修改member_list，先增加人物，后修改
@@ -198,7 +208,7 @@ class IslandBase():
         if append != []:
             self._member_list_append(
                 append=append, 
-                appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
+                appended_rela_rows=appended_rela_rows, appended_rela_columns=appended_rela_columns
             )
         if drop != []:
             self._member_list_drop(
@@ -308,7 +318,7 @@ class Island(IslandBase):
         self, 
         append: List[MemberBase] = [], 
         appended_rela_rows: np.ndarray | List = [], 
-        appended_rela_columnes: np.ndarray | List = [],
+        appended_rela_columns: np.ndarray | List = [],
     ) -> None:
         """
         向current_members增加人物，
@@ -319,7 +329,7 @@ class Island(IslandBase):
         super()._member_list_append(
             append=append,
             appended_rela_rows=appended_rela_rows,
-            appended_rela_columnes=appended_rela_columnes,
+            appended_rela_columns=appended_rela_columns,
         )
                 # 记录出生
         self.record_born = self.record_born + append
@@ -345,7 +355,7 @@ class Island(IslandBase):
         append: List[Member] = [], 
         drop: List[Member] = [], 
         appended_rela_rows: np.ndarray = np.empty(0), 
-        appended_rela_columnes: np.ndarray = np.empty(0)
+        appended_rela_columns: np.ndarray = np.empty(0)
     ) -> None:
         """
         修改member_list，先增加人物，后修改
@@ -354,7 +364,7 @@ class Island(IslandBase):
         if append != []:
             self._member_list_append(
                 append=append, 
-                appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
+                appended_rela_rows=appended_rela_rows, appended_rela_columns=appended_rela_columns
             )
         if drop != []:
             self._member_list_drop(
@@ -970,7 +980,7 @@ class Island(IslandBase):
         )
         self.member_list_modify(
             append=[child],
-            appended_rela_columnes=np.zeros((self.current_member_num, 1)),
+            appended_rela_columns=np.zeros((self.current_member_num, 1)),
             appended_rela_rows=np.zeros((1, self.current_member_num)),
         )
         

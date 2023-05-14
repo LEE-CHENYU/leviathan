@@ -163,7 +163,7 @@ class Island():
         self, 
         append: List[Member] = [], 
         appended_rela_rows: np.ndarray = [], 
-        appended_rela_columnes: np.ndarray = [],
+        appended_rela_columns: np.ndarray = [],
     ) -> None:
         """
         向current_members，all_members增加一个列表的人物，
@@ -174,11 +174,11 @@ class Island():
         appended_num = len(append)
         prev_member_num = self.current_member_num
 
-        if not isinstance(appended_rela_columnes, np.ndarray):
+        if not isinstance(appended_rela_columns, np.ndarray):
             raise ValueError("关系矩阵增添的列应该是ndarray类型")
         if not isinstance(appended_rela_rows, np.ndarray):
             raise ValueError("关系矩阵增添的行应该是ndarray类型")
-        assert appended_rela_columnes.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
+        assert appended_rela_columns.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
         assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
 
         # 向列表中增加人物
@@ -199,7 +199,7 @@ class Island():
             tmp_new = np.zeros((self.current_member_num, self.current_member_num))
             
             tmp_new[:prev_member_num, :prev_member_num] = tmp_old
-            tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columnes
+            tmp_new[:prev_member_num, prev_member_num:] = appended_rela_columns
             tmp_new[prev_member_num:, :prev_member_num] = appended_rela_rows
             np.fill_diagonal(tmp_new, np.nan)
 
@@ -261,7 +261,7 @@ class Island():
         append: List[Member] = [], 
         drop: List[Member] = [], 
         appended_rela_rows: np.ndarray = np.empty(0), 
-        appended_rela_columnes: np.ndarray = np.empty(0)
+        appended_rela_columns: np.ndarray = np.empty(0)
     ) -> None:
         """
         修改member_list，先增加人物，后修改
@@ -270,7 +270,7 @@ class Island():
         if append != []:
             self._member_list_append(
                 append=append, 
-                appended_rela_rows=appended_rela_rows, appended_rela_columnes=appended_rela_columnes
+                appended_rela_rows=appended_rela_rows, appended_rela_columns=appended_rela_columns
             )
         if drop != []:
             self._member_list_drop(
@@ -914,7 +914,7 @@ class Island():
         )
         self.member_list_modify(
             append=[child],
-            appended_rela_columnes=np.zeros((self.current_member_num, 1)),
+            appended_rela_columns=np.zeros((self.current_member_num, 1)),
             appended_rela_rows=np.zeros((1, self.current_member_num)),
         )
         

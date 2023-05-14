@@ -5,6 +5,10 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
+import dill
+ 
+from typing import Any
+
 
 def path_decorator(path):
     if not path[-1] == "/" and not path[-1] == "\\":
@@ -89,3 +93,17 @@ def load_variable_list_dict(file_name, throw_nan=True, orient='columns'):
         new_val = new_val[~np.isnan(val)]
         variable_list_dict[key] = new_val
     return OrderedDict(variable_list_dict)
+
+def dill_dump(obj: Any, filename: str) -> None:
+    filename = os.path.normpath(filename)
+    file = open(filename, "wb")
+    dill.dump(obj, file)
+    file.close()
+
+def dill_load(filename: str) -> Any:
+    filename = os.path.normpath(filename)
+    file = open(filename, "rb")
+    obj = dill.load(file)
+    file.close()
+
+    return obj
