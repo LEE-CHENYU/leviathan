@@ -9,6 +9,6 @@ from Leviathan.other_games.two_agent_game import (
     suicide_bomber_pay_off,
     RPS_pay_off,
     Hawk_Dove_pay_off,
-    HD_spacial_key_simplifier_1,
-    HD_spacial_key_simplifier_2,
+    # HD_spacial_key_simplifier_1,
+    # HD_spacial_key_simplifier_2,
 )

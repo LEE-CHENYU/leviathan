@@ -43,72 +43,72 @@ def Hawk_Dove_pay_off(resource: float, conflict_loss: float, off_set: float):
 
 # ##############################################################################
 
-def _HD_intermediate_history_reduction(intermed_history_chain):
-    # reduce a key looks like ((0, 1), (1, 0), ...) to (0, 1)
-    # key: (A_to_B, B_to_A)
-    # 0: Hawk, 1: Dove
-    # rule: A Hawk B + B Hawk C = A Dove C
-    #       A Hawk B + B Dove C = A Hawk C
-    #       A Dove B + B Dove C = A Dove C
-    #       A Dove B + B Hawk C = A Hawk C
-    # or in other words, if there is a even number of Hawks in the chain, then the result is Dove
+# def _HD_intermediate_history_reduction(intermed_history_chain):
+#     # reduce a key looks like ((0, 1), (1, 0), ...) to (0, 1)
+#     # key: (A_to_B, B_to_A)
+#     # 0: Hawk, 1: Dove
+#     # rule: A Hawk B + B Hawk C = A Dove C
+#     #       A Hawk B + B Dove C = A Hawk C
+#     #       A Dove B + B Dove C = A Dove C
+#     #       A Dove B + B Hawk C = A Hawk C
+#     # or in other words, if there is a even number of Hawks in the chain, then the result is Dove
 
-    reduced_elem_1, reduced_elem_2 = 0, 0
-    for elem in intermed_history_chain:
-        elem_1, elem_2 = elem
-        if elem_1 is None:
-            return None, None
-        if elem_2 is None:
-            return None, None
+#     reduced_elem_1, reduced_elem_2 = 0, 0
+#     for elem in intermed_history_chain:
+#         elem_1, elem_2 = elem
+#         if elem_1 is None:
+#             return None, None
+#         if elem_2 is None:
+#             return None, None
 
-        reduced_elem_1 += elem_1
-        reduced_elem_2 += elem_2
+#         reduced_elem_1 += elem_1
+#         reduced_elem_2 += elem_2
 
-    reduced_elem_1 %= 2
-    reduced_elem_2 %= 2
+#     reduced_elem_1 %= 2
+#     reduced_elem_2 %= 2
 
-    return reduced_elem_1, reduced_elem_2
+#     return reduced_elem_1, reduced_elem_2
 
-def _HD_majority_vote(key_list ):
-    # key in key_list should be a tuple of length 2, representing the history of two agents
+# def _HD_majority_vote(key_list ):
+#     # key in key_list should be a tuple of length 2, representing the history of two agents
 
-    # count the number of (0, 0), (0, 1), (1, 0), (1, 1), (None, None)
-    # use the dictionary to keep the order of the keys, it's benifitial when there is a tie
-    # in the majority vote, so the first key will be chosen
-    count = {}
-    for key in key_list:
-        if key not in count.keys():
-            count[key] = 1
-        else:
-            count[key] += 1
+#     # count the number of (0, 0), (0, 1), (1, 0), (1, 1), (None, None)
+#     # use the dictionary to keep the order of the keys, it's benifitial when there is a tie
+#     # in the majority vote, so the first key will be chosen
+#     count = {}
+#     for key in key_list:
+#         if key not in count.keys():
+#             count[key] = 1
+#         else:
+#             count[key] += 1
     
-    # sort the count by the value
-    sorted_count = sorted(count.items(), key=lambda x: x[1], reverse=True)
+#     # sort the count by the value
+#     sorted_count = sorted(count.items(), key=lambda x: x[1], reverse=True)
     
-    # if there is a tie, then the first key will be chosen
-    return sorted_count[0][0]
+#     # if there is a tie, then the first key will be chosen
+#     return sorted_count[0][0]
 
-def HD_spacial_key_simplifier_1(original_key):
-    # for spacial keys, reduce the intermidiate interaction
-    his_key, spacial_key = original_key
+# def HD_spacial_key_simplifier_1(original_key):
+#     # for spacial keys, reduce the intermidiate interaction
+#     his_key, spacial_key = original_key
 
-    new_spacial_key = []
-    for key in spacial_key:
-        # key is a spacial key between a list of agents with length spacial_depth
-        # reduce the intermidiate interaction
-        reduced_key = _HD_intermediate_history_reduction(key)
-        new_spacial_key.append(reduced_key)
+#     new_spacial_key = []
+#     for key in spacial_key:
+#         # key is a spacial key between a list of agents with length spacial_depth
+#         # reduce the intermidiate interaction
+#         reduced_key = _HD_intermediate_history_reduction(key)
+#         new_spacial_key.append(reduced_key)
 
-    return his_key, tuple(new_spacial_key)
+#     return his_key, tuple(new_spacial_key)
 
-def HD_spacial_key_simplifier_2(original_key):
-    # for spacial keys, reduce the intermidiate interaction & majority vote
+# def HD_spacial_key_simplifier_2(original_key):
+#     # for spacial keys, reduce the intermidiate interaction & majority vote
 
-    his_key, spacial_key = HD_spacial_key_simplifier_1(original_key)
+#     his_key, spacial_key = HD_spacial_key_simplifier_1(original_key)
 
-    new_spacial_key = _HD_majority_vote(spacial_key)
+#     new_spacial_key = _HD_majority_vote(spacial_key)
 
-    return his_key, new_spacial_key
+#     return his_key, new_spacial_key
 
 
 # ##############################################################################
@@ -981,8 +981,8 @@ class GameWHistorySnD1Tn(GameWHistoryS1Tn):
 
         # using chain rule to reduce the length of spacial key
         # rule: Hawk + Hawk = Dove, Hawk + Dove = Dove, Dove + Dove = Dove
-        his_12 = (his_copy[idx_1, :] + his_copy[:, idx_2]) % 2
-        his_21 = (his_copy[idx_2, :] + his_copy[:, idx_1]) % 2
+        his_12 = (his_copy[idx_1, :] == his_copy[:, idx_2]).astype(int)
+        his_21 = his_copy[idx_2, :] == his_copy[:, idx_1].astype(int)
         decision_pair_list = np.array([his_12, his_21]).T
 
         # majority voting, find the most common strategy 0, 1 or nan for each player
