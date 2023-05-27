@@ -15288,3 +15288,26 @@ AssertionError
 [W 22:06:20.392 NotebookApp] zmq message arrived on closed channel
 [W 22:06:20.576 NotebookApp] zmq message arrived on closed channel
 [W 22:06:20.578 NotebookApp] zmq message arrived on closed channel
+[I 01:27:26.457 NotebookApp] Starting buffering for f45d59af-32c4-420b-a2da-f97a1ab1b9aa:948e8c06-0ed4-4af7-8de3-c557fe5ea1df
+[I 01:27:26.458 NotebookApp] Starting buffering for 718ec755-5d10-43c0-8bf3-f933be42c25c:c809929c-6118-46dc-b78d-eadc440d13a2
+[I 01:27:26.459 NotebookApp] Starting buffering for 4bf11405-7993-4927-b397-f2cab42e8ff2:46e779cf-b7d1-4aae-b705-7ababf869c74
+[W 11:43:57.539 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.540 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.541 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.541 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.655 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.656 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.658 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.659 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.660 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.662 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.663 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.666 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.667 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.670 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.671 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.673 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.675 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.681 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.688 NotebookApp] zmq message arrived on closed channel
+[W 11:43:57.690 NotebookApp] zmq message arrived on closed channel
