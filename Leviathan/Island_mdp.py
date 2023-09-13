@@ -599,7 +599,7 @@ class Island():
         round_diff = {}
         for member in self.current_members:
             current_vitality = member.vitality
-            prev_vitality = self.previous_vitalities.get(member.name, current_vitality)  # Default to current vitality if not found
+            prev_vitality = self.previous_vitalities.get(member, current_vitality)  # Default to current vitality if not found
             round_diff[member] = current_vitality - prev_vitality
             self.previous_vitalities[member] = current_vitality
         self.vitality_diff[self.current_round] = round_diff
@@ -616,11 +616,14 @@ class Island():
 
                 # Assuming each member has a decision history
                 for member in self.current_members:
-                    decisions = self.decision_history[member]  # Access the decision history from the dictionary in the Island class
-                    for round, decision in decisions.items():
-                        if decision == action_a and tuple_state == self.record_historic_quartile_dict[round]:
-                            total_vitality_change += self.vitality_diff[round][member]
-                            count += 1
+                    try:
+                        decisions = self.decision_history[member]  # Access the decision history from the dictionary in the Island class
+                        for round, decision in decisions.items():
+                            if decision == action_a and tuple_state == self.record_historic_quartile_dict[round]:
+                                total_vitality_change += self.vitality_diff[round][member]
+                                count += 1
+                    except KeyError:
+                        pass # for newborn babies
 
                 if count != 0:
                     avg_vitality_change = total_vitality_change / count
