@@ -518,7 +518,7 @@ class Island():
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (prev_decisions[0], prev_decisions[1], 1)
 
-    def _record_historic_ratio(self):
+    def record_historic_ratio(self):
         current_attack_ratio = self.record_total_dict['attack'][-1]/(self.current_member_num)
         current_benefit_ratio = self.record_total_dict['benefit'][-1]/(self.current_member_num)
         current_benefit_land_ratio = self.record_total_dict['benefit_land'][-1]/(self.current_member_num)
@@ -526,14 +526,14 @@ class Island():
 
         self.record_historic_ratio_list = np.append(self.record_historic_ratio_list, [[current_attack_ratio, current_benefit_ratio, current_benefit_land_ratio, 0]], axis=0)
 
-    def _record_historic_ranking(self):
+    def record_historic_ranking(self):
         # 计算排位
         current_attack_ranking = (sorted(self.record_historic_ratio_list[:,0]).index(self.record_historic_ratio_list[:,0][-1]) + 1)/len(self.record_historic_ratio_list[:,0])
         current_benefit_ranking = (sorted(self.record_historic_ratio_list[:,1]).index(self.record_historic_ratio_list[:,1][-1]) + 1)/len(self.record_historic_ratio_list[:,1])
         current_benefit_land_ranking = (sorted(self.record_historic_ratio_list[:,2]).index(self.record_historic_ratio_list[:,2][-1]) + 1)/len(self.record_historic_ratio_list[:,2])
         self.record_historic_ranking_list.append((current_attack_ranking, current_benefit_ranking, current_benefit_land_ranking))
 
-    def _calculate_histoic_quartile(self):
+    def calculate_histoic_quartile(self):
         # Flatten the list of tuples
         flattened_list = [value for t in self.record_historic_ranking_list for value in t]
 
@@ -560,7 +560,7 @@ class Island():
         self.record_historic_quartile_dict = {current_round: (determine_quartile(val1), determine_quartile(val2), determine_quartile(val3)) 
                                             for current_round, (val1, val2, val3) in enumerate(self.record_historic_ranking_list)}
 
-    def _generate_collective_actions_transition_matrix(self):
+    def generate_collective_actions_transition_matrix(self):
         # Importing the required libraries and retrying the process
 
         # Given list of tuples (sequence of events)
@@ -597,11 +597,11 @@ class Island():
     
     def compute_vitality_difference(self):
         round_diff = {}
-        for member in self.previous_vitalities.get(member):
+        for member in self.current_members:
             current_vitality = member.vitality
             prev_vitality = self.previous_vitalities.get(member.name, current_vitality)  # Default to current vitality if not found
-            round_diff[member.name] = current_vitality - prev_vitality
-            self.previous_vitalities[member.name] = current_vitality
+            round_diff[member] = current_vitality - prev_vitality
+            self.previous_vitalities[member] = current_vitality
         self.vitality_diff[self.current_round] = round_diff
 
     def compute_payoff_matrix(self):
@@ -1148,10 +1148,13 @@ class Island():
                 self.save_to_pickle(record_path + f"{self.current_round:d}.pkl")
 
             # 输出
-            self._record_historic_ratio()
-            self._record_historic_ranking()
-            self._calculate_histoic_quartile()
-            self._generate_collective_actions_transition_matrix()
+            self.record_historic_ratio()
+            self.record_historic_ranking()
+            self.calculate_histoic_quartile()
+            self.generate_collective_actions_transition_matrix()
+            self.generate_decision_history()
+            self.compute_vitality_difference()
+            self.compute_payoff_matrix()
             if print_status:
                 self.print_status()
 

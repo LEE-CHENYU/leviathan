@@ -596,7 +596,7 @@ class Island():
     
     def compute_vitality_difference(self):
         round_diff = {}
-        for member in self.previous_vitalities.get(member):
+        for member in self.current_members:
             current_vitality = member.vitality
             prev_vitality = self.previous_vitalities.get(member.name, current_vitality)  # Default to current vitality if not found
             round_diff[member.name] = current_vitality - prev_vitality
