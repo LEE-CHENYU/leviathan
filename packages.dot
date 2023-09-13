@@ -1,0 +1,37 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"leviathan" [color="black", label=<leviathan>, shape="box", style="solid"];
+"leviathan.Analyzer" [color="black", label=<leviathan.Analyzer>, shape="box", style="solid"];
+"leviathan.Engine" [color="black", label=<leviathan.Engine>, shape="box", style="solid"];
+"leviathan.Engine_mdp" [color="black", label=<leviathan.Engine_mdp>, shape="box", style="solid"];
+"leviathan.Island" [color="black", label=<leviathan.Island>, shape="box", style="solid"];
+"leviathan.Island_mdp" [color="black", label=<leviathan.Island_mdp>, shape="box", style="solid"];
+"leviathan.Land" [color="black", label=<leviathan.Land>, shape="box", style="solid"];
+"leviathan.Land_mdp" [color="black", label=<leviathan.Land_mdp>, shape="box", style="solid"];
+"leviathan.Member" [color="black", label=<leviathan.Member>, shape="box", style="solid"];
+"leviathan.Member_mdp" [color="black", label=<leviathan.Member_mdp>, shape="box", style="solid"];
+"leviathan.test" [color="black", label=<leviathan.test>, shape="box", style="solid"];
+"leviathan.test_animation" [color="black", label=<leviathan.test_animation>, shape="box", style="solid"];
+"leviathan.test_slider" [color="black", label=<leviathan.test_slider>, shape="box", style="solid"];
+"leviathan.two_agent_game" [color="black", label=<leviathan.two_agent_game>, shape="box", style="solid"];
+"leviathan.Analyzer" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.Analyzer" -> "leviathan.Member" [arrowhead="open", arrowtail="none"];
+"leviathan.Engine" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.Engine_mdp" -> "leviathan.Island_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Island" -> "leviathan.Land" [arrowhead="open", arrowtail="none"];
+"leviathan.Island" -> "leviathan.Member" [arrowhead="open", arrowtail="none"];
+"leviathan.Island_mdp" -> "leviathan.Land_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Island_mdp" -> "leviathan.Member_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Land" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.Land" -> "leviathan.Member" [arrowhead="open", arrowtail="none"];
+"leviathan.Land_mdp" -> "leviathan.Island_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Land_mdp" -> "leviathan.Member_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Member" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.Member" -> "leviathan.Land" [arrowhead="open", arrowtail="none"];
+"leviathan.Member_mdp" -> "leviathan.Island_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.Member_mdp" -> "leviathan.Land_mdp" [arrowhead="open", arrowtail="none"];
+"leviathan.test_animation" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.test_slider" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+"leviathan.two_agent_game" -> "leviathan.Island" [arrowhead="open", arrowtail="none"];
+}
