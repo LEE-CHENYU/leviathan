@@ -11,24 +11,7 @@ def colored(rgb, text):
     # return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
     return text
 
-class MemberBase():
-    def __init__(
-        self, 
-        name: str, 
-        id: int, 
-        surviver_id: int,
-        rng: np.random.Generator
-    ) -> None:
-
-        # 随机数生成器
-        self._rng = rng
-
-        # 姓名
-        self.name = name
-        self.id = id
-        self.surviver_id = surviver_id      # Island.current_members中的编号
-
-class Member(MemberBase):
+class Member():
     # 生产力
     # prod * (land / standard)**0.5
     _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 15, 20       # 生产力属性
@@ -54,8 +37,8 @@ class Member(MemberBase):
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
-    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # 攻击力占当前血量之比
-    _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # 偷盗值占当前血量之比
+    _MIN_STRENGTH, _MAX_STRENGTH = 0.3, 0.7             # 攻击力占当前血量之比
+    _MIN_STEAL, _MAX_STEAL = 0.3, 0.7                   # 偷盗值占当前血量之比
     _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.2                   # 给予值占当前仓库之比
     _MIN_OFFER = _MIN_PRODUCTIVITY                      # 给予最小值
 
@@ -301,9 +284,15 @@ class Member(MemberBase):
         id: int, 
         surviver_id: int,
         rng: np.random.Generator
-    ) -> None:
+        ) -> None:
 
-        super().__init__(name, id, surviver_id, rng)
+        # 随机数生成器
+        self._rng = rng
+
+        # 姓名
+        self.name = name
+        self.id = id
+        self.surviver_id = surviver_id      # Island.current_members中的编号
 
         # 亲人链表
         self.parent_1 = None
@@ -457,7 +446,8 @@ class Member(MemberBase):
             input_dict["benefit_active"],
             input_dict["benefit_land_passive"], 
             input_dict["benefit_land_active"],
-        ) = island._relations_w_normalize(self, object)
+        ) = island._relations_w_norma
+        lize(self, object)
 
         return input_dict
 
