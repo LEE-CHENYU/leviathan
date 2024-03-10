@@ -326,10 +326,16 @@ class Island():
 
         overlaps = []
         for relationship in list(self.relationship_dict.values()):
-            pri_row = normalize(relationship[principal.surviver_id, :].copy())
-            pri_col = normalize(relationship[:, principal.surviver_id].copy())
-            obj_row = normalize(relationship[object.surviver_id, :].copy())
-            obj_col = normalize(relationship[:, object.surviver_id].copy())
+
+            try:
+                pri_row = normalize(relationship[principal.surviver_id, :].copy())
+                pri_col = normalize(relationship[:, principal.surviver_id].copy())
+                obj_row = normalize(relationship[object.surviver_id, :].copy())
+                obj_col = normalize(relationship[:, object.surviver_id].copy())
+            except Exception as e:
+                print(f"Error: {e}")
+                print(principal, object)
+                sys.exit()
 
             overlaps.append((
                 np.sum(pri_row * obj_row)
@@ -422,15 +428,15 @@ class Island():
         """
         member.current_clear_list = [
             neighbor for neighbor in member.current_clear_list 
-            if neighbor in self.current_members
+            if not neighbor.autopsy()
         ]
         member.current_self_blocked_list = [
             neighbor for neighbor in member.current_self_blocked_list 
-            if neighbor in self.current_members
+            if not neighbor.autopsy()
         ]
         member.current_neighbor_blocked_list = [
             neighbor for neighbor in member.current_neighbor_blocked_list 
-            if neighbor[0] in self.current_members
+            if not neighbor[0].autopsy() and not neighbor[1].autopsy()
         ]
         member.current_empty_loc_list = [
             loc for loc in member.current_empty_loc_list

@@ -1,9 +1,12 @@
 from typing import List, Dict, Any, Tuple
-import google.generativeai as genai
 import json
 
+import google.generativeai as genai
 GOOGLE_API_KEY='AIzaSyC6gfzUfG1FnyzdFzjbsfBIH3rMKDCspJo'
 genai.configure(api_key=GOOGLE_API_KEY)
+
+import openai
+openai.api_key = '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'
 
 generation_config = {
     "temperature": 0.9,
@@ -101,14 +104,29 @@ Output Schema:
 "short reason": "A very short reason for the decision, highlighting the most important factors in the decision input."
 }}"""
 
+def _decision_tuples(
+    input_dict: Dict[str, float],
+    decision_params: List[float],
+) -> Dict[str, Tuple[float, float]]:
+    return {
+        key: (input_dict[key], decision_params[idx]) for idx, key in enumerate(input_dict.keys())
+    }
+
+def parse_decision_output(output: str) -> Tuple[bool, str]:
+    try:
+        decision_dict = json.loads(output)
+        decision = bool(decision_dict["decision"])
+        reason = decision_dict["short reason"]
+    except Exception as e:
+        return False, "Error: " + str(e)
+    return decision, reason
+
 def decision_using_gemini(
     action: str,
     input_dict: Dict[str, float],
     decision_params: List[float],
-):
-    decision_tuples = {
-        key: (input_dict[key], decision_params[idx]) for idx, key in enumerate(input_dict.keys())
-    }
+) -> Tuple[bool, str]:
+    decision_tuples = _decision_tuples(input_dict, decision_params)
 
     prompt = generate_prompt(action, decision_tuples)
 
@@ -118,16 +136,35 @@ def decision_using_gemini(
         safety_settings=safety_settings
     )
     try:
-        summary = model.generate_content(prompt).text
+        output = model.generate_content(prompt).text
     except Exception as e:
         return False, "Error: " + str(e)
-    summary_dict = json.loads(summary)
+    
+    return parse_decision_output(output)
+
+def decision_using_gpt35(
+    action: str,
+    input_dict: Dict[str, float],
+    decision_params: List[float],
+) -> Tuple[bool, str]:
+    
+    decision_tuples = _decision_tuples(input_dict, decision_params)
+
+    prompt = generate_prompt(action, decision_tuples)
 
     try:
-        decision = bool(summary_dict["decision"])
-        reason = summary_dict["short reason"]
-        # reason = ""
+
+        completion = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+        )
+        output = completion.choices[0].message.content
     except Exception as e:
         return False, "Error: " + str(e)
 
-    return decision, reason
+    return parse_decision_output(output)

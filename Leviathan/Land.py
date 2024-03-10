@@ -156,8 +156,8 @@ class Land():
     def neighbors(
         self, 
         member: Member.Member, 
-        island: Island,
-        max_iter: int = np.inf,
+        island: Island, 
+        max_iter: int = np.inf, 
         # decision_threshold: int = 1,
     ):
         """

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from Leviathan.prompt import decision_using_gemini
+from Leviathan.prompt import decision_using_gemini, decision_using_gpt35
 import Leviathan.Island as Island
 import Leviathan.Land as Land
 
@@ -20,10 +20,11 @@ class Member():
     _STD_LAND = 4                                       # 土地标准，在这个土地时，每轮的产量等于productivity
     _MAX_VITALITY = 100
 
-    # 决策函数缩放参数
+    # 决策
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
     _RELATION_SCALES = [0.01, 0.01, 0.25]                  # 决策函数在计算相互关系时的缩放量
     _MAX_NEIGHBOR = 4                                   # 邻居数量最大值
+    _DECISION_BACKEND = "gpt3.5"                        # 决策函数的后端
 
     # 初始值
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
@@ -456,23 +457,36 @@ class Member():
         decision_name: str, 
         object: Member,
         island: Island.Island,
+        threshold: float = 1,
     ) -> bool:
         input_dict = self._generate_decision_inputs(object, island)
 
-        # decision by inner product
-        # input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
-        # inner = np.sum(self.parameter_dict[parameter_name] * input)
-        # return inner > threshold
+        if self._DECISION_BACKEND == "inner product":
+            input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
+            inner = np.sum(self.parameter_dict[decision_name] * input)
+            return inner > threshold
 
-        # decision by gemini
-        decision, short_reason = decision_using_gemini(
-            decision_name, 
-            input_dict, 
-            self.parameter_dict[decision_name]
-        )
-        print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
+        elif self._DECISION_BACKEND == "gemini":
+            decision, short_reason = decision_using_gemini(
+                decision_name, 
+                input_dict, 
+                self.parameter_dict[decision_name]
+            )
+            print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
+            return decision
+        
+        elif self._DECISION_BACKEND == "gpt3.5":
+            decision, short_reason = decision_using_gpt35(
+                decision_name, 
+                input_dict, 
+                self.parameter_dict[decision_name]
+            )
+            print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
+            return decision
+        
+        else:
+            raise ValueError(f"未知的决策后端: {self._DECISION_BACKEND}")
 
-        return decision
 
     def parameter_absorb(
         self,
