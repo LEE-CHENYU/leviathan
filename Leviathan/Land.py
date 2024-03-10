@@ -55,7 +55,7 @@ class Land():
         iteration_cnt: int,
         max_iter: int,
         island: Island.Island,
-        decision_threshold: int = 1,
+        # decision_threshold: int = 1,
     ) -> None:
 
         if iteration_cnt >= max_iter:
@@ -128,7 +128,7 @@ class Land():
                 "clear", 
                 member,
                 island,
-                threshold=decision_threshold,
+                # threshold=decision_threshold,
             ):
                 clear_list.append(member_to_pass)
                 self._find_neighbors(
@@ -158,7 +158,7 @@ class Land():
         member: Member.Member, 
         island: Island,
         max_iter: int = np.inf,
-        decision_threshold: int = 1,
+        # decision_threshold: int = 1,
     ):
         """
         返回四个列表：
@@ -188,7 +188,7 @@ class Land():
                 iteration_cnt = 0,
                 max_iter = max_iter,
                 island = island,
-                decision_threshold = decision_threshold,
+                # decision_threshold = decision_threshold,
             )
 
         return (

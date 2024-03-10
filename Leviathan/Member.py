@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+from Leviathan.prompt import decision_using_gemini
 import Leviathan.Island as Island
 import Leviathan.Land as Land
 
@@ -446,22 +447,32 @@ class Member():
             input_dict["benefit_active"],
             input_dict["benefit_land_passive"], 
             input_dict["benefit_land_active"],
-        ) = island._relations_w_norma
-        lize(self, object)
+        ) = island._relations_w_normalize(self, object)
 
         return input_dict
 
     def decision(
         self, 
-        parameter_name: str, 
+        decision_name: str, 
         object: Member,
         island: Island.Island,
-        threshold: float = 1
     ) -> bool:
         input_dict = self._generate_decision_inputs(object, island)
-        input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
-        inner = np.sum(self.parameter_dict[parameter_name] * input)
-        return inner > threshold
+
+        # decision by inner product
+        # input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
+        # inner = np.sum(self.parameter_dict[parameter_name] * input)
+        # return inner > threshold
+
+        # decision by gemini
+        decision, short_reason = decision_using_gemini(
+            decision_name, 
+            input_dict, 
+            self.parameter_dict[decision_name]
+        )
+        print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
+
+        return True
 
     def parameter_absorb(
         self,

@@ -374,6 +374,10 @@ class Island():
         self.land.owner[loc_0][loc_1] = None
         member.discard_land(location)
 
+    def get_neighbors(self):
+        for member in self.current_members:
+            self._get_neighbors(member)
+
     def _get_neighbors(self, member: Member) -> None:
         """
         存储四个列表：
@@ -391,8 +395,29 @@ class Island():
             member, 
             self, 
             Island._NEIGHBOR_SEARCH_RANGE,
-            decision_threshold=1,
+            # decision_threshold=1,
         )
+
+    def _maintain_neighbor_list(self, member: Member):
+        """
+        删除已经死亡的邻居
+        """
+        member.current_clear_list = [
+            neighbor for neighbor in member.current_clear_list 
+            if neighbor in self.current_members
+        ]
+        member.current_self_blocked_list = [
+            neighbor for neighbor in member.current_self_blocked_list 
+            if neighbor in self.current_members
+        ]
+        member.current_neighbor_blocked_list = [
+            neighbor for neighbor in member.current_neighbor_blocked_list 
+            if neighbor[0] in self.current_members
+        ]
+        member.current_empty_loc_list = [
+            loc for loc in member.current_empty_loc_list
+            if self.land[loc] is None
+        ]
 
     def _find_targets(
         self,
@@ -463,7 +488,7 @@ class Island():
 
             selected_target.append(obj)
 
-        return selected_target
+        return list(set(selected_target))
 
 # ##############################################################################
 # ##################################### 记录 ####################################
@@ -784,6 +809,7 @@ class Island():
         if np.allclose(member_1._current_color, member_2._current_color):
             member_1._current_color = member_1._color.copy()
 
+
     def fight(
         self, 
         prob_to_fight: float = 1.0
@@ -792,7 +818,11 @@ class Island():
         战斗
         """
         for member in self.shuffled_members:
-            self._get_neighbors(member)
+            if member.autopsy():
+                # 如果成员在之前回合死亡，不会进行任何操作
+                continue
+
+            self._maintain_neighbor_list(member)
             
             # 从邻居中寻找目标
             target_list = (
@@ -863,8 +893,8 @@ class Island():
         """
         交易与交流
         """
-        for member in self.shuffled_members:
-            self._get_neighbors(member)
+        for member in self.shuffled_members:            
+            self._maintain_neighbor_list(member)
             
             # 从邻居中寻找目标
             trade_list = self._find_targets(
@@ -892,7 +922,7 @@ class Island():
         """
         扩张
         """
-        self._get_neighbors(member)
+        self._maintain_neighbor_list(member)
         if len(member.current_empty_loc_list) > 0:
             self._acquire_land(member, member.current_empty_loc_list[0])
 
@@ -997,7 +1027,7 @@ class Island():
         交易与交流
         """
         for member in self.shuffled_members:
-            self._get_neighbors(member)
+            self._maintain_neighbor_list(member)
             
             # 从邻居中寻找目标
             distr_list = self._find_targets(
@@ -1105,7 +1135,7 @@ class Island():
         """
 
         for member in self.shuffled_members:
-            self._get_neighbors(member)
+            self._maintain_neighbor_list(member)
             
             # 从邻居中寻找目标
             partner_list = self._find_targets(
