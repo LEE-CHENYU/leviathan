@@ -8,7 +8,7 @@ from Leviathan.Island import Island
 from Leviathan.Member import Member
 from utils.save import path_decorator
 
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import os
 
@@ -48,7 +48,7 @@ class Analyzer:
 
     # Member
     # ##########################################################################
-    def look_for_current_member(self, member: Member | int) -> Member:
+    def look_for_current_member(self, member: Member | int) -> Union[Member, None]:
         if isinstance(member, Member):
             id = member.id
         elif isinstance(member, int): 
@@ -156,10 +156,16 @@ class Tracer:
         """
         从所有的岛屿中找到这个成员的历史
         """
+        for idx, analyzer in enumerate(self.analyzer_list):
+            if analyzer.member_exist(member):
+                break
 
-        current_member_df = self.analyzer_list[0].member_row(member)
+        current_member_df = self.analyzer_list[idx].member_row(member)
         
-        for analyzer in self.analyzer_list[1:]:
+        for analyzer in self.analyzer_list[idx+1:]:
+            if not analyzer.member_exist(member):
+                continue
+
             current_member_df = pd.concat(
                 [
                     current_member_df,

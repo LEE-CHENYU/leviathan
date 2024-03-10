@@ -50,7 +50,7 @@ class Member():
     _LAND_HERITAGE = np.ceil(_STD_LAND / 2).astype(int) # 生育给予的土地数量
 
     # 交易
-    _PARAMETER_INFLUENCE = 0.0001                       # 交易后的参数影响
+    _PARAMETER_INFLUENCE = 0.01                       # 交易后的参数影响
 
     # 决策参数的名字
     _DECISION_INPUT_NAMES = [
@@ -374,6 +374,13 @@ class Member():
             + np.exp(Member.__AGING_EXPOENT * (self.age - Member._COMSUMPTION_CLIMBING_AGE))
         )
         return amount 
+    
+    @property
+    def overall_productivity(self) -> float:
+        """
+        基于土地的总产量
+        """
+        return self.productivity * (self.land_num / Member._STD_LAND)**Member._PRODUCE_ELASTICITY
 
     def autopsy(self) -> bool:
         """验尸，在Member类中结算死亡，返回是否死亡"""
@@ -424,13 +431,13 @@ class Member():
 
         input_dict = {}
 
-        input_dict["self_productivity"] = self.productivity / Member._MAX_PRODUCTIVITY
+        input_dict["self_productivity"] = self.overall_productivity / Member._MAX_PRODUCTIVITY
         input_dict["self_vitality"] = self.vitality / Member._MAX_VITALITY
         input_dict["self_cargo"] = np.tanh(self.cargo * Member._CARGO_SCALE)
         input_dict["self_age"] = self.age / Member._MAX_AGE
         input_dict["self_neighbor"] = len(self.current_clear_list) / Member._MAX_NEIGHBOR
 
-        input_dict["obj_productivity"] = object.productivity / Member._MAX_PRODUCTIVITY
+        input_dict["obj_productivity"] = object.overall_productivity / Member._MAX_PRODUCTIVITY
         input_dict["obj_vitality"] = object.vitality / Member._MAX_VITALITY
         input_dict["obj_cargo"] = np.tanh(object.cargo * Member._CARGO_SCALE)
         input_dict["obj_age"] = object.age / Member._MAX_AGE
@@ -460,6 +467,7 @@ class Member():
         island: Island.Island,
         threshold: float = 1,
         backend: Optional[str] = None,
+        logger = None,
     ) -> bool:
         input_dict = self._generate_decision_inputs(object, island)
 
@@ -469,7 +477,8 @@ class Member():
         if backend == "inner product":
             input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
             inner = np.sum(self.parameter_dict[decision_name] * input)
-            return inner > threshold
+            decision = inner > threshold
+            short_reason = "内积超过阈值"
 
         elif backend == "gemini":
             decision, short_reason = decision_using_gemini(
@@ -477,8 +486,6 @@ class Member():
                 input_dict, 
                 self.parameter_dict[decision_name]
             )
-            print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
-            return decision
         
         elif backend == "gpt3.5":
             decision, short_reason = decision_using_gpt35(
@@ -486,12 +493,18 @@ class Member():
                 input_dict, 
                 self.parameter_dict[decision_name]
             )
-            print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
-            return decision
         
         else:
             raise ValueError(f"未知的决策后端: {self._DECISION_BACKEND}")
+        
+        if logger is not None:
+            if decision:
+                decision_str = ""
+            else:
+                decision_str = "不"
+            logger.info(f"{self}{decision_str}决定对{object}：{decision_name}，原因：{short_reason}")
 
+        return decision
 
     def parameter_absorb(
         self,
@@ -534,13 +547,12 @@ class Member():
 
         self.owned_land.remove(land_location)
         self.land_num -= 1
-
+    
     def produce(self) -> float:
         """生产，将收获装入cargo"""
-        productivity = self.productivity * (self.land_num / Member._STD_LAND)**Member._PRODUCE_ELASTICITY
-        self.cargo += productivity
+        self.cargo += self.overall_productivity
 
-        return productivity
+        return self.overall_productivity
 
     def consume(self) -> float:
         """消耗vitality"""

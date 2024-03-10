@@ -8,6 +8,7 @@ from utils.save import path_decorator
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
+import logging
 import pickle 
 import sys
 
@@ -28,20 +29,21 @@ def _requirement_for_reproduction(
         member_2.is_qualified_to_reproduce
     )
 
-    if not result:
-        if (
-            member_1.vitality + member_1.cargo
-            + member_2.vitality + member_2.cargo
-        ) < Island._REPRODUCE_REQUIREMENT :
-            reason = "Not enough vitality and cargo"
+    # 展示无法生育的原因 （for debugging）
+    # if not result:
+    #     if (
+    #         member_1.vitality + member_1.cargo
+    #         + member_2.vitality + member_2.cargo
+    #     ) < Island._REPRODUCE_REQUIREMENT :
+    #         reason = "Not enough vitality and cargo"
 
-        elif not member_1.is_qualified_to_reproduce:
-            reason = f"{member_1} not qualified to reproduce"
+    #     elif not member_1.is_qualified_to_reproduce:
+    #         reason = f"{member_1} not qualified to reproduce"
 
-        elif not member_2.is_qualified_to_reproduce:
-            reason = f"{member_2} not qualified to reproduce"
+    #     elif not member_2.is_qualified_to_reproduce:
+    #         reason = f"{member_2} not qualified to reproduce"
 
-        print(f"{member_1} and {member_2} cannot reproduce because: {reason}")
+    #     print(f"{member_1} and {member_2} cannot reproduce because: {reason}")
 
     return result
 
@@ -71,11 +73,13 @@ class Island():
     # 记录/输出周期
     _RECORD_PERIOD = 1
 
+
     def __init__(
         self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
-        random_seed: int = None
+        save_path: str,
+        random_seed: Optional[int] = None,
     ) -> None:
 
         # 设置并记录随机数种子
@@ -86,6 +90,16 @@ class Island():
         else:
             self._random_seed = int(time())
         self._rng = np.random.default_rng(self._random_seed)
+
+        # 保存路径
+        self._save_path = path_decorator(save_path)
+        self._logger = logging.getLogger(__name__)
+        self._logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(f'{save_path}/log.txt')
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n%(message)s')
+        handler.setFormatter(formatter)
+        self._logger.addHandler(handler)
 
         # 初始人数，当前人数
         self._NAME_LIST = self._rng.permutation(name_list)
@@ -502,6 +516,7 @@ class Island():
                 obj,
                 self,
                 backend=backend,
+                logger=self._logger,
             ):  
                 continue
 
@@ -511,6 +526,7 @@ class Island():
                     member,
                     self,
                     backend=backend,
+                    logger=self._logger,
                 ):
                     continue
 
@@ -798,6 +814,8 @@ class Island():
         self.member_list_modify(drop=[member])
         # 记录死亡
         self.record_death.append(member)
+        # log
+        self._logger.info(f"{member.name}死了.")
 
     def produce(self) -> None:
         """
@@ -915,7 +933,7 @@ class Island():
         # 被给予者的参数受到影响
         if parameter_influence:
             member_2.parameter_absorb(
-                [member_1, member_2],
+                [member_2, member_1],
                 [1 - Member._PARAMETER_INFLUENCE, Member._PARAMETER_INFLUENCE],
                 0
             )
@@ -1048,11 +1066,11 @@ class Island():
         # 被给予者的参数受到影响
         if parameter_influence:
             member_2.parameter_absorb(
-                [member_1, member_2],
+                [member_2, member_1],
                 [1 - Member._PARAMETER_INFLUENCE, Member._PARAMETER_INFLUENCE],
                 0
             )
-
+            
         # 被给予者被染色
         member_2._current_color = member_1._current_color
 
@@ -1153,6 +1171,8 @@ class Island():
         # 孩子计算、恢复血量
         child.recover()
 
+        self._logger.info(f"\t{member_1} 和 {member_2} 生育了 {child}")
+
     def reproduce(
         self, 
         prob_of_reproduce: float = 1.0
@@ -1208,14 +1228,12 @@ class Island():
         self.record_born = []
         self.record_death = []
 
-
-    def new_round(self, record_path=None, print_status=False):
+    def new_round(self, save_file: bool = True, log_status=False):
         # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
-            if record_path is not None:
-                record_path = path_decorator(record_path)
-                self.save_to_pickle(record_path + f"{self.current_round:d}.pkl")
+            if save_file:
+                self.save_to_pickle(self._save_path + f"{self.current_round:d}.pkl")
 
             # 输出
             self.record_historic_ratio()
@@ -1225,8 +1243,8 @@ class Island():
             self.generate_decision_history()
             self.compute_vitality_difference()
             # self.compute_payoff_matrix()
-            if print_status:
-                self.print_status()
+            if log_status:
+                self.log_status()
 
             # 初始化存储
             self._record_init_per_period()
@@ -1238,63 +1256,77 @@ class Island():
         for member in self.current_members:
             member.age += 1
 
-    def print_status(
+    def log_status(
         self,
         action = False,
         summary = True,
         members = True,
+        log_instead_of_print = True,
         ):
-        print("#" * 21, f"{self.current_round:d}", "#" * 21)
+        log_str = ""
+
+        log_str += "#" * 21 + f" {self.current_round:d} " + "#" * 21 + "\n"
 
         if action:
-            print("=" * 21, "攻击", "=" * 21)
+            log_str += "=" * 21 + " 攻击 " + "=" * 21 + "\n"
             if self.record_action_dict["attack"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["attack"].items():
                     member_1 = self.all_members[mem_1]
                     member_2 = self.all_members[mem_2]
-                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
+                    log_str += f"\t{member_1} --{value:.1f}-> {member_2} \n"
 
-            print("=" * 21, "给予", "=" * 21)
+            log_str += "=" * 21 + " 给予 " + "=" * 21 + "\n"
             if self.record_action_dict["benefit"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["benefit"].items():
                     member_1 = self.all_members[mem_1]
                     member_2 = self.all_members[mem_2]
-                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
+                    log_str += f"\t{member_1} --{value:.1f}-> {member_2} \n" 
 
-            print("=" * 20, "给予土地", "=" * 20)
+            log_str += "=" * 20 + " 给予土地 " + "=" * 20 + "\n"
             if self.record_action_dict["benefit_land"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["benefit_land"].items():
                     member_1 = self.all_members[mem_1]
                     member_2 = self.all_members[mem_2]
-                    print(f"\t{member_1} --{value:.1f}-> {member_2}")
+                    log_str += f"\t{member_1} --{value:.1f}-> {member_2} \n"
 
         if summary:
-            print("=" * 50)
-            print(f"本轮出生：{self.record_born}")
-            print(f"本轮死亡：{self.record_death}")
-            print(f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f}")
-            print(f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f}")
-            print(f"本轮总产量：{self.record_total_production[-1]:.1f}")
-            print(f"本轮总消耗：{self.record_total_consumption[-1]:.1f}")
-            print(f"本轮活跃比率：{self.record_historic_ratio_list[-1]}")
-            print(f"本轮比率历史排位：{self.record_historic_ranking_list[-1]}")
+            log_str += "=" * 50 + "\n"
+            log_str += f"本轮出生：{self.record_born} \n"
+            log_str += f"本轮死亡：{self.record_death} \n"
+            log_str += f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f} \n"
+            log_str += f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f} \n"
+            log_str += f"本轮总产量：{self.record_total_production[-1]:.1f} \n"
+            log_str += f"本轮总消耗：{self.record_total_consumption[-1]:.1f} \n"
+            log_str += f"本轮活跃比率：{self.record_historic_ratio_list[-1]} \n"
+            log_str += f"本轮比率历史排位：{self.record_historic_ranking_list[-1]} \n"
             
         if members:
-            print("=" * 50)
-            status = "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数\n"
+            log_str += "=" * 50 + "\n"
+            log_str += "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数 \n"
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
-                status += colored(
-                        member._current_color,
-                        (
-                            f"\t[{member.id}, {member.surviver_id}] "
-                            f"{member.name}:{space_after_name}"
-                            f"   {member.age}," 
-                            f"   {member.vitality:.1f},"
-                            f"   {member.cargo:.1f}"
-                            f"   {member.land_num:d}({100*member.land_num/np.prod(self.land.shape):.1f}%)"
-                            "\n"
+
+                mem_str = (
+                    f"\t[{member.id}, {member.surviver_id}] "
+                    f"{member.name}:{space_after_name}"
+                    f"   {member.age}," 
+                    f"   {member.vitality:.1f},"
+                    f"   {member.cargo:.1f}"
+                    f"   {member.land_num:d}({100*member.land_num/np.prod(self.land.shape):.1f}%)"
+                    "\n"
+                )
+
+                if not log_instead_of_print:
+                    mem_str = colored(
+                            member._current_color,
+                            mem_str
                         )
-                    )
-            print(status)
+            
+                log_str += mem_str
+
+        if log_instead_of_print:
+            self._logger.info(log_str)
+        else:
+            print(log_str)
+                
 
