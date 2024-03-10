@@ -246,7 +246,7 @@ class Land():
 
         for (i, j), owner in np.ndenumerate(self.owner):
             if owner is not None:
-                ax.text(j, i, f"{owner.surviver_id:d}", ha='center', va='center', c="white", fontsize=5)
+                ax.text(j, i, f"{owner.id:d}", ha='center', va='center', c="white", fontsize=5)
 
     def plot(
         self,

@@ -1,6 +1,8 @@
 import numpy as np 
 import pandas as pd
 import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, Button
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
@@ -21,16 +23,16 @@ class Analyzer:
     # ##########################################################################
     def clear_graph(self) -> nx.DiGraph:
 
-        self.clear_graph = nx.DiGraph()
+        clear_graph = nx.DiGraph()
 
         for member in self.island.current_members:
-            self.clear_graph.add_node(member.surviver_id)
-            self.island._get_neighbors(member)
+            clear_graph.add_node(member.surviver_id)
+            self.island._get_neighbors(member, backend="inner product")
 
             for target in member.current_clear_list:
-                self.clear_graph.add_edge(member.surviver_id, target.surviver_id)
+                clear_graph.add_edge(member.surviver_id, target.surviver_id)
 
-        return self.clear_graph
+        return clear_graph
 
     def generate_network_by_decision(self):
         """
@@ -125,7 +127,13 @@ class Tracer:
         island_list = []
         for file in files:
             round_idx, _ = file.split(".")
-            if int(round_idx) >= lower_round and int(round_idx) <= upper_round:
+
+            try:
+                round_idx = int(round_idx)
+            except:
+                continue
+
+            if round_idx >= lower_round and round_idx <= upper_round:
                 island = Island.load_from_pickle(path + file)
                 island_list.append(island)
 
@@ -137,8 +145,17 @@ class Tracer:
             if analyzer.member_exist(member):
                 island_list.append(analyzer.island)
         return Tracer(island_list)
+    
+    def analyzer_by_round(self, round: int) -> Analyzer:
+        for analyzer in self.analyzer_list:
+            if analyzer.island.current_round == round:
+                return analyzer
 
+    # history ==========================================================
     def member_history(self, member: Member | int) -> pd.DataFrame:
+        """
+        从所有的岛屿中找到这个成员的历史
+        """
 
         current_member_df = self.analyzer_list[0].member_row(member)
         
@@ -154,6 +171,9 @@ class Tracer:
         return current_member_df
 
     def all_member_summary_history(self,) -> Dict[str, pd.DataFrame]:
+        """
+        从所有的岛屿中找到所有成员的历史
+        """
         all_info_dict = self.analyzer_list[0].round_info()
 
         for analyzer in self.analyzer_list[1:]:
@@ -185,3 +205,34 @@ class Tracer:
 
         pass
 
+    # land =============================================================
+    def land_animation(self, show_id: bool = False):
+        fig, axs = plt.subplots(1, 2, figsize=(10, 7))
+        self.analyzer_list[0].island.land.plot(axs, show_id=show_id)
+
+        fig.subplots_adjust(bottom=0.25)
+
+        ax_round = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+        round_slider = Slider(
+            ax=ax_round,
+            label='round',
+            valmin=self.analyzer_list[0].island.current_round,
+            valmax=self.analyzer_list[-1].island.current_round,
+            valinit=self.analyzer_list[0].island.current_round,
+            valstep=self.analyzer_list[1].island.current_round - self.analyzer_list[0].island.current_round 
+        )
+
+        def update(val):
+            # remove the previous plot
+            axs[0].cla()
+            axs[1].cla()
+
+            # plot the new plot
+            round = int(round_slider.val)
+            analyzer = self.analyzer_by_round(round)
+            analyzer.island.land.plot(axs, show_id=show_id)
+            fig.canvas.draw_idle()
+
+        round_slider.on_changed(update)
+
+        plt.show()
