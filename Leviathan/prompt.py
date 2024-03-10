@@ -1,12 +1,9 @@
 from typing import List, Dict, Any, Tuple
 import json
+import Leviathan.api_key
 
 import google.generativeai as genai
-GOOGLE_API_KEY='AIzaSyC6gfzUfG1FnyzdFzjbsfBIH3rMKDCspJo'
-genai.configure(api_key=GOOGLE_API_KEY)
-
 import openai
-openai.api_key = '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'
 
 generation_config = {
     "temperature": 0.9,
