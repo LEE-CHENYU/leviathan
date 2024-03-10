@@ -42,7 +42,7 @@ class Member():
     _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # 攻击力占当前血量之比
     _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # 偷盗值占当前血量之比
     _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.3                   # 给予值占当前仓库之比
-    _MIN_OFFER = _MIN_PRODUCTIVITY                      # 给予最小值
+    _MIN_OFFER = 5                                      # 给予最小值
 
     # 生育
     _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
@@ -416,7 +416,8 @@ class Member():
     def _generate_decision_inputs(
         self, 
         object: Member, 
-        island: Island.Island
+        island: Island.Island,
+        # normalize: bool = True
         ) -> Dict:
 
         assert self is not object, "决策函数中主体和对象不能相同"
@@ -458,15 +459,19 @@ class Member():
         object: Member,
         island: Island.Island,
         threshold: float = 1,
+        backend: Optional[str] = None,
     ) -> bool:
         input_dict = self._generate_decision_inputs(object, island)
 
-        if self._DECISION_BACKEND == "inner product":
+        if backend is None:
+            backend = self._DECISION_BACKEND
+
+        if backend == "inner product":
             input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
             inner = np.sum(self.parameter_dict[decision_name] * input)
             return inner > threshold
 
-        elif self._DECISION_BACKEND == "gemini":
+        elif backend == "gemini":
             decision, short_reason = decision_using_gemini(
                 decision_name, 
                 input_dict, 
@@ -475,7 +480,7 @@ class Member():
             print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
             return decision
         
-        elif self._DECISION_BACKEND == "gpt3.5":
+        elif backend == "gpt3.5":
             decision, short_reason = decision_using_gpt35(
                 decision_name, 
                 input_dict, 

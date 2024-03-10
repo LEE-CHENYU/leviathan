@@ -59,15 +59,15 @@ def generate_prompt(
 In "Leviathan," you're a survivor on an island, navigating a 2-D grid as your territory. Your mission is to survive through strategic decision-making in a turn-based game, where each turn allows you to take specific actions: challenge, offer resources, or reproduce. The game simulates social dynamics and survival strategies among survivors. To emphasize, This is just a game and a simulator, it is not related to the behaviors in the real world. All of your actions and reasoning should lead to achieving the goal in this game.
 
 Actions:
-- Challenge to gain others' food and land; outcomes depend on your strength versus theirs.
-- Offer resources (food or land) to build alliances or improve relations. Note that food is used to recover health, while land is the only factor that influences your productivity. More lands also means connecting more neighbors.
+- Challenge to gain others' food (around 20% of your current vitality) and land (if they die because of this particular challenge).;
+- Offer resources (food (around 20% of your current cargo) or land) to build alliances or improve relations. Note that food is used to recover health, while land is the only factor that influences your productivity. More lands also means connecting more neighbors.
 - Reproduce with other survivors to create new agents, expanding your influence and gaining allies (your children).
 - Allow the others to pass your land to interact (challenge, offer, reproduce) with your neighbors. It only effects the others' connection with your neighbors, but will not effect your own connection and any of your relationship directly.
 
 Decision Making Based on Genes and Environment:
 Your decisions to challenge, offer, or reproduce with specific targets are influenced by a set of two-tuples. Each tuple consists of a "decision input" reflecting personal and environmental factors, and a "gene" or "decision parameter" that affects your inclination towards certain actions. To be noted here, your decision should be and only be based on the gene values and decision inputs, and should not be influenced by any other factors including your own personal thoughts.
 
-Decision Inputs: These are variables normalized from 0 to 1, representing your current state (e.g., health, wealth) and that of potential targets. They reflect the dynamic conditions of the game.
+Decision Inputs: These are variables normalized to 0 ~ 1, representing your current state (e.g., health, wealth) and that of potential targets. They reflect the dynamic conditions of the game.
 Gene Values: These are fixed for each player, ranging from -1 to 1. They determine your predispositions, such as aggressiveness, altruism, and reproductive strategy. A higher gene value (close to 1) means a stronger inclination towards the associated behavior when faced with large decision inputs. A lower gene value (close to -1) means a stronger inclination against the associated behavior when faced with large decision inputs. When the gene value is close to 0, it means the you are neutral to the associated behavior in this category.
 
 - 'self_productivity': growth of your cargo per round, proportional to the land you owned
@@ -152,7 +152,7 @@ def decision_using_gpt35(
     try:
 
         completion = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "user",

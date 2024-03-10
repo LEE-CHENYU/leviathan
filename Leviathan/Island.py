@@ -45,7 +45,6 @@ def _requirement_for_reproduction(
 
     return result
 
-
 def _requirement_for_offer(
     member_1: Member, 
     member_2: Member
@@ -66,7 +65,7 @@ class Island():
     }
 
     _NEIGHBOR_SEARCH_RANGE = 1000
-    _REPRODUCE_REQUIREMENT = 150                            # 生育条件：双亲血量和仓库之和大于这个值
+    _REPRODUCE_REQUIREMENT = 100                            # 生育条件：双亲血量和仓库之和大于这个值
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
     # 记录/输出周期
@@ -310,11 +309,12 @@ class Island():
     def _overlap_of_relations(
         self, 
         principal: Member, 
-        object: Member
+        object: Member,
+        normalize: bool = True,
         ) -> List[float]:
         """计算关系网内积"""
 
-        def normalize(arr):
+        def _normalize(arr):
             """剔除nan，归一化向量"""
             arr[principal.surviver_id] = 0
             arr[object.surviver_id] = 0
@@ -322,26 +322,24 @@ class Island():
             if norm == 0:
                 return 0
             else:
-                return arr / norm
+                if normalize:
+                    return arr / norm
+                else:
+                    return arr
 
         overlaps = []
         for relationship in list(self.relationship_dict.values()):
-
-            try:
-                pri_row = normalize(relationship[principal.surviver_id, :].copy())
-                pri_col = normalize(relationship[:, principal.surviver_id].copy())
-                obj_row = normalize(relationship[object.surviver_id, :].copy())
-                obj_col = normalize(relationship[:, object.surviver_id].copy())
-            except Exception as e:
-                print(f"Error: {e}")
-                print(principal, object)
-                sys.exit()
+            
+            pri_row = _normalize(relationship[principal.surviver_id, :].copy())
+            pri_col = _normalize(relationship[:, principal.surviver_id].copy())
+            obj_row = _normalize(relationship[object.surviver_id, :].copy())
+            obj_col = _normalize(relationship[:, object.surviver_id].copy())
 
             overlaps.append((
-                np.sum(pri_row * obj_row)
-                + np.sum(pri_row * obj_col)
-                + np.sum(pri_col * obj_row)
-                + np.sum(pri_col * obj_col)) / 4
+                np.sum(np.sqrt(pri_row * obj_row))
+                + np.sum(np.sqrt(pri_row * obj_col))
+                + np.sum(np.sqrt(pri_col * obj_row))
+                + np.sum(np.sqrt(pri_col * obj_col))) / 4
             )
         
         return overlaps
@@ -349,8 +347,9 @@ class Island():
     def _relations_w_normalize(
         self,
         principal: Member,
-        object: Member
-    ) -> List[float]:
+        object: Member,
+        normalize: bool = True,
+    ) -> np.ndarray:
         """计算归一化（tanh）后的关系矩阵元"""
         elements = []
         for relationship in list(self.relationship_dict.values()):
@@ -358,7 +357,12 @@ class Island():
             elements.append(relationship[object.surviver_id, principal.surviver_id])
 
         elements = np.array(elements)
-        return np.tanh(elements * np.repeat(Member._RELATION_SCALES, 2))
+        
+        if normalize:
+            result = elements * np.repeat(Member._RELATION_SCALES, 2)
+            return np.tanh(result)
+        else:
+            return elements
 
     def relationship_modify(
         self, 
@@ -400,9 +404,13 @@ class Island():
 
     def get_neighbors(self):
         for member in self.current_members:
-            self._get_neighbors(member)
+            self._get_neighbors(member, backend="inner product")
 
-    def _get_neighbors(self, member: Member) -> None:
+    def _get_neighbors(
+        self, 
+        member: Member,
+        backend: Optional[str] = None,
+    ) -> None:
         """
         存储四个列表：
         - clear_list: 允许通行
@@ -420,6 +428,7 @@ class Island():
             self, 
             Island._NEIGHBOR_SEARCH_RANGE,
             # decision_threshold=1,
+            backend,
         )
 
     def _maintain_neighbor_list(self, member: Member):
@@ -452,6 +461,7 @@ class Island():
         other_requirements: Callable = None,
         bilateral: bool = False,
         land_owner_decision: str = "",
+        backend: Optional[str] = None,
     ) -> List[Member]:
         """
         根据决策函数，从潜在对象列表中选出对象
@@ -490,7 +500,8 @@ class Island():
             if not member.decision(
                 decision_name,
                 obj,
-                self
+                self,
+                backend=backend,
             ):  
                 continue
 
@@ -498,7 +509,8 @@ class Island():
                 if not obj.decision(
                     decision_name,
                     member,
-                    self
+                    self,
+                    backend=backend,
                 ):
                     continue
 
@@ -506,7 +518,8 @@ class Island():
                 if not land_owner.decision(
                     land_owner_decision,
                     obj,
-                    self
+                    self,
+                    backend=backend,
                 ):
                     continue
 
