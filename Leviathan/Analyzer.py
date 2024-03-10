@@ -68,8 +68,13 @@ class Analyzer:
             return False
         
     def member_row(self, member: Member | int) -> pd.DataFrame:
-        member = self.look_for_current_member(member)
-        return member.save_to_row()
+        member_obj = self.look_for_current_member(member)
+        if member_obj is None:
+            raise ValueError("Member not found")
+        
+        info_df = member_obj.save_to_row()
+        info_df["round"] = [self.island.current_round]
+        return info_df
 
     def all_member_info(self) -> pd.DataFrame:
         current_member_df = self.member_row(self.island.current_members[0])
@@ -159,6 +164,9 @@ class Tracer:
         for idx, analyzer in enumerate(self.analyzer_list):
             if analyzer.member_exist(member):
                 break
+
+        if idx == len(self.analyzer_list) - 1:
+            raise ValueError("Member not found")
 
         current_member_df = self.analyzer_list[idx].member_row(member)
         

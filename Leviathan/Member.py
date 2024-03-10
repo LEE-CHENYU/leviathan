@@ -478,7 +478,7 @@ class Member():
             input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
             inner = np.sum(self.parameter_dict[decision_name] * input)
             decision = inner > threshold
-            short_reason = "内积超过阈值"
+            short_reason = "内积决策"
 
         elif backend == "gemini":
             decision, short_reason = decision_using_gemini(
