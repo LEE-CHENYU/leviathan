@@ -38,9 +38,9 @@ class Member():
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
     # 行动量表
-    _MIN_STRENGTH, _MAX_STRENGTH = 0.3, 0.7             # 攻击力占当前血量之比
-    _MIN_STEAL, _MAX_STEAL = 0.3, 0.7                   # 偷盗值占当前血量之比
-    _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.2                   # 给予值占当前仓库之比
+    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # 攻击力占当前血量之比
+    _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # 偷盗值占当前血量之比
+    _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.3                   # 给予值占当前仓库之比
     _MIN_OFFER = _MIN_PRODUCTIVITY                      # 给予最小值
 
     # 生育
@@ -472,7 +472,7 @@ class Member():
         )
         print(f"{self}对{object}, {decision_name}的决策为{decision}，原因是: {short_reason}")
 
-        return True
+        return decision
 
     def parameter_absorb(
         self,

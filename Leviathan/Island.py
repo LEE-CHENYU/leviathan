@@ -17,7 +17,7 @@ def _requirement_for_reproduction(
     member_1: Member, 
     member_2: Member
 ) -> bool:
-    return (
+    result = (
         (
             member_1.vitality + member_1.cargo
             + member_2.vitality + member_2.cargo
@@ -27,6 +27,24 @@ def _requirement_for_reproduction(
         and 
         member_2.is_qualified_to_reproduce
     )
+
+    if not result:
+        if (
+            member_1.vitality + member_1.cargo
+            + member_2.vitality + member_2.cargo
+        ) < Island._REPRODUCE_REQUIREMENT :
+            reason = "Not enough vitality and cargo"
+
+        elif not member_1.is_qualified_to_reproduce:
+            reason = f"{member_1} not qualified to reproduce"
+
+        elif not member_2.is_qualified_to_reproduce:
+            reason = f"{member_2} not qualified to reproduce"
+
+        print(f"{member_1} and {member_2} cannot reproduce because: {reason}")
+
+    return result
+
 
 def _requirement_for_offer(
     member_1: Member, 
@@ -1187,7 +1205,7 @@ class Island():
             self.generate_collective_actions_transition_matrix()
             self.generate_decision_history()
             self.compute_vitality_difference()
-            self.compute_payoff_matrix()
+            # self.compute_payoff_matrix()
             if print_status:
                 self.print_status()
 
