@@ -1,8 +1,63 @@
-# leviathan
+# Leviathan: An Island Survival Simulator
+
 Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan. 
 
 试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
 
+Leviathan is an island survival simulation game that explores the complex dynamics of decision-making, resource management, and social interactions among survivors on a deserted island. The game is built using Python and incorporates concepts from multi-agent systems, game theory, and evolutionary algorithms.
+
+## Overview
+
+In Leviathan, players take on the role of survivors on a 2D grid-based island. Each survivor must make strategic decisions to manage their resources, form alliances, and ensure their long-term survival. The game is turn-based, and in each turn, survivors can choose to perform actions such as attacking other survivors, offering resources, reproducing, or allowing others to pass through their territory.
+
+The decision-making process of each survivor is influenced by a set of parameters that determine their inclinations towards certain actions based on their own attributes and the attributes of potential targets. These parameters are encoded as gene values and are subject to evolutionary pressures as the simulation progresses.
+
+## Features
+
+- **Turn-based Gameplay**: Survivors take turns making decisions and performing actions on the island.
+- **Resource Management**: Survivors must manage their vitality, cargo (food), and territory to ensure their survival.
+- **Social Interactions**: Survivors can form alliances, engage in resource exchange, and reproduce to create new survivors.
+- **Evolutionary Decision-Making**: Each survivor's decision-making process is guided by gene values that determine their predispositions towards certain actions. These gene values evolve over time based on the outcomes of their decisions.
+- **Emergent Behavior**: The complex interactions among survivors give rise to emergent behaviors and strategies that can be analyzed and studied.
+
+## Installation
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/your-username/leviathan.git
+   ```
+
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Run the simulation:
+   ```
+   python main.py
+   ```
+
+## Usage
+
+1. Configure the simulation parameters in the `config.py` file, such as the island size, initial population, and evolutionary settings.
+
+2. Run the simulation using the command:
+   ```
+   python main.py
+   ```
+
+3. Observe the simulation progress and analyze the emerging behaviors and strategies of the survivors.
+
+4. Experiment with different parameter settings and initial conditions to explore various scenarios and outcomes.
+
+## Contributing
+
+Contributions to Leviathan are welcome! If you find any bugs, have suggestions for improvements, or want to add new features, please open an issue or submit a pull request. Make sure to follow the project's coding style and guidelines.
+
+## Acknowledgments
+
+- The Leviathan simulator was inspired by the concepts of multi-agent systems, game theory, and evolutionary algorithms.
+- Special thanks to the contributors and reviewers who have helped improve the project.
 
 # 构想
 
