@@ -1,10 +1,8 @@
-# Leviathan: An Island Survival Simulator
+# Leviathan: Exploring the Emergence of Complex Systems through Individual Decisions and Relationships
 
-Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan. 
+探究个体决策和简单关系如何引发复杂系统的涌现。
 
-试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
-
-Leviathan is an island survival simulation game that explores the complex dynamics of decision-making, resource management, and social interactions among survivors on a deserted island. The game is built using Python and incorporates concepts from multi-agent systems, game theory, and evolutionary algorithms.
+Leviathan is a fascinating simulation project that delves into the intricacies of how individual decision-making and simple relationships can give rise to complex systems. Drawing inspiration from Thomas Hobbes' concept of the Leviathan, this project aims to investigate the emergence of complex behaviors and social structures from the interactions of autonomous agents.
 
 ## Overview
 
