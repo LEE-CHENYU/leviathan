@@ -3,6 +3,7 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
+from sklearn.decomposition import PCA
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
@@ -13,6 +14,8 @@ from typing import List, Dict, Union
 import os
 
 class Analyzer:
+    
+    ## single-round analysis
     def __init__(
         self,
         island: Island,
@@ -45,6 +48,22 @@ class Analyzer:
         计算成员之间通行权的连接度
         """
         return self.clear_graph().degree()
+    
+    def pca_analysis(self):
+        """
+        将本轮的参数向量映射在PCA平面上
+        """
+
+        # Perform PCA
+        pca = PCA(n_components=2)
+        data_2d = pca.fit_transform(parameter_array)
+
+        # Plot the mapped data
+        plt.scatter(data_2d[:, 0], data_2d[:, 1])
+        plt.xlabel('Component 1')
+        plt.ylabel('Component 2')
+        plt.title('Mapping onto a 2-D Space')
+        plt.show()
 
     # Member
     # ##########################################################################
@@ -100,6 +119,8 @@ class Analyzer:
         }
 
 class Tracer:
+    
+    ## multi-round analysis
     def __init__(
         self,
         island_list: List[Island],

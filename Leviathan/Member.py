@@ -24,7 +24,7 @@ class Member():
     _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
     _RELATION_SCALES = [0.01, 0.01, 0.25]                  # 决策函数在计算相互关系时的缩放量
     _MAX_NEIGHBOR = 4                                   # 邻居数量最大值
-    _DECISION_BACKEND = "gpt3.5"                        # 决策函数的后端
+    _DECISION_BACKEND = "gpt3.5"                        # 决策函数的后端(inner product, geminim, gpt3.5)
 
     # 初始值
     _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
