@@ -73,7 +73,6 @@ class Island():
     # 记录/输出周期
     _RECORD_PERIOD = 1
 
-
     def __init__(
         self, 
         init_member_number: int,
