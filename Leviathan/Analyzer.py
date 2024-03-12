@@ -102,6 +102,8 @@ class Analyzer:
         """
         在将本轮的参数向量中寻找聚类
         """
+        self.param_transform()
+
         # Compute the linkage matrix
         Z = sch.linkage(self.monster_array, method='ward')
 
