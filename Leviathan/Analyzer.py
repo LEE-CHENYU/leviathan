@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+import scipy.cluster.hierarchy as sch
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
@@ -54,7 +55,6 @@ class Analyzer:
         """
         将本轮存活玩家的五个决策参数向量合并为一个巨型向量
         """
-        
         parameter_dict_list = []
 
         for member in self.island.current_members:
@@ -66,7 +66,6 @@ class Analyzer:
         """
         在将本轮的参数向量中寻找聚类
         """
-        
         self.param_transform()
         
         # Perform K-means clustering
@@ -99,6 +98,21 @@ class Analyzer:
         if elbow == True:
             elbow_method()
                   
+    def heir_cluster(self):
+        """
+        在将本轮的参数向量中寻找聚类
+        """
+        # Compute the linkage matrix
+        Z = sch.linkage(self.monster_array, method='ward')
+
+        # Plot the dendrogram
+        plt.figure(figsize=(10, 6))
+        sch.dendrogram(Z)
+        plt.xlabel('Samples')
+        plt.ylabel('Distance')
+        plt.title('Dendrogram')
+        plt.show()
+    
     def pca(self, three_d = False, cluster = False, n_clusters=3):
         """
         将本轮的参数向量映射在PCA平面上
