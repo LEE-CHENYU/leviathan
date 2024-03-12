@@ -99,7 +99,7 @@ class Analyzer:
         if elbow == True:
             elbow_method()
                   
-    def pca(self, cluster = False, n_clusters=3):
+    def pca(self, three_d = False, cluster = False, n_clusters=3):
         """
         将本轮的参数向量映射在PCA平面上
         """
@@ -120,6 +120,20 @@ class Analyzer:
         plt.ylabel('Component 2')
         plt.title('Mapping onto a 2-D Space')
         plt.show()
+        
+        if three_d == True:
+            pca_3d = PCA(n_components=3)
+            pca_3d_result = pca_3d.fit_transform(self.monster_array)
+            
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+
+            ax.scatter(pca_3d_result[:, 0], pca_3d_result[:, 1], pca_3d_result[:, 2])
+            ax.set_xlabel('Component 1')
+            ax.set_ylabel('Component 2')
+            ax.set_zlabel('Component 3')
+
+            plt.show()
         
 
     # Member
