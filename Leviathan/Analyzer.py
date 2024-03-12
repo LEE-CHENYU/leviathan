@@ -15,6 +15,7 @@ from utils.save import path_decorator
 from typing import List, Dict, Union
 
 import os
+import time
 
 class Analyzer:
     
@@ -161,6 +162,8 @@ class Analyzer:
         plt.xlabel('Component 1')
         plt.ylabel('Component 2')
         plt.title('Mapping onto a 2-D Space')
+        timestamp = str(int(time.time()))
+        plt.savefig(f'pca_chart_{timestamp}.png')
         plt.show()
         
         if three_d == True:
