@@ -6,6 +6,7 @@ from matplotlib.widgets import Slider, Button
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 import scipy.cluster.hierarchy as sch
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
@@ -23,6 +24,7 @@ class Analyzer:
         island: Island,
     ):
         self.island = island
+        self.param_label_list = ['attack_self_productivity', 'attack_self_vitality', 'attack_self_cargo', 'attack_self_age', 'attack_self_neighbor', 'attack_obj_productivity', 'attack_obj_vitality', 'attack_obj_cargo', 'attack_obj_age', 'attack_obj_neighbor', 'attack_victim_overlap', 'attack_benefit_overlap', 'attack_benefit_land_overlap', 'attack_victim_passive', 'attack_victim_active', 'attack_benefit_passive', 'attack_benefit_active', 'attack_benefit_land_passive', 'attack_benefit_land_active', 'offer_self_productivity', 'offer_self_vitality', 'offer_self_cargo', 'offer_self_age', 'offer_self_neighbor', 'offer_obj_productivity', 'offer_obj_vitality', 'offer_obj_cargo', 'offer_obj_age', 'offer_obj_neighbor', 'offer_victim_overlap', 'offer_benefit_overlap', 'offer_benefit_land_overlap', 'offer_victim_passive', 'offer_victim_active', 'offer_benefit_passive', 'offer_benefit_active', 'offer_benefit_land_passive', 'offer_benefit_land_active', 'reproduce_self_productivity', 'reproduce_self_vitality', 'reproduce_self_cargo', 'reproduce_self_age', 'reproduce_self_neighbor', 'reproduce_obj_productivity', 'reproduce_obj_vitality', 'reproduce_obj_cargo', 'reproduce_obj_age', 'reproduce_obj_neighbor', 'reproduce_victim_overlap', 'reproduce_benefit_overlap', 'reproduce_benefit_land_overlap', 'reproduce_victim_passive', 'reproduce_victim_active', 'reproduce_benefit_passive', 'reproduce_benefit_active', 'reproduce_benefit_land_passive', 'reproduce_benefit_land_active', 'clear_self_productivity', 'clear_self_vitality', 'clear_self_cargo', 'clear_self_age', 'clear_self_neighbor', 'clear_obj_productivity', 'clear_obj_vitality', 'clear_obj_cargo', 'clear_obj_age', 'clear_obj_neighbor', 'clear_victim_overlap', 'clear_benefit_overlap', 'clear_benefit_land_overlap', 'clear_victim_passive', 'clear_victim_active', 'clear_benefit_passive', 'clear_benefit_active', 'clear_benefit_land_passive', 'clear_benefit_land_active', 'offer_land_self_productivity', 'offer_land_self_vitality', 'offer_land_self_cargo', 'offer_land_self_age', 'offer_land_self_neighbor', 'offer_land_obj_productivity', 'offer_land_obj_vitality', 'offer_land_obj_cargo', 'offer_land_obj_age', 'offer_land_obj_neighbor', 'offer_land_victim_overlap', 'offer_land_benefit_overlap', 'offer_land_benefit_land_overlap', 'offer_land_victim_passive', 'offer_land_victim_active', 'offer_land_benefit_passive', 'offer_land_benefit_active', 'offer_land_benefit_land_passive', 'offer_land_benefit_land_active']
 
     # Relationships
     # ##########################################################################
@@ -97,7 +99,31 @@ class Analyzer:
             
         if elbow == True:
             elbow_method()
-                  
+
+    def decision_tree(self):
+        """
+        Trains a decision tree classifier on the data using the cluster labels as targets.
+        """
+        # Ensure that the cluster labels are available
+        if not hasattr(self, 'clusters'):
+            self.k_means_cluster()
+        
+        # The labels assigned to each data point by KMeans
+        cluster_labels = self.clusters.labels_
+        
+        # Initialize and train the decision tree classifier
+        dt_classifier = DecisionTreeClassifier(random_state=0)
+        dt_classifier.fit(self.monster_array, cluster_labels)
+        
+        # Store the classifier for future predictions
+        self.dt_classifier = dt_classifier
+
+        # Plot the decision tree
+        plt.figure(figsize=(100,50))
+        plot_tree(self.dt_classifier, filled=True, feature_names=self.param_label_list)
+        plt.title("Decision Tree")
+        plt.show()
+                        
     def heir_cluster(self):
         """
         在将本轮的参数向量中寻找聚类
