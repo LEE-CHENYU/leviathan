@@ -67,14 +67,14 @@ class Analyzer:
         在将本轮的参数向量中寻找聚类
         """
         
-        self.parameter_transformation()
+        self.param_transform()
         
         # Perform K-means clustering
         kmeans = KMeans(n_clusters, random_state=0)
         self.clusters = kmeans.fit(self.monster_array)
         
         self.ranked_label_value_match = []
-        for j in range(0,4):
+        for j in range(0,n_clusters):
             label_ranking = np.argsort(self.clusters.cluster_centers_, axis=1)
             param_label_list = ['attack_self_productivity', 'attack_self_vitality', 'attack_self_cargo', 'attack_self_age', 'attack_self_neighbor', 'attack_obj_productivity', 'attack_obj_vitality', 'attack_obj_cargo', 'attack_obj_age', 'attack_obj_neighbor', 'attack_victim_overlap', 'attack_benefit_overlap', 'attack_benefit_land_overlap', 'attack_victim_passive', 'attack_victim_active', 'attack_benefit_passive', 'attack_benefit_active', 'attack_benefit_land_passive', 'attack_benefit_land_active', 'offer_self_productivity', 'offer_self_vitality', 'offer_self_cargo', 'offer_self_age', 'offer_self_neighbor', 'offer_obj_productivity', 'offer_obj_vitality', 'offer_obj_cargo', 'offer_obj_age', 'offer_obj_neighbor', 'offer_victim_overlap', 'offer_benefit_overlap', 'offer_benefit_land_overlap', 'offer_victim_passive', 'offer_victim_active', 'offer_benefit_passive', 'offer_benefit_active', 'offer_benefit_land_passive', 'offer_benefit_land_active', 'reproduce_self_productivity', 'reproduce_self_vitality', 'reproduce_self_cargo', 'reproduce_self_age', 'reproduce_self_neighbor', 'reproduce_obj_productivity', 'reproduce_obj_vitality', 'reproduce_obj_cargo', 'reproduce_obj_age', 'reproduce_obj_neighbor', 'reproduce_victim_overlap', 'reproduce_benefit_overlap', 'reproduce_benefit_land_overlap', 'reproduce_victim_passive', 'reproduce_victim_active', 'reproduce_benefit_passive', 'reproduce_benefit_active', 'reproduce_benefit_land_passive', 'reproduce_benefit_land_active', 'clear_self_productivity', 'clear_self_vitality', 'clear_self_cargo', 'clear_self_age', 'clear_self_neighbor', 'clear_obj_productivity', 'clear_obj_vitality', 'clear_obj_cargo', 'clear_obj_age', 'clear_obj_neighbor', 'clear_victim_overlap', 'clear_benefit_overlap', 'clear_benefit_land_overlap', 'clear_victim_passive', 'clear_victim_active', 'clear_benefit_passive', 'clear_benefit_active', 'clear_benefit_land_passive', 'clear_benefit_land_active', 'offer_land_self_productivity', 'offer_land_self_vitality', 'offer_land_self_cargo', 'offer_land_self_age', 'offer_land_self_neighbor', 'offer_land_obj_productivity', 'offer_land_obj_vitality', 'offer_land_obj_cargo', 'offer_land_obj_age', 'offer_land_obj_neighbor', 'offer_land_victim_overlap', 'offer_land_benefit_overlap', 'offer_land_benefit_land_overlap', 'offer_land_victim_passive', 'offer_land_victim_active', 'offer_land_benefit_passive', 'offer_land_benefit_active', 'offer_land_benefit_land_passive', 'offer_land_benefit_land_active']
             value_ranked = np.sort(self.clusters.cluster_centers_, axis=1)
@@ -104,7 +104,7 @@ class Analyzer:
         将本轮的参数向量映射在PCA平面上
         """
         
-        self.parameter_transformation()
+        self.param_transform()
         
         # Perform PCA
         pca = PCA(n_components=2)
