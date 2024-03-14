@@ -161,7 +161,7 @@ class Island():
         }
         self.record_historic_ratio_list = np.array([(0,0,0,0)])
         self.record_historic_ranking_list = [(0,0,0)]
-        self.record_payoff_matrix_list = []
+        self.record_payoff_matrix = np.zeros((8, 64))
         self.record_land = [self.land.owner_id]
         
         self.previous_vitalities = {}
@@ -714,7 +714,7 @@ class Island():
 
                 payoff_matrix[idx_a][combination_index] = avg_vitality_change
 
-                self.record_payoff_matrix_list.append(payoff_matrix)
+                self.record_payoff_matrix = payoff_matrix
     
     ############################################################################
     def save_current_island(self, path):
