@@ -701,7 +701,8 @@ class Island():
                         decisions = self.decision_history[member]  # Access the decision history from the dictionary in the Island class
                         for round, decision in decisions.items():
                             if decision == action_a and tuple_state == self.record_historic_quartile_dict[round]:
-                                total_vitality_change += self.vitality_diff[round][member]
+                                if round > 4:
+                                    total_vitality_change += self.vitality_diff[round-1][member] + self.vitality_diff[round-2][member] + self.vitality_diff[round-3][member]
                                 count += 1
                     except KeyError:
                         pass # for newborn babies
