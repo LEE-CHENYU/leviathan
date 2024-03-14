@@ -11,6 +11,7 @@ from time import time
 import logging
 import pickle 
 import sys
+import itertools
 
 from collections import defaultdict
 
@@ -160,6 +161,7 @@ class Island():
         }
         self.record_historic_ratio_list = np.array([(0,0,0,0)])
         self.record_historic_ranking_list = [(0,0,0)]
+        self.record_payoff_matrix_list = []
         self.record_land = [self.land.owner_id]
         
         self.previous_vitalities = {}
@@ -685,9 +687,11 @@ class Island():
         action_combinations = [(i, j, k) for i in [0,1] for j in [0,1] for k in [0,1]]
         tuple_states = list(self.record_historic_quartile_dict.values())
         payoff_matrix = np.zeros((8, 64))
+        quartile_combinations = list(itertools.product(range(1, 5), repeat=3))
 
         for idx_a, action_a in enumerate(action_combinations):
             for idx_t, tuple_state in enumerate(tuple_states):
+                combination_index = quartile_combinations.index(tuple_state)
                 total_vitality_change = 0
                 count = 0
 
@@ -707,9 +711,10 @@ class Island():
                 else:
                     avg_vitality_change = 0
 
-                payoff_matrix[idx_a][idx_t] = avg_vitality_change
 
-        return payoff_matrix
+                payoff_matrix[idx_a][combination_index] = avg_vitality_change
+
+                self.record_payoff_matrix_list.append(payoff_matrix)
     
     ############################################################################
     def save_current_island(self, path):
@@ -1241,7 +1246,7 @@ class Island():
             self.generate_collective_actions_transition_matrix()
             self.generate_decision_history()
             self.compute_vitality_difference()
-            # self.compute_payoff_matrix()
+            self.compute_payoff_matrix()
             if log_status:
                 self.log_status()
 

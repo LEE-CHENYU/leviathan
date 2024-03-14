@@ -142,7 +142,7 @@ class Analyzer:
         plt.title('Dendrogram')
         plt.show()
     
-    def pca(self, three_d = False, cluster = False, n_clusters=3):
+    def pca(self, three_d = False, cluster = False, n_clusters=3, island_stamp = 'default'):
         """
         将本轮的参数向量映射在PCA平面上
         """
@@ -163,7 +163,7 @@ class Analyzer:
         plt.ylabel('Component 2')
         plt.title('Mapping onto a 2-D Space')
         timestamp = str(int(time.time()))
-        plt.savefig(f'pca_chart_{timestamp}.png')
+        plt.savefig(f'/Users/lichenyu/leviathan/Leviathan/pca_chart/{island_stamp}/pca_chart_{timestamp}.png')
         plt.show()
         
         if three_d == True:
