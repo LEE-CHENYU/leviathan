@@ -1241,13 +1241,6 @@ class Island():
                 self.save_to_pickle(self._save_path + f"{self.current_round:d}.pkl")
 
             # 输出
-            self.record_historic_ratio()
-            self.record_historic_ranking()
-            self.calculate_histoic_quartile()
-            self.generate_collective_actions_transition_matrix()
-            self.generate_decision_history()
-            self.compute_vitality_difference()
-            self.compute_payoff_matrix()
             if log_status:
                 self.log_status()
 
@@ -1334,4 +1327,15 @@ class Island():
         else:
             print(log_str)
                 
-
+    def record_statistics(self):
+        """
+        统计
+        """
+        if self.current_member_num > 0:
+            self.record_historic_ratio()
+            self.record_historic_ranking()
+            self.calculate_histoic_quartile()
+            self.generate_collective_actions_transition_matrix()
+            self.generate_decision_history()
+            self.compute_vitality_difference()
+            self.compute_payoff_matrix()
