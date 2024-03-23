@@ -11,6 +11,7 @@ from time import time
 import logging
 import pickle 
 import sys
+import itertools
 
 from collections import defaultdict
 
@@ -72,7 +73,6 @@ class Island():
 
     # 记录/输出周期
     _RECORD_PERIOD = 1
-
 
     def __init__(
         self, 
@@ -161,6 +161,7 @@ class Island():
         }
         self.record_historic_ratio_list = np.array([(0,0,0,0)])
         self.record_historic_ranking_list = [(0,0,0)]
+        self.record_payoff_matrix = np.zeros((8, 64))
         self.record_land = [self.land.owner_id]
         
         self.previous_vitalities = {}
@@ -686,9 +687,11 @@ class Island():
         action_combinations = [(i, j, k) for i in [0,1] for j in [0,1] for k in [0,1]]
         tuple_states = list(self.record_historic_quartile_dict.values())
         payoff_matrix = np.zeros((8, 64))
+        quartile_combinations = list(itertools.product(range(1, 5), repeat=3))
 
         for idx_a, action_a in enumerate(action_combinations):
             for idx_t, tuple_state in enumerate(tuple_states):
+                combination_index = quartile_combinations.index(tuple_state)
                 total_vitality_change = 0
                 count = 0
 
@@ -698,7 +701,8 @@ class Island():
                         decisions = self.decision_history[member]  # Access the decision history from the dictionary in the Island class
                         for round, decision in decisions.items():
                             if decision == action_a and tuple_state == self.record_historic_quartile_dict[round]:
-                                total_vitality_change += self.vitality_diff[round][member]
+                                if round > 4:
+                                    total_vitality_change += self.vitality_diff[round-1][member] + self.vitality_diff[round-2][member] + self.vitality_diff[round-3][member]
                                 count += 1
                     except KeyError:
                         pass # for newborn babies
@@ -708,9 +712,10 @@ class Island():
                 else:
                     avg_vitality_change = 0
 
-                payoff_matrix[idx_a][idx_t] = avg_vitality_change
 
-        return payoff_matrix
+                payoff_matrix[idx_a][combination_index] = avg_vitality_change
+
+                self.record_payoff_matrix = payoff_matrix
     
     ############################################################################
     def save_current_island(self, path):
@@ -1236,13 +1241,6 @@ class Island():
                 self.save_to_pickle(self._save_path + f"{self.current_round:d}.pkl")
 
             # 输出
-            self.record_historic_ratio()
-            self.record_historic_ranking()
-            self.calculate_histoic_quartile()
-            self.generate_collective_actions_transition_matrix()
-            self.generate_decision_history()
-            self.compute_vitality_difference()
-            # self.compute_payoff_matrix()
             if log_status:
                 self.log_status()
 
@@ -1329,4 +1327,15 @@ class Island():
         else:
             print(log_str)
                 
-
+    def record_statistics(self):
+        """
+        统计
+        """
+        if self.current_member_num > 0:
+            self.record_historic_ratio()
+            self.record_historic_ranking()
+            self.calculate_histoic_quartile()
+            self.generate_collective_actions_transition_matrix()
+            self.generate_decision_history()
+            self.compute_vitality_difference()
+            self.compute_payoff_matrix()
