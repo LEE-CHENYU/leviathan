@@ -340,6 +340,12 @@ class Member():
         """重载其他print形式的表示"""
         return self.__str__()
 
+    # def __getstate__(self):
+    #     # print(f"Pickling {self.__class__.__name__} object with ID: {self.__dict__}")
+    #     state = self.__dict__.copy()
+    #     # Add any custom pickling logic here
+    #     return state
+        
 # ##############################################################################
 # ##################################### 状态 ####################################
     

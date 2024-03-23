@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
 import logging
 import pickle 
+import dill
 import sys
 import itertools
 
@@ -452,15 +453,15 @@ class Island():
         """
         member.current_clear_list = [
             neighbor for neighbor in member.current_clear_list 
-            if not neighbor.autopsy()
+            if not self.all_members[neighbor].autopsy()
         ]
         member.current_self_blocked_list = [
             neighbor for neighbor in member.current_self_blocked_list 
-            if not neighbor.autopsy()
+            if not self.all_members[neighbor].autopsy()
         ]
         member.current_neighbor_blocked_list = [
             neighbor for neighbor in member.current_neighbor_blocked_list 
-            if not neighbor[0].autopsy() and not neighbor[1].autopsy()
+            if not self.all_members[neighbor[0]].autopsy() and not self.all_members[neighbor[1]].autopsy()
         ]
         member.current_empty_loc_list = [
             loc for loc in member.current_empty_loc_list
@@ -578,22 +579,20 @@ class Island():
             self.decision_history = {}
             
         for member_1 in self.all_members:
-            if member_1 not in self.decision_history:
-                self.decision_history[member_1] = {}
-            self.decision_history[member_1][self.current_round] = (0, 0, 0)
+            if member_1.id not in self.decision_history:
+                self.decision_history[member_1.id] = {}
+            self.decision_history[member_1.id][self.current_round] = (0, 0, 0)
         
-        for (member_1, member_2) in self.record_action_dict['attack']:
-            member_1 = self.all_members[member_1]
+        for (member_1, member_2) in self.record_action_dict['attack']: 
+            ## member_1 here is member_1.id
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (1, prev_decisions[1], prev_decisions[2])
         
         for (member_1, member_2) in self.record_action_dict['benefit']:
-            member_1 = self.all_members[member_1]
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (prev_decisions[0], 1, prev_decisions[2])
         
         for (member_1, member_2) in self.record_action_dict['benefit_land']:
-            member_1 = self.all_members[member_1]
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (prev_decisions[0], prev_decisions[1], 1)
 
@@ -789,7 +788,7 @@ class Island():
 
     def save_to_pickle(self, file_name: str) -> None:
 
-        sys.setrecursionlimit(50000)
+        sys.setrecursionlimit(500000)
 
         file = open(file_name, 'wb') 
         pickle.dump(self, file)
@@ -885,7 +884,7 @@ class Island():
             self._maintain_neighbor_list(member)
             
             # 从邻居中寻找目标
-            target_list = (
+            target_list = self._convert_id_list_to_member_list(
                 member.current_clear_list 
                 + member.current_self_blocked_list 
                 + member.current_neighbor_blocked_list
@@ -946,6 +945,21 @@ class Island():
         # 被给予者被染色
         member_2._current_color = member_1._current_color
 
+    def _convert_id_list_to_member_list(self, id_list: List[int | Tuple[int,int]]) -> List[Member]:
+        """
+        将id_list转换为member_list
+        """
+        member_list = []
+        for id in id_list:
+            if isinstance(id, tuple):
+                land_owner = self.all_members[id[0]]
+                obj = self.all_members[id[1]]
+                member_list.append((land_owner, obj))
+            else:
+                member_list.append(self.all_members[id])
+
+        return member_list
+        
     def trade(
         self,
         prob_to_trade: float = 1.0
@@ -959,7 +973,7 @@ class Island():
             # 从邻居中寻找目标
             trade_list = self._find_targets(
                 member = member,
-                target_list = (
+                target_list = self._convert_id_list_to_member_list(
                     member.current_clear_list 
                     + member.current_self_blocked_list 
                     + member.current_neighbor_blocked_list
@@ -1092,7 +1106,7 @@ class Island():
             # 从邻居中寻找目标
             distr_list = self._find_targets(
                 member = member,
-                target_list = (
+                target_list = self._convert_id_list_to_member_list(
                     member.current_clear_list 
                     + member.current_self_blocked_list 
                     + member.current_neighbor_blocked_list
@@ -1202,7 +1216,7 @@ class Island():
             # 从邻居中寻找目标
             partner_list = self._find_targets(
                 member = member,
-                target_list = member.current_clear_list,
+                target_list = self._convert_id_list_to_member_list(member.current_clear_list),
                 decision_name = "reproduce",
                 prob_of_action = prob_of_reproduce,
                 other_requirements = _requirement_for_reproduction,
@@ -1238,7 +1252,7 @@ class Island():
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
             if save_file:
-                self.save_to_pickle(self._save_path + f"{self.current_round:d}.pkl")
+                self.save_to_pickle(self._save_path + f"{self.current_round:d}.island")
 
             # 输出
             if log_status:
