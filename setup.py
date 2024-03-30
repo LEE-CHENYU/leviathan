@@ -13,7 +13,8 @@ setup(
         "google.generativeai",
         "openai",
         "dill",
-        "scikit-learn"
+        "scikit-learn",
+        "librosa"
     ],
     # entry_points={
     #     'console_scripts': [

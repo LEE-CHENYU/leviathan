@@ -8,6 +8,10 @@ from sklearn.cluster import KMeans
 import scipy.cluster.hierarchy as sch
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 
+import librosa
+import numpy as np
+from scipy.io.wavfile import write
+
 from Leviathan.Island import Island
 from Leviathan.Member import Member
 from utils.save import path_decorator
@@ -198,6 +202,24 @@ class Analyzer:
             ax.set_zlabel('Component 3')
 
             plt.show()
+            
+    def musify(self):
+
+        # Convert the matrix to audio
+        audio = librosa.feature.inverse.mel_to_audio(self.monster_array)
+
+        # Normalize the audio to the range [-1, 1]
+        audio = librosa.util.normalize(audio)
+
+        # Set the desired sampling rate
+        sr = 44100
+
+        # Write the audio to a WAV file
+        if self.path is None:
+            write(f'{self.island.current_round}.wav', sr, audio)
+        else:
+            directory = os.path.dirname(self.path)
+            write(f'{directory}/wav/{self.island.current_round}.wav', sr, audio)
         
     @classmethod
     def load_from_pickle(
@@ -333,7 +355,7 @@ class Tracer:
                 return analyzer
          
     # Toolbox ==========================================================   
-    def pca_initialize(self, three_d = False):
+    def pca_for_all(self, three_d = False):
         """
         将本轮的参数向量映射在PCA平面上
         """
