@@ -36,6 +36,7 @@ class Analyzer:
 
     # Relationships
     # ##########################################################################
+    
     def clear_graph(self) -> nx.DiGraph:
 
         clear_graph = nx.DiGraph()
@@ -106,6 +107,28 @@ class Analyzer:
             
         if elbow == True:
             elbow_method()
+    
+    def plot_centers(self):
+
+        param_a, param_b, param_c = self.ranked_label_value_match
+        
+        # Create a DataFrame from the dictionaries
+        df = pd.DataFrame({'param_set1': param_a, 'param_set2': param_b, 'param_set3': param_c})
+
+        # Calculate the average of each category
+        df['average'] = df.mean(axis=1)
+
+        # Sort the DataFrame by the average
+        df = df.sort_values('average')
+
+        # Drop the average column for plotting
+        df = df.drop(columns='average')
+
+        # Plot the DataFrame as a bar plot
+        fig, ax = plt.subplots(figsize=(30, 4))
+        df.plot(ax=ax, kind='bar')
+        plt.grid()
+        plt.show()
 
     def decision_tree(self):
         """
@@ -147,6 +170,9 @@ class Analyzer:
         plt.title('Dendrogram')
         plt.show()
     
+    def create_label_list(self):
+        return [member.id for member in self.island.current_members]
+        
     def pca(self, 
             three_d = False, 
             cluster = False, 
@@ -172,6 +198,11 @@ class Analyzer:
         # Plot the mapped data
         else:
             plt.scatter(pca_result[:, 0], pca_result[:, 1])
+            
+        labels = self.create_label_list()
+        for i, label in enumerate(labels):
+            plt.annotate(label, (pca_result[i,0], pca_result[i,1]))
+
         plt.xlabel('Component 1')
         plt.ylabel('Component 2')
         plt.title(f'Mapping onto a 2-D Space - Round {self.island.current_round}')
