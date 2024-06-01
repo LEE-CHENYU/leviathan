@@ -7,8 +7,8 @@ __pycache__
 **egg-info*
 Leviathan/api_key.py
 Leviathan/Finance_gpt_agent_002.py
-Leviathan/decision_mechanism.py.py
-Leviathan/decision_mechanism copy.py
+Leviathan/decision_mechanism.py
+Leviathan/decision_mechanism_1.py
 Leviathan/local_notes.md
 *.wav
 *.png
