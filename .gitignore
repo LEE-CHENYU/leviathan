@@ -8,3 +8,4 @@ __pycache__
 Leviathan/api_key.py
 Leviathan/local_notes.md
 *.wav
+*.png
