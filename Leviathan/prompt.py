@@ -187,9 +187,3 @@ rule_of_the_decison = {
   "action_details": "Select the specific action to take, including action type and target agent."
 }
 
-if __name__ == "__main__":
-    
-    decision_params = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88, 0.99]
-    print(len(decision_params))
-    decision_using_gpt35("attack", {"self_vitality": 0.5, "obj_vitality": 0.5}, [0.5, 0.5, 0.5, 0.5])
-
