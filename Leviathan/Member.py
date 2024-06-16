@@ -256,10 +256,10 @@ class Member():
     ) -> Member:
 
         child = Member(name, id, surviver_id, rng)
-        child.parent_1 = parent_1
-        child.parent_2 = parent_2
-        parent_1.children.append(child)
-        parent_2.children.append(child)
+        # child.parent_1 = parent_1
+        # child.parent_2 = parent_2
+        # parent_1.children.append(child)
+        # parent_2.children.append(child)
 
         child.productivity = cls._inherited_parameter_w_fluctuation(
             parent_1.productivity, 
@@ -297,9 +297,9 @@ class Member():
         self.surviver_id = surviver_id      # Island.current_members中的编号
 
         # 亲人链表
-        self.parent_1 = None
-        self.parent_2 = None
-        self.children = []
+        # self.parent_1 = None
+        # self.parent_2 = None
+        # self.children = []
 
         # 人物颜色
         self._color = [0, 0, 0]
@@ -424,7 +424,14 @@ class Member():
         return np.array(self.owned_land[approxed_center_id])
 
     #########################################################################
-    ################################## 动作 ################################## 
+    ################################## 动作 ##################################
+    @property
+    def concat_param_dict(self) -> Dict[str, Dict[str, float]]:
+        concat_dict = {}
+        for key, values in self.parameter_dict.items():
+            concat_dict[key] = dict(zip(self._DECISION_INPUT_NAMES, values))
+        
+        return concat_dict
 
     def _generate_decision_inputs(
         self, 
@@ -603,14 +610,14 @@ class Member():
         info_df["land_x"] = [land_x]
         info_df["land_y"] = [land_y]
         
-        if self.parent_1 is not None:
-            info_df["parent_1"] = [self.parent_1.id]
-        if self.parent_2 is not None:
-            info_df["parent_2"] = [self.parent_2.id]
-        children_str = ""
-        for child in self.children:
-            children_str = children_str + f"{child.id} "
-        info_df["children"] = [children_str]
+        # if self.parent_1 is not None:
+        #     info_df["parent_1"] = [self.parent_1.id]
+        # if self.parent_2 is not None:
+        #     info_df["parent_2"] = [self.parent_2.id]
+        # children_str = ""
+        # for child in self.children:
+        #     children_str = children_str + f"{child.id} "
+        # info_df["children"] = [children_str]
 
         # 存储决策参数
         for key, paras in self.parameter_dict.items():

@@ -8,6 +8,10 @@ from sklearn.cluster import KMeans
 import scipy.cluster.hierarchy as sch
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 
+import librosa
+import numpy as np
+from scipy.io.wavfile import write
+
 from Leviathan.Island import Island
 from Leviathan.Member import Member
 from utils.save import path_decorator
@@ -25,10 +29,14 @@ class Analyzer:
         island: Island,
     ):
         self.island = island
+        self.path = None
         self.param_label_list = ['attack_self_productivity', 'attack_self_vitality', 'attack_self_cargo', 'attack_self_age', 'attack_self_neighbor', 'attack_obj_productivity', 'attack_obj_vitality', 'attack_obj_cargo', 'attack_obj_age', 'attack_obj_neighbor', 'attack_victim_overlap', 'attack_benefit_overlap', 'attack_benefit_land_overlap', 'attack_victim_passive', 'attack_victim_active', 'attack_benefit_passive', 'attack_benefit_active', 'attack_benefit_land_passive', 'attack_benefit_land_active', 'offer_self_productivity', 'offer_self_vitality', 'offer_self_cargo', 'offer_self_age', 'offer_self_neighbor', 'offer_obj_productivity', 'offer_obj_vitality', 'offer_obj_cargo', 'offer_obj_age', 'offer_obj_neighbor', 'offer_victim_overlap', 'offer_benefit_overlap', 'offer_benefit_land_overlap', 'offer_victim_passive', 'offer_victim_active', 'offer_benefit_passive', 'offer_benefit_active', 'offer_benefit_land_passive', 'offer_benefit_land_active', 'reproduce_self_productivity', 'reproduce_self_vitality', 'reproduce_self_cargo', 'reproduce_self_age', 'reproduce_self_neighbor', 'reproduce_obj_productivity', 'reproduce_obj_vitality', 'reproduce_obj_cargo', 'reproduce_obj_age', 'reproduce_obj_neighbor', 'reproduce_victim_overlap', 'reproduce_benefit_overlap', 'reproduce_benefit_land_overlap', 'reproduce_victim_passive', 'reproduce_victim_active', 'reproduce_benefit_passive', 'reproduce_benefit_active', 'reproduce_benefit_land_passive', 'reproduce_benefit_land_active', 'clear_self_productivity', 'clear_self_vitality', 'clear_self_cargo', 'clear_self_age', 'clear_self_neighbor', 'clear_obj_productivity', 'clear_obj_vitality', 'clear_obj_cargo', 'clear_obj_age', 'clear_obj_neighbor', 'clear_victim_overlap', 'clear_benefit_overlap', 'clear_benefit_land_overlap', 'clear_victim_passive', 'clear_victim_active', 'clear_benefit_passive', 'clear_benefit_active', 'clear_benefit_land_passive', 'clear_benefit_land_active', 'offer_land_self_productivity', 'offer_land_self_vitality', 'offer_land_self_cargo', 'offer_land_self_age', 'offer_land_self_neighbor', 'offer_land_obj_productivity', 'offer_land_obj_vitality', 'offer_land_obj_cargo', 'offer_land_obj_age', 'offer_land_obj_neighbor', 'offer_land_victim_overlap', 'offer_land_benefit_overlap', 'offer_land_benefit_land_overlap', 'offer_land_victim_passive', 'offer_land_victim_active', 'offer_land_benefit_passive', 'offer_land_benefit_active', 'offer_land_benefit_land_passive', 'offer_land_benefit_land_active']
+        self.pca_components = None
+        self.param_transform()
 
     # Relationships
     # ##########################################################################
+    
     def clear_graph(self) -> nx.DiGraph:
 
         clear_graph = nx.DiGraph()
@@ -69,7 +77,6 @@ class Analyzer:
         """
         在将本轮的参数向量中寻找聚类
         """
-        self.param_transform()
         
         # Perform K-means clustering
         kmeans = KMeans(n_clusters, random_state=0)
@@ -100,6 +107,28 @@ class Analyzer:
             
         if elbow == True:
             elbow_method()
+    
+    def plot_centers(self):
+
+        param_a, param_b, param_c = self.ranked_label_value_match
+        
+        # Create a DataFrame from the dictionaries
+        df = pd.DataFrame({'param_set1': param_a, 'param_set2': param_b, 'param_set3': param_c})
+
+        # Calculate the average of each category
+        df['average'] = df.mean(axis=1)
+
+        # Sort the DataFrame by the average
+        df = df.sort_values('average')
+
+        # Drop the average column for plotting
+        df = df.drop(columns='average')
+
+        # Plot the DataFrame as a bar plot
+        fig, ax = plt.subplots(figsize=(30, 4))
+        df.plot(ax=ax, kind='bar')
+        plt.grid()
+        plt.show()
 
     def decision_tree(self):
         """
@@ -129,8 +158,7 @@ class Analyzer:
         """
         在将本轮的参数向量中寻找聚类
         """
-        self.param_transform()
-
+        
         # Compute the linkage matrix
         Z = sch.linkage(self.monster_array, method='ward')
 
@@ -142,34 +170,60 @@ class Analyzer:
         plt.title('Dendrogram')
         plt.show()
     
-    def pca(self, three_d = False, cluster = False, n_clusters=3, island_stamp = 'default'):
+    def create_label_list(self):
+        return [member.id for member in self.island.current_members]
+        
+    def pca(self, 
+            three_d = False, 
+            cluster = False, 
+            n_clusters=3, 
+        ):
         """
         将本轮的参数向量映射在PCA平面上
         """
         
-        self.param_transform()
-        
-        # Perform PCA
-        pca = PCA(n_components=2)
-        pca_result = pca.fit_transform(self.monster_array)
+        if self.pca_components is None:
+            # Perform PCA
+            pca = PCA(n_components=2)
+            pca_result = pca.fit_transform(self.monster_array)
+            self.pca_components = pca.components_
+            
+        else:
+            pca_result = self.monster_array @ self.pca_components.T
 
+        plt.figure(figsize=(10, 6))
         if cluster == True:
             self.k_means_cluster(n_clusters)
             plt.scatter(pca_result[:, 0], pca_result[:, 1], c=self.clusters.labels_)
         # Plot the mapped data
-        elif cluster == False:
+        else:
             plt.scatter(pca_result[:, 0], pca_result[:, 1])
+            
+        labels = self.create_label_list()
+        for i, label in enumerate(labels):
+            plt.annotate(label, (pca_result[i,0], pca_result[i,1]))
+
         plt.xlabel('Component 1')
         plt.ylabel('Component 2')
-        plt.title('Mapping onto a 2-D Space')
+        plt.title(f'Mapping onto a 2-D Space - Round {self.island.current_round}')
         timestamp = str(int(time.time()))
-        plt.savefig(f'/Users/lichenyu/leviathan/Leviathan/pca_chart/{island_stamp}/pca_chart_{timestamp}.png')
-        plt.show()
+        if self.path is None:
+            plt.show()
+        else:
+            directory = os.path.dirname(self.path)
+            plt.savefig(f'{directory}/pca_chart/pca_chart_{self.island.current_round}.png')
+            plt.close()
+        
         
         if three_d == True:
-            pca_3d = PCA(n_components=3)
-            pca_3d_result = pca_3d.fit_transform(self.monster_array)
-            
+            if self.pca_components is None:
+                pca_3d = PCA(n_components=3)
+                pca_3d_result = pca_3d.fit_transform(self.monster_array)
+                self.pca_components = pca_3d.components_
+                
+            else:
+                pca_3d_result = self.monster_array @ self.pca_components.T
+
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
 
@@ -179,7 +233,38 @@ class Analyzer:
             ax.set_zlabel('Component 3')
 
             plt.show()
+            
+    def musify(self):
+
+        # Convert the matrix to audio
+        audio = librosa.feature.inverse.mel_to_audio(self.monster_array)
+
+        # Normalize the audio to the range [-1, 1]
+        audio = librosa.util.normalize(audio)
+
+        # Set the desired sampling rate
+        sr = 44100
+
+        # Write the audio to a WAV file
+        if self.path is None:
+            write(f'{self.island.current_round}.wav', sr, audio)
+        else:
+            directory = os.path.dirname(self.path)
+            write(f'{directory}/wav/{self.island.current_round}.wav', sr, audio)
         
+    @classmethod
+    def load_from_pickle(
+        cls,
+        path: str,
+    ) -> "Analyzer":
+        island = Island.load_from_pickle(path)
+        obj = Analyzer(island)
+        obj.path = path
+        
+        directory = os.path.dirname(obj.path)
+        os.makedirs(f"{directory}/pca_chart/", exist_ok=True)
+        
+        return obj
 
     # Member
     # ##########################################################################
@@ -252,6 +337,8 @@ class Tracer:
         )
 
         self.analyzer_list = [Analyzer(island) for island in sorted_island_list]
+        self.path = None
+        self.chosen_pca_components = None
 
     @classmethod
     def load_from_pickle_folder(
@@ -266,9 +353,12 @@ class Tracer:
         path = path_decorator(path)
         files = os.listdir(path)
 
-        island_list = []
+        obj = cls([])
         for file in files:
-            round_idx, _ = file.split(".")
+            if file.endswith(".pkl") or file.endswith(".island"):
+                round_idx, _ = file.split(".")
+            else:
+                continue
 
             try:
                 round_idx = int(round_idx)
@@ -276,10 +366,12 @@ class Tracer:
                 continue
 
             if round_idx >= lower_round and round_idx <= upper_round:
-                island = Island.load_from_pickle(path + file)
-                island_list.append(island)
+                analyzer = Analyzer.load_from_pickle(path + file)
+                obj.analyzer_list.append(analyzer)
+                
+        obj.path = path
 
-        return cls(island_list)
+        return obj
 
     def relevant_episode(self, member: Member | int) -> "Tracer":
         island_list = []
@@ -292,6 +384,19 @@ class Tracer:
         for analyzer in self.analyzer_list:
             if analyzer.island.current_round == round:
                 return analyzer
+         
+    # Toolbox ==========================================================   
+    def pca_for_all(self, three_d = False):
+        """
+        将本轮的参数向量映射在PCA平面上
+        """
+        for analyzer in self.analyzer_list:
+            analyzer.pca(cluster=True, three_d = three_d)
+        
+    def pca_choose_components(self, round_num: int):
+        self.chosen_pca_components = self.analyzer_by_round(round_num).pca_components
+        for analyzer in self.analyzer_list:
+            analyzer.pca_components = self.chosen_pca_components
 
     # history ==========================================================
     def member_history(self, member: Member | int) -> pd.DataFrame:
