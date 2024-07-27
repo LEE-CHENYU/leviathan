@@ -139,7 +139,7 @@ def decision_using_gemini(
     
     return parse_decision_output(output)
 
-def decision_using_gpt35(
+def decision_using_gpt(
     action: str,
     input_dict: Dict[str, float],
     decision_params: List[float],
@@ -152,7 +152,7 @@ def decision_using_gpt35(
     try:
 
         completion = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "user",
@@ -161,6 +161,7 @@ def decision_using_gpt35(
             ],
         )
         output = completion.choices[0].message.content
+        
     except Exception as e:
         return False, "Error: " + str(e)
 

@@ -1338,8 +1338,10 @@ class Island():
 
         if log_instead_of_print:
             self._logger.info(log_str)
+            return log_str
         else:
             print(log_str)
+            return log_str
                 
     def record_statistics(self):
         """

@@ -8,22 +8,19 @@ import pandas as pd
 import networkx as nx 
 import nxviz as nv
 
-from Leviathan.Island_mdp import Island
-from Leviathan.Member_mdp import Member
+from Leviathan.Island import Island
+from Leviathan.Member import Member
 from Leviathan.Analyzer import Analyzer
 from time import time
-from Leviathan.Land_mdp import Land
+from Leviathan.Land import Land
 from utils import save
 import os
 
 rng = np.random.default_rng()
-island = Island(20, (5, 5), 2022)
-# island = Island.load_from_pickle("data/Nov/15_13-23/180.pkl")
-
 path = save.datetime_dir("../data")
-# path = dir+"test_run/"
-# os.mkdir(path)
 Island._RECORD_PERIOD = 1
+Member._DECISION_BACKEND = 'gpt'
+Member._PARAMETER_INFLUENCE = 0
 
 st.title("Leviathan Simulation")
 
@@ -31,22 +28,45 @@ st.sidebar.header("Simulation Controls")
 num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=100, value=20)
 land_shape = st.sidebar.selectbox("Land Shape", options=["(5, 5)", "(10, 10)", "(15, 15)"])
 random_seed = st.sidebar.number_input("Random Seed", value=2022)
+action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1.0, value=0.5)
 
 if st.sidebar.button("Run Simulation"):
-    island = Island(num_members, eval(land_shape), random_seed)
+    island = Island(num_members, eval(land_shape), path, random_seed)
+
     for i in range(10):
-        island.new_round(record_path=path)
-        island.trade()
-        island.land_distribute()
+        island.new_round()
+        island.get_neighbors()
+        island.trade(action_prob)
+        island.land_distribute(action_prob)
         island.colonize()
         island.consume()
-        island.fight()
+        island.fight(action_prob)
         island.produce()
-        island.reproduce()
+        island.reproduce(action_prob)
+        island.record_statistics()
+        island.log_status(
+            action=True,
+            summary=True,
+            members=True,
+            log_instead_of_print=True,
+        )
+        
+        st.text(island.log_status(action=True))
+        log_file_path = os.path.join(path, "log.txt")
+        if os.path.exists(log_file_path):
+            with open(log_file_path, 'r') as log_file:
+                log_contents = log_file.read()
+                st.text(log_contents)
+        else:
+            st.text("Log file not found.")
+        
+        # Fixed area for plot
+        plot_area = st.empty()  # Create a placeholder for the plot
+        with plot_area:
+            st.pyplot(island.land.plot())
+        
         if island.is_dead:
             st.write("The simulation has ended.")
             break
 
-    print(island.print_status())
-    st.text(island.print_status(action=True))
-    st.pyplot(island.land.plot())
+
