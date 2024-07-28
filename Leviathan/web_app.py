@@ -45,6 +45,8 @@ action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1
         
 if st.sidebar.button("Run Simulation"):
     with st.spinner("Running simulation..."):
+        if os.path.exists(path):
+            os.rmdir(path)
         os.makedirs(path, exist_ok=True)
         island = Island(num_members, eval(land_shape), path, random_seed, log_lang)
 
