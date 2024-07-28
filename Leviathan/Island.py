@@ -1330,8 +1330,8 @@ class Island():
             log_str += f"{self._translate('total_attack_this_round', lang)}: {self.record_total_dict['attack'][-1]:.1f} \n"
             log_str += f"{self._translate('total_production_this_round', lang)}: {self.record_total_production[-1]:.1f} \n"
             log_str += f"{self._translate('total_consumption_this_round', lang)}: {self.record_total_consumption[-1]:.1f} \n"
-            log_str += f"{self._translate('active_ratio_this_round', lang)}: {self.record_historic_ratio_list[-1]} \n"
-            log_str += f"{self._translate('historical_ranking_this_round', lang)}: {self.record_historic_ranking_list[-1]} \n"
+            log_str += f"{self._translate('active_ratio_this_round', lang)}: {self.record_historic_ratio_list[-1]:.2f} \n"
+            log_str += f"{self._translate('historical_ranking_this_round', lang)}: {self.record_historic_ranking_list[-1]:.2f} \n"
             
         if members:
             log_str += "=" * 50 + "\n"
