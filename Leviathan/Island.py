@@ -99,12 +99,11 @@ class Island():
 
         # Initial number of members, current number of members
         name_list = {
-            "en": ["Alexander", "Cleopatra", "Genghis", "Hannibal", "Julius", "Leonardo", "Marie", "Napoleon", 
-                   "Queen Elizabeth", "Ramses", "Shakespeare", "Tesla", "Vercingetorix", "Winston", "Yamamoto", 
-                   "Zheng He", "Ada", "Bach", "Catherine", "Da Vinci", "Nelson Mandela", "Mahatma Gandhi", 
-                   "Albert Einstein", "Isaac Newton", "Galileo Galilei", "Charles Darwin", "Virginia Woolf", 
-                   "Frida Kahlo", "Malala Yousafzai", "Stephen Hawking", "Marie Curie", "Simone de Beauvoir", 
-                   "Leonardo da Vinci", "Catherine the Great", "Emmeline Pankhurst", "Harriet Tubman", 
+            "en": ["Alexander", "Cleopatra", "Genghis Khan", "Hannibal", "Julius Caesar", "Leonardo da Vinci", "Marie Curie", "Napoleon Bonaparte", 
+                   "Queen Elizabeth I", "Ramses II", "William Shakespeare", "Nikola Tesla", "Vercingetorix", "Winston Churchill", "Yamamoto Isoroku", 
+                   "Zheng He", "Ada Lovelace", "Johann Sebastian Bach", "Catherine the Great", "Galileo Galilei", "Nelson Mandela", "Mahatma Gandhi", 
+                   "Albert Einstein", "Isaac Newton", "Charles Darwin", "Virginia Woolf", "Frida Kahlo", "Malala Yousafzai", "Stephen Hawking", 
+                   "Marie Curie", "Simone de Beauvoir", "Leonardo da Vinci", "Catherine the Great", "Emmeline Pankhurst", "Harriet Tubman", 
                    "Rosa Parks", "Margaret Thatcher"],
             "cn": ["孔子", "李白", "秦始皇", "孙子", "诸葛亮", "武则天", "毛泽东", "邓小平", 
                    "戚继光", "张衡", "屈原", "王羲之", "鲁迅", "朱元璋", 
@@ -116,12 +115,24 @@ class Island():
                    "黒田官兵衛", "松尾芭蕉", "与謝野晶子", "川端康成", "村上春樹", "夏目漱石", "小泉八雲", 
                    "高橋留美子", "宮崎駿", "安倍晋三", "福沢諭吉", "田中角栄", "大隈重信", "吉田茂", 
                    "中江兆民", "西周", "大久保利通", "坂本龍馬"],
-            "sp": ["Cervantes", "Frida", "García", "Hernán", "Isabel", "Julián", "Lorca", "Miguel", 
-                   "Pablo", "Rafael", "Santiago", "Sor Juana", "Teresa", "Valencia", "Zaragoza", 
-                   "Alonso", "Borges", "Cortázar", "Dali", "Goya", "Gabriel García Márquez", "Octavio Paz", 
+            "sp": ["Cervantes", "Frida Kahlo", "García Márquez", "Hernán Cortés", "Isabel Allende", "Julián Álvarez", "Lorca", "Miguel de Unamuno", 
+                   "Pablo Neruda", "Rafael Alberti", "Santiago Ramón y Cajal", "Sor Juana Inés de la Cruz", "Teresa de Ávila", "Valencia", "Zaragoza", 
+                   "Alonso Quijano", "Borges", "Cortázar", "Dali", "Goya", "Gabriel García Márquez", "Octavio Paz", 
                    "Simón Bolívar", "Che Guevara", "Fidel Castro", "Pablo Neruda", "Isabel Allende", 
                    "Frida Kahlo", "Diego Rivera", "Rosa Luxemburgo", "Clara Zetkin", "Sor Juana Inés de la Cruz", 
-                   "José Martí", "Emiliano Zapata", "Pancho Villa"]
+                   "José Martí", "Emiliano Zapata", "Pancho Villa"],
+            "fr": ["Victor Hugo", "Marie Curie", "Napoléon Bonaparte", "Coco Chanel", "Charles de Gaulle", "Simone de Beauvoir", "Louis Pasteur", 
+                   "Molière", "Émile Zola", "Jean-Paul Sartre", "Claude Monet", "Gustave Eiffel", "Jacques Cousteau", "Françoise Sagan", 
+                   "Albert Camus", "Georges Clemenceau", "Louis XIV", "Rousseau", "Voltaire", "Blaise Pascal"],
+            "de": ["Johann Wolfgang von Goethe", "Ludwig van Beethoven", "Albert Einstein", "Friedrich Nietzsche", "Bertolt Brecht", "Hannah Arendt", 
+                   "Thomas Mann", "Heinrich Heine", "Angela Merkel", "Martin Luther", "Immanuel Kant", "Johann Sebastian Bach", "Karl Marx", 
+                   "Friedrich Schiller", "Clara Schumann", "Richard Wagner", "Gottfried Wilhelm Leibniz", "Max Planck", "Hermann Hesse"],
+            "it": ["Dante Alighieri", "Leonardo da Vinci", "Galileo Galilei", "Michelangelo", "Giuseppe Verdi", "Maria Montessori", "Alessandro Volta", 
+                   "Italo Calvino", "Umberto Eco", "Sofia Loren", "Federico Fellini", "Raffaello Sanzio", "Guglielmo Marconi", "Caravaggio", 
+                   "Giovanni Boccaccio", "Luca Pacioli", "Enrico Fermi", "Piero della Francesca", "Matteo Renzi"],
+            "ru": ["Александр Пушкин", "Лев Толстой", "Фёдор Достоевский", "Антон Чехов", "Мария Кюри", "Владимир Ленин", "Пётр I", 
+                   "Николай II", "Сергей Есенин", "Александр Солженицын", "Дмитрий Менделеев", "Иван Тургенев", "Михаил Лермонтов", 
+                   "Анна Ахматова", "Станиславский", "Константин Станиславский", "Лев Толстой", "Василий Кандинский", "Игорь Стравинский"],
         }
         self._NAME_LIST = self._rng.permutation(name_list[self.log_lang])
 
@@ -1424,6 +1435,62 @@ class Island():
                 'active_ratio_this_round': 'Ratio Activo esta ronda',
                 'historical_ranking_this_round': 'Ranking Histórico esta ronda',
                 'member_header': '\t ID Sur_ID  Nombre          Edad   Vitalidad    Carga    Conteo de Tierra \n',  # Updated translation for member header
+            },
+            'fr': {
+                'attack': 'Attaque',
+                'benefit': 'Bénéfice',
+                'benefit_land': 'Bénéfice de Terre',
+                'born_this_round': 'Né ce tour',
+                'died_this_round': 'Mort ce tour',
+                'total_benefit_this_round': 'Bénéfice Total ce tour',
+                'total_attack_this_round': 'Attaque Totale ce tour',
+                'total_production_this_round': 'Production Totale ce tour',
+                'total_consumption_this_round': 'Consommation Totale ce tour',
+                'active_ratio_this_round': 'Ratio Actif ce tour',
+                'historical_ranking_this_round': 'Classement Historique ce tour',
+                'member_header': '\t ID Sur_ID  Nom          Âge   Vitalité    Cargo    Nombre de Terres \n',  # Added translation for member header
+            },
+            'de': {
+                'attack': 'Angriff',
+                'benefit': 'Nutzen',
+                'benefit_land': 'Land Nutzen',
+                'born_this_round': 'In dieser Runde geboren',
+                'died_this_round': 'In dieser Runde gestorben',
+                'total_benefit_this_round': 'Gesamtnutzen in dieser Runde',
+                'total_attack_this_round': 'Gesamtangriff in dieser Runde',
+                'total_production_this_round': 'Gesamtproduktion in dieser Runde',
+                'total_consumption_this_round': 'Gesamtverbrauch in dieser Runde',
+                'active_ratio_this_round': 'Aktivitätsquote in dieser Runde',
+                'historical_ranking_this_round': 'Historische Rangliste in dieser Runde',
+                'member_header': '\t ID Sur_ID  Name          Alter   Vitalität    Fracht    Landanzahl \n',  # Added translation for member header
+            },
+            'it': {
+                'attack': 'Attacco',
+                'benefit': 'Beneficio',
+                'benefit_land': 'Beneficio di Terra',
+                'born_this_round': 'Nato in questo turno',
+                'died_this_round': 'Morti in questo turno',
+                'total_benefit_this_round': 'Beneficio Totale in questo turno',
+                'total_attack_this_round': 'Attacco Totale in questo turno',
+                'total_production_this_round': 'Produzione Totale in questo turno',
+                'total_consumption_this_round': 'Consumo Totale in questo turno',
+                'active_ratio_this_round': 'Rapporto Attivo in questo turno',
+                'historical_ranking_this_round': 'Classifica Storica in questo turno',
+                'member_header': '\t ID Sur_ID  Nome          Età   Vitalità    Carico    Conteggio Terreno \n',  # Added translation for member header
+            },
+            'ru': {
+                'attack': 'Атака',
+                'benefit': 'Польза',
+                'benefit_land': 'Польза от Земли',
+                'born_this_round': 'Рожден в этом раунде',
+                'died_this_round': 'Умер в этом раунде',
+                'total_benefit_this_round': 'Общая Польза в этом раунде',
+                'total_attack_this_round': 'Общая Атака в этом раунде',
+                'total_production_this_round': 'Общее Производство в этом раунде',
+                'total_consumption_this_round': 'Общее Потребление в этом раунде',
+                'active_ratio_this_round': 'Активное Соотношение в этом раунде',
+                'historical_ranking_this_round': 'Исторический Рейтинг в этом раунде',
+                'member_header': '\t ID Sur_ID  Имя          Возраст   Жизненная Сила    Груз    Количество Земли \n',  # Added translation for member header
             }
         }
         
