@@ -143,26 +143,29 @@ def decision_using_gpt(
     action: str,
     input_dict: Dict[str, float],
     decision_params: List[float],
+    lang: str = "en"  # Added language parameter for multilingual support
 ) -> Tuple[bool, str]:
     
     decision_tuples = _decision_tuples(input_dict, decision_params)
 
     prompt = generate_prompt(action, decision_tuples)
 
-    try:
+    # Add language support to the prompt
+    prompt_with_lang = f"Output Language: {lang}\n\n{prompt}"  # Append language information to the prompt
 
+    try:
         completion = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": prompt_with_lang,
                 },
             ],
         )
         output = completion.choices[0].message.content
         
     except Exception as e:
-        return False, "Error: " + str(e)
+        return False, f"Error: {str(e)}"
 
     return parse_decision_output(output)

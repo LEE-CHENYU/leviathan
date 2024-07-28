@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from Leviathan.Member import Member, colored
 from Leviathan.Land import Land
+from Leviathan.generate_story import generate_story_using_gpt
 from Leviathan.settings import name_list
 
 from utils.save import path_decorator
@@ -31,7 +32,7 @@ def _requirement_for_reproduction(
         member_2.is_qualified_to_reproduce
     )
 
-    # 展示无法生育的原因 （for debugging）
+    # Display reasons for inability to reproduce (for debugging)
     # if not result:
     #     if (
     #         member_1.vitality + member_1.cargo
@@ -63,16 +64,16 @@ def _requirement_for_offer_land(
 
 class Island():
     _MIN_MAX_INIT_RELATION = {
-        "victim": [-50, 100],                # 若随机到负值，则该记忆初始化为0
+        "victim": [-50, 100],                # If a negative value is randomly generated, this memory is initialized to 0
         "benefit": [-50, 100],        
         "benefit_land": [-3, 3],           
     }
 
     _NEIGHBOR_SEARCH_RANGE = 1000
-    _REPRODUCE_REQUIREMENT = 100                            # 生育条件：双亲血量和仓库之和大于这个值
+    _REPRODUCE_REQUIREMENT = 100                            # Reproduction condition: the sum of the parents' vitality and cargo must be greater than this value
     assert _REPRODUCE_REQUIREMENT > Member._CHILD_VITALITY
 
-    # 记录/输出周期
+    # Record/output period
     _RECORD_PERIOD = 1
 
     def __init__(
@@ -81,9 +82,10 @@ class Island():
         land_shape: Tuple[int, int],
         save_path: str,
         random_seed: Optional[int] = None,
+        log_lang: str = "en",
     ) -> None:
 
-        # 设置并记录随机数种子
+        # Set and record random seed
         self._create_from_file = False
         self._file_name = ""
         if random_seed is not None:
@@ -91,8 +93,16 @@ class Island():
         else:
             self._random_seed = int(time())
         self._rng = np.random.default_rng(self._random_seed)
+        self.log_lang = {
+            "English": "en",
+            "中文": "cn",
+            "日本語": "jp",
+            "Español": "sp"
+        }[log_lang]
+        
+        print(self.log_lang)
 
-        # 保存路径
+        # Save path
         self._save_path = path_decorator(save_path)
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.INFO)
@@ -102,21 +112,21 @@ class Island():
         handler.setFormatter(formatter)
         self._logger.addHandler(handler)
 
-        # 初始人数，当前人数
+        # Initial number of members, current number of members
         self._NAME_LIST = self._rng.permutation(name_list)
 
         self.init_member_num = init_member_number
         self.current_member_num = self.init_member_num
 
-        # 初始人物列表，全体人物列表，当前人物列表
+        # Initial member list, all member list, current member list
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
         self.all_members = self._backup_member_list(self.init_members)
         self.current_members = self._backup_member_list(self.init_members)
 
-        # 地图
-        assert land_shape[0] * land_shape[1] > init_member_number, "土地面积应该大于初始人口"
+        # Map
+        assert land_shape[0] * land_shape[1] > init_member_number, "Land area should be greater than initial population"
         self.land = Land(land_shape)
-        # 为初始人口分配土地
+        # Allocate land to initial population
         _loc_idx_list = self._rng.choice(
             a = range(land_shape[0] * land_shape[1]),
             size = self.init_member_num,
@@ -126,9 +136,9 @@ class Island():
         for idx in range(self.init_member_num):
             self._acquire_land(self.all_members[idx], _loc_list[idx])
 
-        # 初始人物关系
-        # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
-        # 若要修改（增减）人物关系，需要修改：self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
+        # Initial member relationships
+        # Relationship matrix M, the j-th row (M[j, :]) represents the passive memory of the j-th subject (injured/given...)
+        # To modify (add or reduce) member relationships, you need to modify: self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
         self.relationship_dict = {}
         for key, (min, max) in Island._MIN_MAX_INIT_RELATION.items():
             rela = self._rng.uniform(
@@ -136,14 +146,14 @@ class Island():
                 max, 
                 size=(self.init_member_num, self.init_member_num)
             )
-            rela[rela < 0] = 0  # 若随机到负值，则该记忆设为0
+            rela[rela < 0] = 0  # If a negative value is randomly generated, this memory is set to 0
             np.fill_diagonal(rela, np.nan)
 
             self.relationship_dict[key] = rela
 
-        assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "关系矩阵数量和关系矩阵缩放量数量不一致"
+        assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "The number of relationship matrices and the number of relationship matrix scales are inconsistent"
 
-        # 记录动作 （每Island._RECORD_PERIOD输出、清空一次）
+        # Record actions (output and clear every Island._RECORD_PERIOD)
         self.record_action_dict = {
             "attack": {},
             "benefit": {},
@@ -152,7 +162,7 @@ class Island():
         self.record_born = []
         self.record_death = []
 
-        # 记录状态 （每Island._RECORD_PERIOD向末尾增append一个0）
+        # Record state (append a 0 to the end every Island._RECORD_PERIOD)
         self.record_total_production = [0]
         self.record_total_consumption = [0]
         self.record_total_dict = {
@@ -168,12 +178,12 @@ class Island():
         self.previous_vitalities = {}
         self.vitality_diff = {}
 
-        # 回合数
+        # Round number
         self.current_round = 0
 
 
     ############################################################################
-    ################################ 基本操作 #################################### 
+    ################################ Basic Operations #################################### 
 
     def member_by_name(
         self,
@@ -189,12 +199,12 @@ class Island():
 
         raise KeyError(f"Member {name} not found!")
 
-    # =============================== 成员增减 ===================================
+    # =============================== Member Addition and Removal ===================================
     def _backup_member_list(
         self, 
         member_list: List[Member]
     ) -> List[Member]:
-        """复制member_list"""
+        """Copy member_list"""
         return [member for member in member_list]
 
     def _member_list_append(
@@ -204,22 +214,22 @@ class Island():
         appended_rela_columns: np.ndarray = [],
     ) -> None:
         """
-        向current_members，all_members增加一个列表的人物，
-        增加current_member_num，
-        修改relationships矩阵，
-        修改人物surviver_id，
+        Add a list of members to current_members and all_members,
+        Increase current_member_num,
+        Modify relationships matrix,
+        Modify member surviver_id,
         """
         appended_num = len(append)
         prev_member_num = self.current_member_num
 
         if not isinstance(appended_rela_columns, np.ndarray):
-            raise ValueError("关系矩阵增添的列应该是ndarray类型")
+            raise ValueError("The added columns of the relationship matrix should be of ndarray type")
         if not isinstance(appended_rela_rows, np.ndarray):
-            raise ValueError("关系矩阵增添的行应该是ndarray类型")
-        assert appended_rela_columns.shape == (prev_member_num, appended_num), "输入关系列形状不匹配"
-        assert appended_rela_rows.shape == (appended_num, prev_member_num), "输入关系行形状不匹配"
+            raise ValueError("The added rows of the relationship matrix should be of ndarray type")
+        assert appended_rela_columns.shape == (prev_member_num, appended_num), "Input relationship column shape does not match"
+        assert appended_rela_rows.shape == (appended_num, prev_member_num), "Input relationship row shape does not match"
 
-        # 向列表中增加人物
+        # Add members to the list
         for member in append:
             member.surviver_id = self.current_member_num
             self.current_members.append(member)
@@ -227,12 +237,12 @@ class Island():
 
             self.current_member_num += 1
 
-        # 记录出生
+        # Record births
         self.record_born = self.record_born + append
 
-        # 修改关系矩阵
+        # Modify relationship matrix
         for key in self.relationship_dict.keys():
-            # 无法直接进行赋值，需修改原数组尺寸后填入数值
+            # Cannot directly assign, need to modify the original array size and fill in values
             tmp_old = self.relationship_dict[key].copy()
             tmp_new = np.zeros((self.current_member_num, self.current_member_num))
             
@@ -250,45 +260,45 @@ class Island():
         drop: List[Member] = []
     ) -> None:
         """
-        从current_members删除人物，
-        减少current_member_num，
-        修改relationships矩阵，
-        重新修改全体人物surviver_id
+        Remove members from current_members,
+        Decrease current_member_num,
+        Modify relationships matrix,
+        Reassign all members' surviver_id
         """
-        drop_id = np.array([member.id for member in drop])            # 校对id，确保正确删除
+        drop_id = np.array([member.id for member in drop])            # Check id to ensure correct deletion
         drop_sur_id = np.array([member.surviver_id for member in drop])
 
         if (drop_sur_id == None).any():
-            raise AttributeError(f"被删除对象应该有surviver_id")
+            raise AttributeError(f"The object to be deleted should have a surviver_id")
 
         for member in drop:
-            assert member.owned_land == [], "被删除对象应该没有土地"
+            assert member.owned_land == [], "The object to be deleted should not have land"
 
-        # 排序，确保正确移除
+        # Sort to ensure correct removal
         argsort_sur_id = np.argsort(drop_sur_id)[::-1]
         drop_id = drop_id[argsort_sur_id]
         drop_sur_id = drop_sur_id[argsort_sur_id]
         
-        # 从列表中移除人物
+        # Remove members from the list
         for idx in range(len(drop_id)):
             id_to_drop = drop_id[idx]
             sur_id_to_drop = drop_sur_id[idx]
-            assert self.current_members[sur_id_to_drop].id == id_to_drop, "删除对象不匹配"
+            assert self.current_members[sur_id_to_drop].id == id_to_drop, "Deleted object does not match"
 
             self.current_members[sur_id_to_drop].surviver_id = None
 
             del self.current_members[sur_id_to_drop]
             self.current_member_num -= 1
 
-        # 修改关系矩阵
+        # Modify relationship matrix
         for key in self.relationship_dict.keys():
-            # 无法直接进行赋值，需修改原数组尺寸后填入数值
+            # Cannot directly assign, need to modify the original array size and fill in values
             tmp = np.delete(self.relationship_dict[key], drop_sur_id, axis=0)
             tmp = np.delete(tmp, drop_sur_id, axis=1)
 
             self.relationship_dict[key] = tmp
 
-        # 重新编号存活成员
+        # Reassign surviving members
         for sur_id in range(self.current_member_num):
             self.current_members[sur_id].surviver_id = sur_id
         
@@ -302,8 +312,8 @@ class Island():
         appended_rela_columns: np.ndarray = np.empty(0)
     ) -> None:
         """
-        修改member_list，先增加人物，后修改
-        记录出生、死亡
+        Modify member_list, first add members, then modify
+        Record births and deaths
         """
         if append != []:
             self._member_list_append(
@@ -321,17 +331,17 @@ class Island():
     def is_dead(self,) -> bool:
         return self.current_member_num == 0
 
-# ================================ 关系矩阵修改 ==================================
+# ================================ Relationship Matrix Modification ==================================
     def _overlap_of_relations(
         self, 
         principal: Member, 
         object: Member,
         normalize: bool = True,
         ) -> List[float]:
-        """计算关系网内积"""
+        """Calculate the inner product of the relationship network"""
 
         def _normalize(arr):
-            """剔除nan，归一化向量"""
+            """Remove nan, normalize vector"""
             arr[principal.surviver_id] = 0
             arr[object.surviver_id] = 0
             norm = np.linalg.norm(arr)
@@ -366,7 +376,7 @@ class Island():
         object: Member,
         normalize: bool = True,
     ) -> np.ndarray:
-        """计算归一化（tanh）后的关系矩阵元"""
+        """Calculate the normalized (tanh) relationship matrix element"""
         elements = []
         for relationship in list(self.relationship_dict.values()):
             elements.append(relationship[principal.surviver_id, object.surviver_id])
@@ -388,19 +398,19 @@ class Island():
         add_value: float
     ) -> None:
         """
-        增加矩阵元[member_1.surviver_id, member_2.surviver_id]
+        Increase matrix element [member_1.surviver_id, member_2.surviver_id]
         """
-        assert member_1 is not member_2, "不能修改关系矩阵中的对角元素"
+        assert member_1 is not member_2, "Cannot modify diagonal elements in the relationship matrix"
         relationship = self.relationship_dict[relationship_name]
         relationship[member_1.surviver_id, member_2.surviver_id] += add_value
 
-# =================================== 土地 ======================================
+# =================================== Land ======================================
     def _acquire_land(
         self, 
         member: Member, 
         location: Tuple[int, int],
     ) -> None:
-        assert self.land[location] is None, "获取的土地应该没有主人"
+        assert self.land[location] is None, "The acquired land should have no owner"
 
         loc_0, loc_1 = location
         self.land.owner[loc_0][loc_1] = member
@@ -411,8 +421,8 @@ class Island():
         member: Member,
         location: Tuple[int, int],
     ) -> None:
-        assert location in member.owned_land, "只能丢弃拥有的土地"
-        assert self.land[location] == member, "只能丢弃自己的土地"
+        assert location in member.owned_land, "Can only discard owned land"
+        assert self.land[location] == member, "Can only discard one's own land"
 
         loc_0, loc_1 = location
         self.land.owner[loc_0][loc_1] = None
@@ -428,11 +438,11 @@ class Island():
         backend: Optional[str] = None,
     ) -> None:
         """
-        存储四个列表：
-        - clear_list: 允许通行
-        - self_blocked_list: 与member直接接壤
-        - neighbor_blocked_list: 与member间接接壤的成员以及作为桥梁的地主，存储格式为（地主，间接接壤成员）
-        - empty_loc_list: 闲置土地
+        Store four lists:
+        - clear_list: allows passage
+        - self_blocked_list: directly adjacent to member
+        - neighbor_blocked_list: members indirectly adjacent to member and the landlords acting as bridges, stored in the format (landlord, indirectly adjacent member)
+        - empty_loc_list: idle land
         """
         (
             member.current_clear_list,
@@ -449,7 +459,7 @@ class Island():
 
     def _maintain_neighbor_list(self, member: Member):
         """
-        删除已经死亡的邻居
+        Remove already deceased neighbors
         """
         member.current_clear_list = [
             neighbor for neighbor in member.current_clear_list 
@@ -480,11 +490,11 @@ class Island():
         backend: Optional[str] = None,
     ) -> List[Member]:
         """
-        根据决策函数，从潜在对象列表中选出对象
-        decision_name: Member.parameter_dict的keys之一
-        other_requirements: 函数，输入为两个Member，输出True（通过要求）/False
-        bilateral: 设为True后，决策函数的判定为双向符合
-        landlord_decision: 地主的决策
+        Select objects from the potential object list based on the decision function
+        decision_name: one of the keys of Member.parameter_dict
+        other_requirements: function, input two Members, output True (passed requirement)/False
+        bilateral: set to True for the decision function to be mutually compliant
+        landlord_decision: landlord's decision
         """
 
         if target_list == []:
@@ -496,16 +506,16 @@ class Island():
             if self._rng.uniform(0, 1) > prob_of_action:
                 continue
 
-            # 检查tgt是元组（包含地主）还是单一成员
+            # Check if tgt is a tuple (including landlord) or a single member
             if isinstance(tgt, tuple):
                 land_owner, obj = tgt
             elif isinstance(tgt, Member):
                 obj = tgt
                 land_owner = None
             else:
-                raise ValueError("请在列表中输入正确的目标：成员、或（土地主人，成员）")
+                raise ValueError("Please input the correct target in the list: member, or (landlord, member)")
 
-            # 检查是否重复判断obj
+            # Check if obj has been judged repeatedly
             if obj in selected_target:
                 continue
 
@@ -546,7 +556,7 @@ class Island():
         return list(set(selected_target))
 
 # ##############################################################################
-# ##################################### 记录 ####################################
+# ##################################### Record ####################################
     def _record_actions(
         self, 
         record_name: str, 
@@ -557,7 +567,7 @@ class Island():
     ):
         record_dict = self.record_action_dict[record_name]
 
-        # 记录双方的动作
+        # Record actions of both parties
         try:
             record_dict[(member_1.id, member_2.id)] += value_1
         except KeyError:
@@ -568,7 +578,7 @@ class Island():
             except KeyError:
                 record_dict[(member_2.id, member_1.id)] = value_2
 
-        # 记录总动作
+        # Record total actions
         if value_2 is not None:
             self.record_total_dict[record_name][-1] += value_1 + value_2
         else:
@@ -600,12 +610,12 @@ class Island():
         current_attack_ratio = self.record_total_dict['attack'][-1]/(self.current_member_num)
         current_benefit_ratio = self.record_total_dict['benefit'][-1]/(self.current_member_num)
         current_benefit_land_ratio = self.record_total_dict['benefit_land'][-1]/(self.current_member_num)
-        # current_reproduce_ratio = self.record_total_dict[-1]['reproduce']/(self.current_member_num) #预留reproduce
+        # current_reproduce_ratio = self.record_total_dict[-1]['reproduce']/(self.current_member_num) #Reserved for reproduce
 
         self.record_historic_ratio_list = np.append(self.record_historic_ratio_list, [[current_attack_ratio, current_benefit_ratio, current_benefit_land_ratio, 0]], axis=0)
 
     def record_historic_ranking(self):
-        # 计算排位
+        # Calculate ranking
         current_attack_ranking = (sorted(self.record_historic_ratio_list[:,0]).index(self.record_historic_ratio_list[:,0][-1]) + 1)/len(self.record_historic_ratio_list[:,0])
         current_benefit_ranking = (sorted(self.record_historic_ratio_list[:,1]).index(self.record_historic_ratio_list[:,1][-1]) + 1)/len(self.record_historic_ratio_list[:,1])
         current_benefit_land_ranking = (sorted(self.record_historic_ratio_list[:,2]).index(self.record_historic_ratio_list[:,2][-1]) + 1)/len(self.record_historic_ratio_list[:,2])
@@ -741,7 +751,7 @@ class Island():
             rela_df = pd.DataFrame(rela, index=None, columns=None)
             relationship_df = pd.concat([relationship_df, rela_df], axis=0)
 
-        # 本轮之前保存的动作
+        # Actions saved before this round
         action_list = []
         for action_name, action_dict in self.record_action_dict.items():
             sub_action_info = [[key[0], key[1], value] for key, value in action_dict.items()]
@@ -762,7 +772,7 @@ class Island():
         action_list.append(death_df)
         action_df = pd.concat(action_list, axis=1)
 
-        # 土地
+        # Land
         land_df = pd.DataFrame(
             self.land.owner_id()
         )
@@ -799,11 +809,11 @@ class Island():
         return pickle.load(file)
 
     ############################################################################
-    ################################## 模拟 #####################################
+    ################################## Simulation #####################################
     @property 
     def shuffled_members(self) -> List[Member]:
         """
-        打乱整个current_members列表
+        Shuffle the entire current_members list
         """
         shuffled_members = self._backup_member_list(self.current_members)
         self._rng.shuffle(shuffled_members)
@@ -811,21 +821,21 @@ class Island():
         return shuffled_members
 
     def declare_dead(self, member: Member):
-        # 立即丢失所有土地
+        # Immediately lose all land
         for loc in member.owned_land.copy():
             self._discard_land(member, loc)
-        # 清除member_2
+        # Remove member_2
         self.member_list_modify(drop=[member])
-        # 记录死亡
+        # Record death
         self.record_death.append(member)
         # log
-        self._logger.info(f"{member.name}死了.")
+        self._logger.info(f"{member.name} has died.")
 
     def produce(self) -> None:
         """
-        生产  
+        Production  
 
-            1. 根据生产力和土地，增加食物存储
+            1. Increase food storage based on productivity and land
         """
         for member in self.current_members:
             self.record_total_production[-1] += member.produce()
@@ -835,21 +845,21 @@ class Island():
         member_1: Member, 
         member_2: Member
     ) -> None:
-        # 计算攻击、偷盗值
+        # Calculate attack and steal values
         strength_1 = member_1.strength
         steal_1 = member_1.steal
 
         if steal_1 > member_2.cargo:
             steal_1 = member_2.cargo
 
-        # 结算攻击、偷盗
+        # Settle attack and steal
         member_2.vitality -= strength_1
         member_2.cargo -= steal_1
 
-        # 修改关系矩阵
+        # Modify relationship matrix
         self.relationship_modify("victim", member_2, member_1, strength_1 + steal_1)
 
-        # 记录动作
+        # Record action
         self._record_actions(
             "attack",
             member_1,
@@ -857,14 +867,14 @@ class Island():
             strength_1 + steal_1,
         )
 
-        # 结算死亡
+        # Settle death
         if member_2.autopsy():
-            # 结算死亡
+            # Settle death
             self.declare_dead(member_2)
-            # member_1 立即获得扩张机会一次
+            # member_1 immediately gets an expansion opportunity
             self._expand(member_1)
 
-        # 若攻击目标的颜色和自身相同，攻击者恢复颜色（退出组织）
+        # If the color of the attack target is the same as its own, the attacker restores color (exits the organization)
         if np.allclose(member_1._current_color, member_2._current_color):
             member_1._current_color = member_1._color.copy()
 
@@ -874,16 +884,16 @@ class Island():
         prob_to_fight: float = 1.0
         ):
         """
-        战斗
+        Fight
         """
         for member in self.shuffled_members:
             if member.autopsy():
-                # 如果成员在之前回合死亡，不会进行任何操作
+                # If the member died in a previous round, no action will be taken
                 continue
 
             self._maintain_neighbor_list(member)
             
-            # 从邻居中寻找目标
+            # Find targets from neighbors
             target_list = self._convert_id_list_to_member_list(
                 member.current_clear_list 
                 + member.current_self_blocked_list 
@@ -909,22 +919,22 @@ class Island():
         parameter_influence: bool = True
     ) -> None:
         """
-        member_1 给予 member_2
-        若member_1能给予的数量<1，不会给予
+        member_1 gives to member_2
+        If member_1 can give less than 1, it will not give
         """
         amount = member_1.offer
 
         if amount < 1:
             return 
 
-        # 结算给予
+        # Settle giving
         member_2.cargo += amount
         member_1.cargo -= amount
 
-        # 修改关系矩阵
+        # Modify relationship matrix
         self.relationship_modify("benefit", member_2, member_1, amount)
 
-        # 记录
+        # Record
         if amount > 1e-15:
             self._record_actions(
                 "benefit",
@@ -934,7 +944,7 @@ class Island():
                 None
             )
 
-        # 被给予者的参数受到影响
+        # The parameters of the recipient are affected
         if parameter_influence:
             member_2.parameter_absorb(
                 [member_2, member_1],
@@ -942,12 +952,12 @@ class Island():
                 0
             )
 
-        # 被给予者被染色
+        # The recipient is colored
         member_2._current_color = member_1._current_color
 
     def _convert_id_list_to_member_list(self, id_list: List[int | Tuple[int,int]]) -> List[Member]:
         """
-        将id_list转换为member_list
+        Convert id_list to member_list
         """
         member_list = []
         for id in id_list:
@@ -965,12 +975,12 @@ class Island():
         prob_to_trade: float = 1.0
         ):
         """
-        交易与交流
+        Trade and communication
         """
         for member in self.shuffled_members:            
             self._maintain_neighbor_list(member)
             
-            # 从邻居中寻找目标
+            # Find targets from neighbors
             trade_list = self._find_targets(
                 member = member,
                 target_list = self._convert_id_list_to_member_list(
@@ -994,7 +1004,7 @@ class Island():
         member: Member,
     ):
         """
-        扩张
+        Expand
         """
         self._maintain_neighbor_list(member)
         if len(member.current_empty_loc_list) > 0:
@@ -1004,7 +1014,7 @@ class Island():
         self,
     ) -> None:
         """
-        集体扩张
+        Collective expansion
         """
         for member in self.shuffled_members:
             self._expand(member)
@@ -1013,17 +1023,17 @@ class Island():
         self, 
     ):
         """
-        消费
+        Consumption
 
-            1. 计算消耗量。消耗量会随着年龄逐步提升 
-            2. 从血量中扣除消耗量，若血量小于零则记为死亡
-            3. 从仓库中吃食物回满血
-            4. 若有死亡案例，更新集体列表，更新编号，更新关系矩阵
+            1. Calculate consumption. Consumption will gradually increase with age 
+            2. Deduct consumption from vitality, if vitality is less than zero, it is recorded as death
+            3. Eat food from the warehouse to restore vitality
+            4. If there are death cases, update the collective list, update the numbering, update the relationship matrix
         """
         for member in self.current_members:
             consumption = member.consume()
 
-            # 记录
+            # Record
             self.record_total_consumption[-1] += consumption
 
             if member.autopsy():
@@ -1040,16 +1050,16 @@ class Island():
         assigned_pos: float = None,
     ) -> None:
         """
-        member_1 给予 member_2。  
-        选出离自己最远的，离对方最近的land。  
-        在提供“理想”位置时，会自动在给予者的土地中选出离assigned_pos最近的土地。
+        member_1 gives to member_2.  
+        Select the land that is farthest from oneself and closest to the other party.  
+        When providing an "ideal" position, it will automatically select the land closest to assigned_pos from the giver's land.
         """
         
-        # 选出离自己最远的，离对方最近的land
+        # Select the land that is farthest from oneself and closest to the other party
         if member_1.land_num == 0:
-            raise RuntimeError("给予土地的人应该拥有至少一块土地")
+            raise RuntimeError("The person giving land should own at least one piece of land")
         if member_1.land_num == 0 and assigned_pos is None:
-            raise RuntimeError("在没有指定位置的情况下，接受土地的人应该拥有至少一块土地")
+            raise RuntimeError("In the absence of a specified position, the person receiving land should own at least one piece of land")
 
         pos_1 = member_1.center_of_land(self.land)
         if assigned_pos is None:
@@ -1066,14 +1076,14 @@ class Island():
                 farthest_pos = land
         pos = farthest_pos
 
-        # 结算给予
+        # Settle giving
         self._discard_land(member_1, pos)
         self._acquire_land(member_2, pos)
 
-        # 修改关系矩阵
+        # Modify relationship matrix
         self.relationship_modify("benefit_land", member_2, member_1, 1)
 
-        # 记录
+        # Record
         self._record_actions(
             "benefit_land",
             member_1,
@@ -1082,7 +1092,7 @@ class Island():
             None
         )
 
-        # 被给予者的参数受到影响
+        # The parameters of the recipient are affected
         if parameter_influence:
             member_2.parameter_absorb(
                 [member_2, member_1],
@@ -1090,7 +1100,7 @@ class Island():
                 0
             )
             
-        # 被给予者被染色
+        # The recipient is colored
         member_2._current_color = member_1._current_color
 
     def land_distribute(
@@ -1098,12 +1108,12 @@ class Island():
         prob_to_distr: float = 1.0
         ):
         """
-        交易与交流
+        Trade and communication
         """
         for member in self.shuffled_members:
             self._maintain_neighbor_list(member)
             
-            # 从邻居中寻找目标
+            # Find targets from neighbors
             distr_list = self._find_targets(
                 member = member,
                 target_list = self._convert_id_list_to_member_list(
@@ -1149,13 +1159,13 @@ class Island():
             appended_rela_rows=np.zeros((1, self.current_member_num)),
         )
         
-        # 计算双亲给予孩子初始血量
+        # Calculate the initial vitality given to the child by the parents
         vitality_base = Member._CHILD_VITALITY
-        # 双方资源总量
+        # Total resources of both parties
         member_1_total = member_1.cargo + member_1.vitality
         member_2_total = member_2.cargo + member_2.vitality
         total = member_1_total + member_2_total
-        # 按比例扣除损失
+        # Deduct losses proportionally
         member_1_give = vitality_base * member_1_total / total
         member_2_give = vitality_base * member_2_total / total
         if member_1.cargo >= member_1_give:
@@ -1169,15 +1179,15 @@ class Island():
             member_2.vitality -= (member_2_give - member_2.cargo)
             member_2.cargo = 0
         child.vitality = vitality_base
-        # 孩子记住父母的付出
+        # The child remembers the contributions of the parents
         self.relationship_modify("benefit", child, member_1, member_1_give)
         self.relationship_modify("benefit", child, member_2, member_2_give)
 
-        # 父母无条件地offer孩子一次
+        # Parents unconditionally offer the child once
         self._offer(member_1, child, parameter_influence=False)
         self._offer(member_2, child, parameter_influence=False)
 
-        # 父母无条件给予孩子土地
+        # Parents unconditionally give land to the child
         center_pos = (member_1.center_of_land(self.land) + member_2.center_of_land(self.land)) / 2
         for _ in range(Member._LAND_HERITAGE):
             self._offer_land(
@@ -1187,33 +1197,33 @@ class Island():
                 member_2, child, parameter_influence=False, 
                 assigned_pos=center_pos)
 
-        # 孩子计算、恢复血量
+        # The child calculates and recovers vitality
         child.recover()
 
-        self._logger.info(f"\t{member_1} 和 {member_2} 生育了 {child}")
+        self._logger.info(f"\t{member_1} and {member_2} gave birth to {child}")
 
     def reproduce(
         self, 
         prob_of_reproduce: float = 1.0
     ):
         """
-        生育
+        Reproduction
 
-            1. 择出满足年龄条件的人
-            2. 随机分组，组内排序。
-            3. 每组内便利，根据【生育决策】函数，判断互相好感，选择父母
-            4. 判断双方是否满足生育条件（血量和仓库之和）
-            5. 父母按比例扣除仓库数，总和为固定值，仓库不足时扣除血量。
-            6. 产生孩子。设定孩子年龄（0），父母。孩子随机继承父母的基本属性与决策参数，添加**少许**随机浮动。孩子的初始血量为固定值（小于父母消耗值），存储……
-            7. 父母无条件地offer孩子一次
-            8. 若有出生案例，更新集体列表，更新编号，更新关系矩阵
+            1. Select individuals who meet the age criteria
+            2. Randomly group, sort within the group.
+            3. Iterate within each group, based on the [reproduction decision] function, determine mutual affection, select parents
+            4. Check if both parties meet the reproduction conditions (the sum of vitality and cargo)
+            5. Parents deduct cargo proportionally, the total is a fixed value, and if the cargo is insufficient, vitality is deducted.
+            6. Produce a child. Set the child's age (0), parents. The child randomly inherits the basic attributes and decision parameters of the parents, adding **a little** random fluctuation. The child's initial vitality is a fixed value (less than the parents' consumption), stored...
+            7. Parents unconditionally offer the child once
+            8. If there are birth cases, update the collective list, update numbering, update relationship matrix
             
         """
 
         for member in self.shuffled_members:
             self._maintain_neighbor_list(member)
             
-            # 从邻居中寻找目标
+            # Find targets from neighbors
             partner_list = self._find_targets(
                 member = member,
                 target_list = self._convert_id_list_to_member_list(member.current_clear_list),
@@ -1248,23 +1258,23 @@ class Island():
         self.record_death = []
 
     def new_round(self, save_file: bool = True, log_status=False):
-        # 输出内容
+        # Output content
         if self.current_round % Island._RECORD_PERIOD == 0:
-            # 保存
+            # Save
             if save_file:
                 self.save_to_pickle(self._save_path + f"{self.current_round:d}.island")
 
-            # 输出
+            # Output
             if log_status:
-                self.log_status()
+                self.log_status(lang=self.log_lang)
 
-            # 初始化存储
+            # Initialize storage
             self._record_init_per_period()
 
-        # 回合数+1
+        # Round number +1
         self.current_round += 1
 
-        # 每个存活成员增加一岁
+        # Each surviving member ages by one year
         for member in self.current_members:
             member.age += 1
 
@@ -1275,26 +1285,29 @@ class Island():
         members = True,
         log_instead_of_print = True,
         ):
+        
+        lang=self.log_lang  # Added language parameter for multilingual support
+        
         log_str = ""
 
         log_str += "#" * 21 + f" {self.current_round:d} " + "#" * 21 + "\n"
 
         if action:
-            log_str += "=" * 21 + " 攻击 " + "=" * 21 + "\n"
+            log_str += "=" * 21 + self._translate("attack", lang) + "=" * 21 + "\n"
             if self.record_action_dict["attack"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["attack"].items():
                     member_1 = self.all_members[mem_1]
                     member_2 = self.all_members[mem_2]
                     log_str += f"\t{member_1} --{value:.1f}-> {member_2} \n"
 
-            log_str += "=" * 21 + " 给予 " + "=" * 21 + "\n"
+            log_str += "=" * 21 + self._translate("benefit", lang) + "=" * 21 + "\n"
             if self.record_action_dict["benefit"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["benefit"].items():
                     member_1 = self.all_members[mem_1]
                     member_2 = self.all_members[mem_2]
                     log_str += f"\t{member_1} --{value:.1f}-> {member_2} \n" 
 
-            log_str += "=" * 20 + " 给予土地 " + "=" * 20 + "\n"
+            log_str += "=" * 20 + self._translate("benefit_land", lang) + "=" * 20 + "\n"
             if self.record_action_dict["benefit_land"] != {}:
                 for (mem_1, mem_2), value in self.record_action_dict["benefit_land"].items():
                     member_1 = self.all_members[mem_1]
@@ -1303,18 +1316,18 @@ class Island():
 
         if summary:
             log_str += "=" * 50 + "\n"
-            log_str += f"本轮出生：{self.record_born} \n"
-            log_str += f"本轮死亡：{self.record_death} \n"
-            log_str += f"本轮总给予：{self.record_total_dict['benefit'][-1]:.1f} \n"
-            log_str += f"本轮总攻击：{self.record_total_dict['attack'][-1]:.1f} \n"
-            log_str += f"本轮总产量：{self.record_total_production[-1]:.1f} \n"
-            log_str += f"本轮总消耗：{self.record_total_consumption[-1]:.1f} \n"
-            log_str += f"本轮活跃比率：{self.record_historic_ratio_list[-1]} \n"
-            log_str += f"本轮比率历史排位：{self.record_historic_ranking_list[-1]} \n"
+            log_str += f"{self._translate('born_this_round', lang)}: {self.record_born} \n"
+            log_str += f"{self._translate('died_this_round', lang)}: {self.record_death} \n"
+            log_str += f"{self._translate('total_benefit_this_round', lang)}: {self.record_total_dict['benefit'][-1]:.1f} \n"
+            log_str += f"{self._translate('total_attack_this_round', lang)}: {self.record_total_dict['attack'][-1]:.1f} \n"
+            log_str += f"{self._translate('total_production_this_round', lang)}: {self.record_total_production[-1]:.1f} \n"
+            log_str += f"{self._translate('total_consumption_this_round', lang)}: {self.record_total_consumption[-1]:.1f} \n"
+            log_str += f"{self._translate('active_ratio_this_round', lang)}: {self.record_historic_ratio_list[-1]} \n"
+            log_str += f"{self._translate('historical_ranking_this_round', lang)}: {self.record_historic_ranking_list[-1]} \n"
             
         if members:
             log_str += "=" * 50 + "\n"
-            log_str += "\t ID Sur_ID  姓名          年龄   血量    仓库    土地数 \n"
+            log_str += self._translate("member_header", lang)  # Use translation for the header
             for member in self.current_members:
                 space_after_name = " " * (10 - len(member.name))
 
@@ -1335,17 +1348,79 @@ class Island():
                         )
             
                 log_str += mem_str
-
+            
         if log_instead_of_print:
             self._logger.info(log_str)
             return log_str
         else:
             print(log_str)
             return log_str
-                
+
+    def _translate(self, key: str, lang: str) -> str:
+        translations = {
+            'en': {
+                'attack': 'Attack',
+                'benefit': 'Benefit',
+                'benefit_land': 'Land Benefit',
+                'born_this_round': 'Born this round',
+                'died_this_round': 'Died this round',
+                'total_benefit_this_round': 'Total Benefit this round',
+                'total_attack_this_round': 'Total Attack this round',
+                'total_production_this_round': 'Total Production this round',
+                'total_consumption_this_round': 'Total Consumption this round',
+                'active_ratio_this_round': 'Active Ratio this round',
+                'historical_ranking_this_round': 'Historical Ranking this round',
+                'member_header': '\t ID Sur_ID  Name          Age   Vitality    Cargo    Land Count \n',  # Updated translation for member header
+            },
+            'cn': {
+                'attack': '攻击',
+                'benefit': '给予',
+                'benefit_land': '给予土地',
+                'born_this_round': '本轮出生',
+                'died_this_round': '本轮死亡',
+                'total_benefit_this_round': '本轮总给予',
+                'total_attack_this_round': '本轮总攻击',
+                'total_production_this_round': '本轮总产量',
+                'total_consumption_this_round': '本轮总消耗',
+                'active_ratio_this_round': '本轮活跃比率',
+                'historical_ranking_this_round': '本轮比率历史排位',
+                'member_header': '\t ID Sur_ID  姓名          年龄   血量    仓库    土地数 \n',  # Added translation for member header
+            },
+            'jp': {
+                'attack': '攻撃',
+                'benefit': '利益',
+                'benefit_land': '土地の利益',
+                'born_this_round': '今ラウンドで生まれた',
+                'died_this_round': '今ラウンドで死亡',
+                'total_benefit_this_round': '今ラウンドの総利益',
+                'total_attack_this_round': '今ラウンドの総攻撃',
+                'total_production_this_round': '今ラウンドの総生産',
+                'total_consumption_this_round': '今ラウンドの総消費',
+                'active_ratio_this_round': '今ラウンドのアクティブ比率',
+                'historical_ranking_this_round': '今ラウンドの歴史的ランキング',
+                'member_header': '\t ID Sur_ID  名前          年齢   生命力    貨物    土地数 \n',  # Added translation for member header
+            },
+            'sp': {
+                'attack': 'Ataque',
+                'benefit': 'Beneficio',
+                'benefit_land': 'Beneficio de Tierra',
+                'born_this_round': 'Nacidos esta ronda',
+                'died_this_round': 'Muertos esta ronda',
+                'total_benefit_this_round': 'Beneficio Total esta ronda',
+                'total_attack_this_round': 'Ataque Total esta ronda',
+                'total_production_this_round': 'Producción Total esta ronda',
+                'total_consumption_this_round': 'Consumo Total esta ronda',
+                'active_ratio_this_round': 'Ratio Activo esta ronda',
+                'historical_ranking_this_round': 'Ranking Histórico esta ronda',
+                'member_header': '\t ID Sur_ID  Nombre          Edad   Vitalidad    Carga    Conteo de Tierra \n',  # Updated translation for member header
+            }
+        }
+        
+        return translations.get(lang, translations[self.log_lang]).get(key, key)
+        
     def record_statistics(self):
         """
-        统计
+        Statistics
         """
         if self.current_member_num > 0:
             self.record_historic_ratio()

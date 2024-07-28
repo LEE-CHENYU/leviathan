@@ -13,46 +13,46 @@ def colored(rgb, text):
     return text
 
 class Member():
-    # 生产力
+    # Productivity
     # prod * (land / standard)**0.5
-    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 15, 20       # 生产力属性
-    _PRODUCE_ELASTICITY = 0.5                           # 生产力弹性，生产力随土地增长而增加的幂
-    _STD_LAND = 4                                       # 土地标准，在这个土地时，每轮的产量等于productivity
+    _MIN_PRODUCTIVITY, _MAX_PRODUCTIVITY = 15, 20       # Productivity attribute
+    _PRODUCE_ELASTICITY = 0.5                           # Productivity elasticity, the power by which productivity increases with land growth
+    _STD_LAND = 4                                       # Standard land, at this land, the yield per round equals productivity
     _MAX_VITALITY = 100
 
-    # 决策
-    _CARGO_SCALE = 0.02                                 # 在计算决策函数时，cargo的缩放量
-    _RELATION_SCALES = [0.01, 0.01, 0.25]                  # 决策函数在计算相互关系时的缩放量
-    _MAX_NEIGHBOR = 4                                   # 邻居数量最大值
-    _DECISION_BACKEND = "gpt"                        # 决策函数的后端(inner product, geminim, gpt3.5)
+    # Decision-making
+    _CARGO_SCALE = 0.02                                 # The scaling amount of cargo when calculating the decision function
+    _RELATION_SCALES = [0.01, 0.01, 0.25]                  # The scaling amount in the decision function when calculating relationships
+    _MAX_NEIGHBOR = 4                                   # Maximum number of neighbors
+    _DECISION_BACKEND = "gpt"                        # The backend of the decision function (inner product, gemini, gpt3.5)
 
-    # 初始值
-    _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # 初始血量
-    _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # 初始食物存储
-    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 99           # 初始年龄
-    _CHILD_VITALITY = 50                                # 出生时血量
+    # Initial values
+    _INIT_MIN_VIT, _INIT_MAX_VIT = 10, 90             # Initial vitality
+    _INIT_MIN_CARGO, _INIT_MAX_CARGO = 0, 100         # Initial food storage
+    _INIT_MIN_AGE, _INIT_MAX_AGE = 10, 99           # Initial age
+    _CHILD_VITALITY = 50                                # Vitality at birth
 
-    # 消耗相关计算参数
-    _CONSUMPTION_BASE = 15                              # 基础消耗量
-    _MAX_AGE = _INIT_MAX_AGE                            # 理论年龄最大值（消耗值等于最大生命值的年龄）
-    _COMSUMPTION_CLIMBING_AGE = int(0.5 * _MAX_AGE)     # 消耗量开始显著增长的年龄
+    # Consumption-related calculation parameters
+    _CONSUMPTION_BASE = 15                              # Base consumption amount
+    _MAX_AGE = _INIT_MAX_AGE                            # Theoretical maximum age (the age at which consumption equals maximum vitality)
+    _COMSUMPTION_CLIMBING_AGE = int(0.5 * _MAX_AGE)     # The age at which consumption starts to increase significantly
     __AGING_EXPOENT = np.log(_MAX_VITALITY - _CONSUMPTION_BASE) / (_MAX_AGE - _COMSUMPTION_CLIMBING_AGE)
 
-    # 行动量表
-    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # 攻击力占当前血量之比
-    _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # 偷盗值占当前血量之比
-    _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.3                   # 给予值占当前仓库之比
-    _MIN_OFFER = 5                                      # 给予最小值
+    # Action scale
+    _MIN_STRENGTH, _MAX_STRENGTH = 0.1, 0.3             # Attack power as a ratio of current vitality
+    _MIN_STEAL, _MAX_STEAL = 0.1, 0.3                   # Stealing value as a ratio of current vitality
+    _MIN_OFFER_PERCENTAGE, _MAX_OFFER_PERCENTAGE = 0.1, 0.3                   # Offering value as a ratio of current cargo
+    _MIN_OFFER = 5                                      # Minimum offering value
 
-    # 生育
-    _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # 最小年龄
-    _PARAMETER_FLUCTUATION = 0.4                       # 参数继承的浮动
-    _LAND_HERITAGE = np.ceil(_STD_LAND / 2).astype(int) # 生育给予的土地数量
+    # Reproduction
+    _MIN_REPRODUCE_AGE = int(0.18 * _MAX_AGE)           # Minimum age
+    _PARAMETER_FLUCTUATION = 0.4                       # Parameter inheritance fluctuation
+    _LAND_HERITAGE = np.ceil(_STD_LAND / 2).astype(int) # The amount of land given at reproduction
 
-    # 交易
-    _PARAMETER_INFLUENCE = 0.01                       # 交易后的参数影响
+    # Trade
+    _PARAMETER_INFLUENCE = 0.01                       # Parameter influence after trade
 
-    # 决策参数的名字
+    # Names of decision parameters
     _DECISION_INPUT_NAMES = [
         "self_productivity",
         "self_vitality",
@@ -66,22 +66,22 @@ class Member():
         "obj_age",
         "obj_neighbor",
 
-        "victim_overlap",                   # 关系网重叠部分
+        "victim_overlap",                   # Overlapping part of the relationship network
         "benefit_overlap",
         "benefit_land_overlap",
 
-        # 细化关系网内积
-        # "victim_passive_passive",           # victim_passive_passive代表victim记忆中，self所拥的行，乘以obj所拥的行
-        # "victim_passive_active",            # 第一个p/a代表self的记忆，第二个p/a代表obj的记忆
-        # "victim_active_passive",            # passive - 行，active - 列
+        # Refined relationship network inner product
+        # "victim_passive_passive",           # victim_passive_passive represents the rows owned by self in the victim's memory, multiplied by the rows owned by obj
+        # "victim_passive_active",            # The first p/a represents self's memory, the second p/a represents obj's memory
+        # "victim_active_passive",            # passive - rows, active - columns
         # "victim_active_active",
         # "benefit_passive_passive",
         # "benefit_passive_active",
         # "benefit_active_passive",
         # "benefit_active_active",
 
-        "victim_passive",                   # self对obj的记忆
-        "victim_active",                    # obj对self的记忆
+        "victim_passive",                   # self's memory of obj
+        "victim_active",                    # obj's memory of self
         "benefit_passive",
         "benefit_active",
         "benefit_land_passive",
@@ -94,13 +94,13 @@ class Member():
         "clear",
         "offer_land",
     ]
-    _parameter_name_dict = {}               # 参数的名字
+    _parameter_name_dict = {}               # Names of parameters
     for key in _DECISION_NAMES:
         _parameter_name_dict[key] = []
         for name in _DECISION_INPUT_NAMES:
             _parameter_name_dict[key].append(key + "_" + name)
 
-    # 初始决策参数，列表的每行表示各个参数，列表示最小值、最大值
+    # Initial decision parameters, each row of the list represents various parameters, columns represent minimum and maximum values
     _INITIAL_PRAMETER = {}
     _INITIAL_PRAMETER["attack"] = np.array([
         [0, 1],
@@ -288,26 +288,26 @@ class Member():
         rng: np.random.Generator
         ) -> None:
 
-        # 随机数生成器
+        # Random number generator
         self._rng = rng
 
-        # 姓名
+        # Name
         self.name = name
         self.id = id
-        self.surviver_id = surviver_id      # Island.current_members中的编号
+        self.surviver_id = surviver_id      # ID in Island.current_members
 
-        # 亲人链表
+        # Family list
         # self.parent_1 = None
         # self.parent_2 = None
         # self.children = []
 
-        # 人物颜色
+        # Character color
         self._color = [0, 0, 0]
         while np.std(self._color) < 100:
             self._color = np.round(self._rng.uniform(0, 255, size=3)).astype(int)
         self._current_color = self._color.copy()
 
-        # 领地
+        # Territory
         self.owned_land: List[Tuple[int, int]] = []
         self.land_num = 0
 
@@ -316,13 +316,13 @@ class Member():
         self.current_neighbor_blocked_list = []
         self.current_empty_loc_list = []
 
-        # 生产相关的属性和状态
+        # Production-related attributes and states
         self.productivity = self._rng.uniform(Member._MIN_PRODUCTIVITY, Member._MAX_PRODUCTIVITY)
         self.vitality = self._rng.uniform(Member._INIT_MIN_VIT, Member._INIT_MAX_VIT)
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
         self.age = int(self._rng.uniform(Member._INIT_MIN_AGE, Member._INIT_MAX_AGE))
 
-        # 随机初始化决策参数
+        # Randomly initialize decision parameters
         self.parameter_dict = {}
         for des_name in Member._DECISION_NAMES:
             para_range = Member._INITIAL_PRAMETER[des_name]
@@ -333,11 +333,11 @@ class Member():
             )
 
     def __str__(self):
-        """重载print函数表示"""
+        """Override print function representation"""
         return colored(self._current_color, f"{self.name}({self.id})")
 
     def __repr__(self):
-        """重载其他print形式的表示"""
+        """Override other print form representation"""
         return self.__str__()
 
     # def __getstate__(self):
@@ -347,11 +347,11 @@ class Member():
     #     return state
         
 # ##############################################################################
-# ##################################### 状态 ####################################
+# ##################################### State ####################################
     
     @property
     def strength(self) -> float:
-        """战斗力：每次攻击造成的伤害"""
+        """Combat power: damage caused by each attack"""
         return (
             self._rng.uniform(Member._MIN_STRENGTH, Member._MAX_STRENGTH)
             * self.vitality
@@ -359,7 +359,7 @@ class Member():
     
     @property
     def steal(self) -> float:
-        """每次偷盗的收获"""
+        """Harvest from each theft"""
         return (
             self._rng.uniform(Member._MIN_STEAL, Member._MAX_STEAL) 
             * self.vitality
@@ -367,7 +367,7 @@ class Member():
 
     @property
     def offer(self) -> float:
-        """每次给予的数额"""
+        """Amount given each time"""
         return (
             self._rng.uniform(Member._MIN_OFFER_PERCENTAGE, Member._MAX_OFFER_PERCENTAGE) 
             * self.cargo
@@ -375,7 +375,7 @@ class Member():
 
     @property
     def consumption(self) -> float:
-        """每轮消耗量"""
+        """Consumption amount per round"""
         amount = (Member._CONSUMPTION_BASE 
             + np.exp(Member.__AGING_EXPOENT * (self.age - Member._COMSUMPTION_CLIMBING_AGE))
         )
@@ -384,12 +384,12 @@ class Member():
     @property
     def overall_productivity(self) -> float:
         """
-        基于土地的总产量
+        Total productivity based on land
         """
         return self.productivity * (self.land_num / Member._STD_LAND)**Member._PRODUCE_ELASTICITY
 
     def autopsy(self) -> bool:
-        """验尸，在Member类中结算死亡，返回是否死亡"""
+        """Autopsy, settle death in the Member class, return whether dead"""
         if self.vitality <= 0:
             self.vitality = 0
             return True
@@ -405,10 +405,10 @@ class Member():
 
     def center_of_land(self, land: Land.Land) -> np.ndarray:
         """
-        估计土地的中心，方法：
-        计算自己拥有的每一块土地到自己其他土地的“最短距离”，
-        对于每一块土地，计算他离其他所有土地的距离之和，
-        距离之和最短的土地，即为大致的中心
+        Estimate the center of the land, method:
+        Calculate the "shortest distance" from each piece of land owned to other lands,
+        For each piece of land, calculate the sum of distances to all other lands,
+        The land with the shortest distance sum is the approximate center
         """
         
         dis_mat = np.zeros((self.land_num, self.land_num))
@@ -424,7 +424,7 @@ class Member():
         return np.array(self.owned_land[approxed_center_id])
 
     #########################################################################
-    ################################## 动作 ##################################
+    ################################## Actions ##################################
     @property
     def concat_param_dict(self) -> Dict[str, Dict[str, float]]:
         concat_dict = {}
@@ -440,7 +440,7 @@ class Member():
         # normalize: bool = True
         ) -> Dict:
 
-        assert self is not object, "决策函数中主体和对象不能相同"
+        assert self is not object, "The subject and object in the decision function cannot be the same"
 
         input_dict = {}
 
@@ -484,6 +484,14 @@ class Member():
     ) -> bool:
         input_dict = self._generate_decision_inputs(object, island)
 
+        lang_map = {
+            "en": "English",
+            "cn": "中文",
+            "jp": "日本語",
+            "sp": "Español"
+        }
+        log_lang = lang_map.get(island.log_lang, "en")  # Default to English if not found
+        
         if backend is None:
             backend = self._DECISION_BACKEND
 
@@ -491,7 +499,7 @@ class Member():
             input = [input_dict[para_name] for para_name in Member._DECISION_INPUT_NAMES]
             inner = np.sum(self.parameter_dict[decision_name] * input)
             decision = inner > threshold
-            short_reason = "内积决策"
+            short_reason = "Inner product decision"
 
         elif backend == "gemini":
             decision, short_reason = decision_using_gemini(
@@ -504,18 +512,19 @@ class Member():
             decision, short_reason = decision_using_gpt(
                 decision_name, 
                 input_dict, 
-                self.parameter_dict[decision_name]
+                self.parameter_dict[decision_name],
+                log_lang
             )
         
         else:
-            raise ValueError(f"未知的决策后端: {self._DECISION_BACKEND}")
+            raise ValueError(f"Unknown decision backend: {self._DECISION_BACKEND}")
         
         if logger is not None:
             if decision:
                 decision_str = ""
             else:
-                decision_str = "不"
-            logger.info(f"{self}{decision_str}决定对{object}：{decision_name}，原因：{short_reason}")
+                decision_str = "not "
+            logger.info(f"{self}{decision_str}decided to {object}: {decision_name}, reason: {short_reason}")
 
         return decision
 
@@ -525,12 +534,12 @@ class Member():
         weight_list: List[float] = [],
         fluctuation_amplitude = 0,
     ) -> None:
-        """产生多个人的决策参数加权平均值"""
+        """Generate a weighted average of decision parameters from multiple contributors"""
         contr_num = len(contributor_list)
         if weight_list == []:
             weight_list = np.ones(contr_num) / contr_num
 
-        # 加权平均
+        # Weighted average
         new_dict = {
             key: val.copy() * weight_list[0] 
             for key, val in contributor_list[0].parameter_dict.items()
@@ -541,7 +550,7 @@ class Member():
             for key in new_dict.keys():
                 new_dict[key] += contributor.parameter_dict[key] * weight_list[idx]
 
-        # 浮动
+        # Fluctuation
         if fluctuation_amplitude > 0:
             for key in new_dict.keys():
                 new_dict[key] += self._rng.uniform(
@@ -556,19 +565,19 @@ class Member():
         self.land_num += 1
 
     def discard_land(self, land_location: Tuple[int, int]):
-        assert land_location in self.owned_land, "只能丢弃拥有的土地"
+        assert land_location in self.owned_land, "Can only discard owned land"
 
         self.owned_land.remove(land_location)
         self.land_num -= 1
     
     def produce(self) -> float:
-        """生产，将收获装入cargo"""
+        """Produce and store the harvest in cargo"""
         self.cargo += self.overall_productivity
 
         return self.overall_productivity
 
     def consume(self) -> float:
-        """消耗vitality"""
+        """Consume vitality"""
         consumption = self.consumption
         if self.vitality > consumption:
             self.vitality -= self.consumption
@@ -578,12 +587,12 @@ class Member():
         return consumption
 
     def recover(self) -> None:
-        """使用cargo恢复vitality"""
+        """Use cargo to recover vitality"""
         amount = np.min([self.cargo, Member._MAX_VITALITY - self.vitality])
         self.vitality += amount
         self.cargo -= amount
 
-# ================================== 保存 =======================================
+# ================================== Save =======================================
     def save_to_row(self):
 
         info_df = pd.DataFrame({
@@ -619,7 +628,7 @@ class Member():
         #     children_str = children_str + f"{child.id} "
         # info_df["children"] = [children_str]
 
-        # 存储决策参数
+        # Store decision parameters
         for key, paras in self.parameter_dict.items():
             parameters = pd.DataFrame(
                 dict(zip(
