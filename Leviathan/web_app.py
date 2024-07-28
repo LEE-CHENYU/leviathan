@@ -27,6 +27,7 @@ Member._PARAMETER_INFLUENCE = 0
 st.title("Leviathan Simulation")
 
 st.sidebar.header("Simulation Controls")
+
 rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=10, value=3)
 num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=10, value=3)
 land_shape = st.sidebar.selectbox("Land Shape", options=["(5, 5)", "(10, 10)", "(15, 15)"])
@@ -85,3 +86,11 @@ if st.sidebar.button("Generate Story", disabled=not st.session_state.island_fini
     with st.spinner("Generating story..."):
         story = generate_story_using_gpt(author=story_style, log_path=os.path.join(path, "log.txt"), lang=log_lang)
         st.text(story)
+
+st.sidebar.markdown("### Simulation Description\n"
+                    "This social simulation models the interactions and behaviors of members that powered by LLM within an island ecosystem. "
+                    "You can control various parameters such as the number of rounds, members, land shape, and action probabilities. "
+                    "The simulation will log the actions and outcomes, allowing you to analyze the dynamics of the ecosystem. "
+                    "Try to generate a story based on the simulation results to explore the narrative possibilities!"
+                    "\n\n#### Author: "
+                    "\n\nChenyu Li, Danyang Chen, Mengjun Zhu")
