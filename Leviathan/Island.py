@@ -31,22 +31,6 @@ def _requirement_for_reproduction(
         member_2.is_qualified_to_reproduce
     )
 
-    # Display reasons for inability to reproduce (for debugging)
-    # if not result:
-    #     if (
-    #         member_1.vitality + member_1.cargo
-    #         + member_2.vitality + member_2.cargo
-    #     ) < Island._REPRODUCE_REQUIREMENT :
-    #         reason = "Not enough vitality and cargo"
-
-    #     elif not member_1.is_qualified_to_reproduce:
-    #         reason = f"{member_1} not qualified to reproduce"
-
-    #     elif not member_2.is_qualified_to_reproduce:
-    #         reason = f"{member_2} not qualified to reproduce"
-
-    #     print(f"{member_1} and {member_2} cannot reproduce because: {reason}")
-
     return result
 
 def _requirement_for_offer(
@@ -99,10 +83,7 @@ class Island():
             "Español": "sp"
         }[log_lang]
         
-        print(self.log_lang)
-
         # Save path
-        # self._save_path = path_decorator(save_path)
         self._save_path = save_path
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.INFO)
@@ -113,13 +94,32 @@ class Island():
         self._logger.addHandler(handler)
 
         # Initial number of members, current number of members
-        name_list = [
-            "Alice", "Bob", "Cathy", "David", "Eve", "Frank", "Grace", "Henry", 
-            "Ivy", "Jack", "Kate", "Leo", "Mia", "Nick", "Olivia", "Peter", 
-            "Queen", "Rose", "Sam", "Tina", "Ulysses", "Violet", "Will", "Xena", 
-            "Yuri", "Zack"
-        ]
-        self._NAME_LIST = self._rng.permutation(name_list)
+        name_list = {
+            "en": ["Alexander", "Cleopatra", "Genghis", "Hannibal", "Julius", "Leonardo", "Marie", "Napoleon", 
+                   "Queen Elizabeth", "Ramses", "Shakespeare", "Tesla", "Vercingetorix", "Winston", "Yamamoto", 
+                   "Zheng He", "Ada", "Bach", "Catherine", "Da Vinci", "Nelson Mandela", "Mahatma Gandhi", 
+                   "Albert Einstein", "Isaac Newton", "Galileo Galilei", "Charles Darwin", "Virginia Woolf", 
+                   "Frida Kahlo", "Malala Yousafzai", "Stephen Hawking", "Marie Curie", "Simone de Beauvoir", 
+                   "Leonardo da Vinci", "Catherine the Great", "Emmeline Pankhurst", "Harriet Tubman", 
+                   "Rosa Parks", "Margaret Thatcher"],
+            "cn": ["孔子", "李白", "秦始皇", "孙子", "诸葛亮", "武则天", "毛泽东", "邓小平", 
+                   "戚继光", "张衡", "屈原", "王羲之", "鲁迅", "朱元璋", 
+                   "李清照", "岳飞", "林则徐", "孙中山", "王阳明", "陶渊明", 
+                   "李时珍", "张仲景", "黄帝", "冯唐", "白居易", 
+                   "杜甫", "陆游", "辛弃疾", "王维", "苏轼", "司马迁", "李白", "杜甫"],
+            "jp": ["徳川家康", "織田信長", "豊臣秀吉", "坂本龍馬", "夏目漱石", "宮本武蔵", "紫式部", "清少納言", 
+                   "源義経", "平清盛", "西郷隆盛", "福沢諭吉", "伊藤博文", "大久保利通", "秋山真之", 
+                   "黒田官兵衛", "松尾芭蕉", "与謝野晶子", "川端康成", "村上春樹", "夏目漱石", "小泉八雲", 
+                   "高橋留美子", "宮崎駿", "安倍晋三", "福沢諭吉", "田中角栄", "大隈重信", "吉田茂", 
+                   "中江兆民", "西周", "大久保利通", "坂本龍馬"],
+            "sp": ["Cervantes", "Frida", "García", "Hernán", "Isabel", "Julián", "Lorca", "Miguel", 
+                   "Pablo", "Rafael", "Santiago", "Sor Juana", "Teresa", "Valencia", "Zaragoza", 
+                   "Alonso", "Borges", "Cortázar", "Dali", "Goya", "Gabriel García Márquez", "Octavio Paz", 
+                   "Simón Bolívar", "Che Guevara", "Fidel Castro", "Pablo Neruda", "Isabel Allende", 
+                   "Frida Kahlo", "Diego Rivera", "Rosa Luxemburgo", "Clara Zetkin", "Sor Juana Inés de la Cruz", 
+                   "José Martí", "Emiliano Zapata", "Pancho Villa"]
+        }
+        self._NAME_LIST = self._rng.permutation(name_list[self.log_lang])
 
         self.init_member_num = init_member_number
         self.current_member_num = self.init_member_num
@@ -186,7 +186,6 @@ class Island():
 
         # Round number
         self.current_round = 0
-
 
     ############################################################################
     ################################ Basic Operations #################################### 
