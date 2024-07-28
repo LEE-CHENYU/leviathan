@@ -3,7 +3,7 @@ import pandas as pd
 from Leviathan.Member import Member, colored
 from Leviathan.Land import Land
 from Leviathan.generate_story import generate_story_using_gpt
-from Leviathan.settings import name_list
+# from Leviathan.settings import name_list
 
 from utils.save import path_decorator
 
@@ -113,6 +113,12 @@ class Island():
         self._logger.addHandler(handler)
 
         # Initial number of members, current number of members
+        name_list = [
+            "Alice", "Bob", "Cathy", "David", "Eve", "Frank", "Grace", "Henry", 
+            "Ivy", "Jack", "Kate", "Leo", "Mia", "Nick", "Olivia", "Peter", 
+            "Queen", "Rose", "Sam", "Tina", "Ulysses", "Violet", "Will", "Xena", 
+            "Yuri", "Zack"
+        ]
         self._NAME_LIST = self._rng.permutation(name_list)
 
         self.init_member_num = init_member_number
