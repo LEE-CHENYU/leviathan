@@ -82,7 +82,7 @@ if st.sidebar.button("Run Simulation"):
         
     st.session_state.island_finished = True
 
-story_style = st.sidebar.selectbox("Story Style", options=["Homer", "司马迁", "紫式部", "Cervantes", "Shakespeare", "Tolstoy", "Hemingway", "Gabriel García Márquez", "Dante Alighieri", "Johann Wolfgang von Goethe", "Victor Hugo"])
+story_style = st.sidebar.selectbox("Story Style", options=["Homer", "司马迁 (Sima Qian)", "紫式部 (Murasaki Shikibu)", "Cervantes Saavedra", "William Shakespeare", "Leo Tolstoy", "Ernest Hemingway", "Gabriel García Márquez", "Dante Alighieri", "Johann Wolfgang von Goethe", "Victor Hugo"])
 
 if "island_finished" not in st.session_state:
     st.session_state.island_finished = False
