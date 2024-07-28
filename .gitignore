@@ -1,10 +1,11 @@
-__pycache__
-.DS_Store
-# test.py 
-# test.ipynb
-# \test*
-\data*
 **egg-info*
-# Leviathan/api_key.py
+.DS_Store
 Leviathan/local_notes.md
+Leviathan/api_key.py
+\data*
 *.wav
+__pycache__
+# test.ipynb
+# test.py 
+# \test*
+\Final Figures*
