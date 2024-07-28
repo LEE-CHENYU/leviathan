@@ -5,7 +5,7 @@ from Leviathan.Land import Land
 from Leviathan.generate_story import generate_story_using_gpt
 # from Leviathan.settings import name_list
 
-from utils.save import path_decorator
+from Leviathan.save import path_decorator
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from time import time
