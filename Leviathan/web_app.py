@@ -11,10 +11,6 @@ import streamlit as st
 
 # Ask for API key before proceeding
 api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-
-with open("./Leviathan/api_key.py", "w") as f:
-    f.write("import openai\n")
-    f.write(f"openai.api_key = \'{api_key}\'\n")
     
 if not api_key:
     st.warning("Please enter your OpenAI API Key to proceed.")
@@ -26,6 +22,9 @@ from Leviathan.Member import Member
 from Leviathan.Land import Land
 from Leviathan.Analyzer import Analyzer
 from Leviathan.generate_story import generate_story_using_gpt
+
+import openai
+openai.api_key = api_key
 
 rng = np.random.default_rng()
 path = "./data"
