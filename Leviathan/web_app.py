@@ -39,6 +39,7 @@ log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "�
 action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1.0, value=0.5)
         
 if st.sidebar.button("Run Simulation"):
+    from Leviathan.Island import Island
     from Leviathan.Member import Member
     from Leviathan.generate_story import generate_story_using_gpt
     with st.spinner("Running simulation..."):
