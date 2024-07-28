@@ -30,7 +30,7 @@ api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
 with open("./Leviathan/api_key.py", "w") as f:
     f.write("import openai\n")
-    f.write(f"{api_key}\n")
+    f.write(f"openai.api_key = \'{api_key}\'\n")
 
 rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=10, value=3)
 num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=10, value=3)
