@@ -525,6 +525,7 @@ class Member():
             else:
                 decision_str = "not "
             logger.info(f"{self}{decision_str}decided to {object}: {decision_name}, reason: {short_reason}")
+            island.decision_record.append(f"{self}{decision_str}decided to {object}: {decision_name}, reason: {short_reason}")
 
         return decision
 

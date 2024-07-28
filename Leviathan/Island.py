@@ -1283,6 +1283,8 @@ class Island():
         # Each surviving member ages by one year
         for member in self.current_members:
             member.age += 1
+            
+        self.decision_record = []
 
     def log_status(
         self,
@@ -1291,7 +1293,7 @@ class Island():
         members = True,
         log_instead_of_print = True,
         ):
-        
+            
         lang=self.log_lang  # Added language parameter for multilingual support
         
         log_str = ""
@@ -1357,10 +1359,10 @@ class Island():
             
         if log_instead_of_print:
             self._logger.info(log_str)
-            return log_str
+            return log_str + '\n' + "\n".join(self.decision_record)
         else:
             print(log_str)
-            return log_str
+            return log_str + '\n' + "\n".join(self.decision_record)
 
     def _translate(self, key: str, lang: str) -> str:
         translations = {
