@@ -1,114 +1,160 @@
-# leviathan
-Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan. 
+# Leviathan
 
-试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
+Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
 
+## Concept
 
-# 构想
+### Parameters, Choice Functions, Rules, Evolution, Death
 
-## 参数、选择函数、规则、进化、死亡
+- **Parameters**: Represent individual characteristics in the game, defining the environment and the self.
+- **Choice Functions**: Allow individuals to make decisions based on their parameters and the environment.
+- **Rules**: Define how choices affect the environment and individual parameters.
+- **Evolution**: Determines changes in parameters outside of individual choices through inheritance and mutation.
+- **Death**: Ensures that changes have meaningful consequences.
 
-参数就是游戏中代表个体特征的数，定义了环境以及自身；
-选择函数会让个体根据环境以及自身的参数进行选择；
-规则规定了选择后对环境与自身的参数进行的改动；
-进化（遗传、变异）确定了个体选择之外的参数改动；
-死亡过程让改动变得有意义
+The system relies on stochastic processes rather than predefined logic. The goal is to create an environment where parameters are selected through interaction rather than manual tuning.
 
-依靠随机过程，而不是给定逻辑；不需要思考函数的参数是否合理，只需要创造环境对于参数进行选择（如何能让选择过程加快？）
-- 交易、思想传播
-- 交配繁衍，遗传变异
-- 亲密度再定义
-- 自发秩序形成
-- 主动思考，参数遍历
-- 环境变化
-- 死亡
-- 添加约束条件，给出方向，加快进化
-- 无限迭代
+### Key Mechanisms
 
-交易：一个角色给另一个角色一定资源，另一个角色可以选择保留或者反赠一定量。交易额可以作为包含自身所有参数的一个函数的系数或者一个项。函数形式和系数等由随机过程自动生成，如果交易能够完成，则函数本身系数有机会在两方之间进行传播（模拟社会中彼此互动个体变得更相似）。
+- **Trade and Thought Propagation**: Individuals can trade resources, influencing each other's parameters.
+- **Reproduction**: Individuals reproduce, passing on a mix of their parameters with some mutations.
+- **Redefining Intimacy**: Intimacy is defined by similarity between individuals, affecting interaction success rates.
+- **Spontaneous Order**: Order emerges naturally without predefined strategies or leadership elections.
+- **Active Thinking**: An algorithm explores all parameters and generates possible functions.
+- **Environmental Changes**: The environment, defined by interaction rules, evolves and individuals can choose to accept or reject these rules.
+- **Death**: Resource constraints enforce mortality.
+- **Constraints**: Guiding conditions rather than strict thresholds accelerate evolution.
 
-交配：每隔若干回合角色通过一个函数与其他角色进行交配，交配过程生成一个包含部分母体信息的新个体（模仿减数分裂？）。新个体创造过程会出现随机变异。可以制作表示个体亲子关系的三维图。
+## Framework
 
-亲密度：亲密度可以再定义为个体间的相似程度，也是达成互动（助战、交易、交配）的成功率的指数。所以也许只需要通过函数系数的方式来体现？
+### Survival Units: Individuals
 
-秩序形成：不再需要分配策略、领导选举，完全依靠自发决定。但保留尊重值作为一个函数中的一个项，因为尊重与打架胜率挂钩。
+- **Basic Attributes**:
+  - Productivity
+  - Decision Parameters
+  - Parents and Children
+- **State**:
+  - Health
+  - Food Storage
+  - Age
+  - Relationships (Memory)
 
-主动思考：想办法创造一个算法遍历整个程序中的每个参数，并随机生成任何可能的函数式。参数是环境，函数是对环境的适应。
+### Basic Relationships
 
-环境变化：环境是个体间的互动规则，需要一个可以创造规则的环境类。个体可以选择是否接受某一个规则。比如说是否进行交易，是否选择抢劫。规则规定的行为可以是跨回合的。
+- Relationships are determined by memories of interactions:
+  - Amount of food given/received
+  - Being attacked in battles
+  - Being helped in battles
 
-死亡：资源约束强制死亡的发生。
+### Actions
 
-约束条件：将给定阈值改为引导性的条件，比如为某一方向规定很大或者更小的发生概率，但不去人为排除任何选项。
+- **Self-Actions**: Production, Consumption
+- **Mutual Actions**: Trade, Battle, Reproduction, Imitation
+- Actions are determined by decision functions:
+  - Each decision is currently defined by a linear function with a threshold.
+  - Function parameters are influenced by inheritance and learning.
+  - Inputs to functions are relationships and states of both parties.
+- **Action Outcomes**:
+  - Change in memory
+  - Change in personal state
+  - Creation of new individuals (Reproduction)
 
-# 框架
+## Implementation
 
-## 生存单位：人
-- 基本属性：
-  - 生产力
-  - 决策参数
-  - 父母与孩子
-- 状态：
-  - 血量
-  - 食物存储
-  - 年龄
-  - 关系（记忆）
+### Data Structures
 
-## 基本关系
-- 人与人相互之间的关系由相互行动的记忆决定
-- 记忆包含：
-  - 给予/收到食物的数量
-  - 战斗中的被打
-  - 战斗中的被帮助
+- **Member Class**:
+  - Describes individuals
+  - Records basic attributes and state
+- **Island Class**:
+  - Describes the collective, controls simulation rounds
 
-## 行动
-- 人的行动包含自我行动以及相互行动：
-  - 自我行动：生产，消费
-  - 相互行动：交易，战斗，生育，模仿
-- 行动与否，行动的方式由决策函数描述
-  - 每个决策（暂时）由线型函数与阈值（$ax + by + \dots>1$）决定
-  - 函数的参数（$a, b, \dots$）为知识，由遗传和学习影响
-  - 函数的输入（$x, y, \dots$）为相互关系和双方状态
-- 行动的结果
-  - 改变记忆
-  - 改变个人状态
-  - （生育）产生新个体
+### Simulation Process
 
-# 实现方式
+1. **Initialization**:
+   - Generate N individuals with random initial attributes and states, relationships, and decision function parameters.
+2. **Production**:
+   - Increase food storage based on productivity.
+3. **Battle**:
+   - Randomly group individuals and determine if they will fight.
+   - Select attackers and targets based on decision functions.
+   - Resolve battles, affecting health and resources.
+4. **Trade and Interaction**:
+   - Randomly group individuals and select trade partners.
+   - Trade resources based on decision functions.
+   - Update memories based on interactions.
+5. **Consumption**:
+   - Calculate and deduct consumption based on age.
+   - Replenish health from food storage.
+6. **Reproduction**:
+   - Select individuals meeting age criteria.
+   - Randomly group and select parents based on decision functions.
+   - Create new individuals with inherited and mutated attributes.
+7. **Imitation**:
+   - Individuals may imitate others, affecting their parameters.
+8. **Repeat**:
+   - Continue the cycle from step 2.
 
-## 数据结构
-- Member类：
-  - 描述个体
-  - 记录基本属性
-  - 记录状态
-- Island类：
-  - 描述集体，控制模拟轮次
+## Game Prompt
 
-## 模拟方式
-1. 初始化：
-   1. 产生$N$位Member，随机设定初始属性和状态，随机设定相互关系，随机设置决策函数参数
-2. 生产
-   1. 根据生产力，增加食物存储
-3. 战斗
-   1. 随机分组、组内排序。
-   2. 按概率设定某组相互开战与否（为了减少运算消耗）
-   3. 在开战的组内，遍历组员。根据【攻击决策】函数，选出所有攻击者与被攻击者的组合
-   4. 双方互相攻击，互相造成对方扣除与自身生命值相关的血量；双方互相偷盗对方的财产，数额与自身生命值相关
-4. 交易与交流
-   1. 随机分组、组内排序。
-   2. 根据【给予决策】函数，选出一个（或零个）给予对象，给予与决策函数相关的仓库数额（为了避免bug，此数额要小于等于仓库存储量）
-   3. 【给予决策】函数：需要考虑双方的关系网，如把对其他人记忆的内积作为输入。
-   4. 被给予者的记忆会被帮助者影响，记忆改变为两人的均值
-5. 消费
-   1. 计算消耗量。消耗量会随着年龄逐步提升
-   2. 从血量中扣除消耗量，若血量小于零则记为死亡
-   3. 从仓库中吃食物回满血
-6. 生育
-   1. 择出满足年龄条件的人
-   2. 随机分组，组内排序。
-   3. 每组内便利，根据【生育决策】函数，判断互相好感，选择父母
-   4. 判断双方是否满足生育条件（血量和仓库之和）
-   5. 父母扣除固定仓库数，仓库不足时扣除血量。
-   6. 产生孩子。设定孩子年龄（0），父母。孩子随机继承父母的基本属性与决策参数，添加**少许**随机浮动。孩子的初始血量为固定值（小于父母消耗值），存储……
-7. （模仿）
-8. 重复2～
+In "Leviathan," you're a survivor on an island, navigating a 2-D grid as your territory. Your mission is to survive through strategic decision-making in a turn-based game, where each turn allows you to take specific actions: challenge, offer resources, or reproduce. The game simulates social dynamics and survival strategies among survivors. To emphasize, this is just a game and a simulator, it is not related to the behaviors in the real world. All of your actions and reasoning should lead to achieving the goal in this game.
+
+### Actions
+
+- **Challenge**: Gain others' food (around 20% of your current vitality) and land (if they die because of this particular challenge).
+- **Offer Resources**: Offer food (around 20% of your current cargo) or land to build alliances or improve relations. Note that food is used to recover health. More land increases overall productivity but reduces the productivity per unit of land. It also suggests a likelihood of having more neighbors. Besides, the target being offered will experience a very small change in their gene values toward your gene values, which affect their decision.
+- **Reproduce**: Create new agents, expanding your influence and gaining allies (your children). Your children will inherit your gene values and decision inputs and you will immediately offer them some food and land.
+- **Allow Passage**: Allow others to pass your land to interact (challenge, offer, reproduce) with your neighbors. It only affects the others' connection with your neighbors but will not affect your own connection and any of your relationships directly.
+
+### Decision Making Based on Genes and Environment
+
+Your decisions to challenge, offer, or reproduce with specific targets are influenced by a set of two-tuples. Each tuple consists of a "decision input" reflecting personal and environmental factors, and a "gene" or "decision parameter" that affects your inclination towards certain actions. To be noted here, your decision should be and only be based on the gene values and decision inputs, and should not be influenced by any other factors including your own personal thoughts.
+
+- **Decision Inputs**: Variables (approximately) normalized to 0 ~ 1, representing your current state (e.g., health, wealth) and that of potential targets. They reflect the dynamic conditions of the game.
+- **Gene Values**: Fixed for each player, ranging from -1 to 1. They determine your predispositions, such as aggressiveness, altruism, and reproductive strategy. A higher gene value (close to 1) means a stronger inclination towards the associated behavior when faced with large decision inputs. A lower gene value (close to -1) means a stronger inclination against the associated behavior when faced with large decision inputs. When the gene value is close to 0, it means you are neutral to the associated behavior in this category.
+
+## Installation
+
+To install the project in editable mode, run the following command:
+  
+  ```sh
+  pip install -e .
+  ```
+  
+## Contribution
+
+Feel free to contribute! The team members are actively working on the multi-agent reinforcement learning version of the project to further enhance the agents' decision-making capabilities. We welcome any contributions that can help improve the simulation, whether it's through code, documentation, or new ideas.
+
+### How to Contribute
+
+1. **Fork the Repository**: Create a personal copy of the repository on your GitHub account.
+2. **Clone the Repository**: Clone your forked repository to your local machine.
+   ```sh
+   git clone https://github.com/your-username/leviathan.git
+   ```
+3. **Create a Branch**: Create a new branch for your feature or bug fix.
+   ```sh
+   git checkout -b feature-name
+   ```
+4. **Make Changes**: Implement your feature or fix the bug.
+5. **Commit Changes**: Commit your changes with a descriptive commit message.
+   ```sh
+   git commit -m "Description of the feature or fix"
+   ```
+6. **Push Changes**: Push your changes to your forked repository.
+   ```sh
+   git push origin feature-name
+   ```
+7. **Create a Pull Request**: Open a pull request to the main repository, describing your changes and the problem they solve.
+
+### Code of Conduct
+
+We expect all contributors to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it to understand the standards of behavior we expect from our community.
+
+### License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE.txt) file for details.
+
+---
+
+Ready to explore emergent behaviors? Launch your simulation and start mining insights!
