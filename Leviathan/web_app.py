@@ -1,22 +1,20 @@
-import streamlit as st
-import sys 
-sys.path.append("..")
-
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
 import networkx as nx 
 import nxviz as nv
+import os
+import sys 
+from time import time
+
+import streamlit as st
+sys.path.append("..")
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
 from Leviathan.Land import Land
 from Leviathan.Analyzer import Analyzer
 from Leviathan.generate_story import generate_story_using_gpt
-
-from time import time
-from Leviathan import save
-import os
 
 rng = np.random.default_rng()
 path = "./data"
@@ -43,6 +41,7 @@ action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1
         
 if st.sidebar.button("Run Simulation"):
     with st.spinner("Running simulation..."):
+        os.makedirs(path, exist_ok=True)
         island = Island(num_members, eval(land_shape), path, random_seed, log_lang)
 
         for i in range(rounds):
