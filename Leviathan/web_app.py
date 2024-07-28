@@ -8,12 +8,24 @@ import sys
 from time import time
 
 import streamlit as st
+
+# Ask for API key before proceeding
+api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+
+with open("./Leviathan/api_key.py", "w") as f:
+    f.write("import openai\n")
+    f.write(f"openai.api_key = \'{api_key}\'\n")
+    
+if not api_key:
+    st.warning("Please enter your OpenAI API Key to proceed.")
+    st.stop()
 sys.path.append("..")
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
 from Leviathan.Land import Land
 from Leviathan.Analyzer import Analyzer
+from Leviathan.generate_story import generate_story_using_gpt
 
 rng = np.random.default_rng()
 path = "./data"
@@ -25,12 +37,6 @@ st.title("Leviathan Simulation")
 
 st.sidebar.header("Simulation Controls")
 
-api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-
-with open("./Leviathan/api_key.py", "w") as f:
-    f.write("import openai\n")
-    f.write(f"openai.api_key = \'{api_key}\'\n")
-
 rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=10, value=3)
 num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=10, value=3)
 land_shape = st.sidebar.selectbox("Land Shape", options=["(5, 5)", "(10, 10)", "(15, 15)"])
@@ -39,9 +45,6 @@ log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "�
 action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1.0, value=0.5)
         
 if st.sidebar.button("Run Simulation"):
-    from Leviathan.Island import Island
-    from Leviathan.Member import Member
-    from Leviathan.generate_story import generate_story_using_gpt
     with st.spinner("Running simulation..."):
         os.makedirs(path, exist_ok=True)
         island = Island(num_members, eval(land_shape), path, random_seed, log_lang)
