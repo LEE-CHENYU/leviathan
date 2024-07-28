@@ -14,7 +14,6 @@ from Leviathan.Island import Island
 from Leviathan.Member import Member
 from Leviathan.Land import Land
 from Leviathan.Analyzer import Analyzer
-from Leviathan.generate_story import generate_story_using_gpt
 
 rng = np.random.default_rng()
 path = "./data"
@@ -40,6 +39,8 @@ log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "�
 action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1.0, value=0.5)
         
 if st.sidebar.button("Run Simulation"):
+    from Leviathan.Member import Member
+    from Leviathan.generate_story import generate_story_using_gpt
     with st.spinner("Running simulation..."):
         os.makedirs(path, exist_ok=True)
         island = Island(num_members, eval(land_shape), path, random_seed, log_lang)
