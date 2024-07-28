@@ -15,7 +15,7 @@ from Leviathan.Analyzer import Analyzer
 from Leviathan.generate_story import generate_story_using_gpt
 
 from time import time
-from utils import save
+from Leviathan import save
 import os
 
 rng = np.random.default_rng()
