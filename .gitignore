@@ -5,7 +5,5 @@ Leviathan/api_key.py
 \data*
 *.wav
 __pycache__
-# test.ipynb
-# test.py 
-# \test*
+\notebooks*
 \Final Figures*

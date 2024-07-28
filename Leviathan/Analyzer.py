@@ -14,7 +14,7 @@ from scipy.io.wavfile import write
 
 from Leviathan.Island import Island
 from Leviathan.Member import Member
-from utils.save import path_decorator
+from Leviathan.save import path_decorator
 
 from typing import List, Dict, Union
 
