@@ -1,0 +1,10 @@
+numpy
+pandas
+matplotlib
+networkx
+nxviz
+google.generativeai
+openai
+dill
+scikit-learn
+librosa
