@@ -27,8 +27,8 @@ Member._PARAMETER_INFLUENCE = 0
 st.title("Leviathan Simulation")
 
 st.sidebar.header("Simulation Controls")
-rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=6, value=3)
-num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=6, value=3)
+rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=10, value=3)
+num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=10, value=3)
 land_shape = st.sidebar.selectbox("Land Shape", options=["(5, 5)", "(10, 10)", "(15, 15)"])
 random_seed = st.sidebar.number_input("Random Seed", value=2022)
 log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "日本語", "Español"])
