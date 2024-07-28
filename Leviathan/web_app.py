@@ -19,7 +19,7 @@ from Leviathan import save
 import os
 
 rng = np.random.default_rng()
-path = save.datetime_dir("../data")
+path = "./data"
 Island._RECORD_PERIOD = 1
 Member._DECISION_BACKEND = 'gpt'
 Member._PARAMETER_INFLUENCE = 0

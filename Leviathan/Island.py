@@ -103,7 +103,8 @@ class Island():
         print(self.log_lang)
 
         # Save path
-        self._save_path = path_decorator(save_path)
+        # self._save_path = path_decorator(save_path)
+        self._save_path = save_path
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.INFO)
         handler = logging.FileHandler(f'{save_path}/log.txt')

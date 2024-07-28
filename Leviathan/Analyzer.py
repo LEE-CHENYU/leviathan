@@ -350,7 +350,7 @@ class Tracer:
         """
         文件名都是 整数.pkl
         """
-        path = path_decorator(path)
+        # path = path_decorator(path)
         files = os.listdir(path)
 
         obj = cls([])
