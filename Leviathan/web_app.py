@@ -67,13 +67,6 @@ if st.sidebar.button("Run Simulation"):
             )
             
             st.text(island.log_status(action=True))
-            log_file_path = os.path.join(path, "log.txt")
-            if os.path.exists(log_file_path):
-                with open(log_file_path, 'r') as log_file:
-                    log_contents = log_file.read()
-                    st.text(log_contents)
-            else:
-                st.text("Log file not found.")
             
             # Fixed area for plot
             plot_area = st.empty()  # Create a placeholder for the plot
@@ -93,6 +86,7 @@ if "island_finished" not in st.session_state:
 
 if st.sidebar.button("Generate Story", disabled=not st.session_state.island_finished):
     with st.spinner("Generating story..."):
+            
         story = generate_story_using_gpt(author=story_style, log_path=os.path.join(path, "log.txt"), lang=log_lang)
         st.text(story)
 
