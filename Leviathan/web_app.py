@@ -40,7 +40,7 @@ rounds = st.sidebar.slider("Number of Rounds", min_value=1, max_value=10, value=
 num_members = st.sidebar.slider("Number of Members", min_value=1, max_value=10, value=3)
 land_shape = st.sidebar.selectbox("Land Shape", options=["(5, 5)", "(10, 10)", "(15, 15)"])
 random_seed = st.sidebar.number_input("Random Seed", value=2022)
-log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "日本語", "Español"])
+log_lang = st.sidebar.selectbox("Log Language", options=["English", "中文", "日本語", "Español", "Français", "Deutsch", "Italiano", "Русский"])
 action_prob = st.sidebar.slider("Action Probability", min_value=0.0, max_value=1.0, value=0.5)
         
 if st.sidebar.button("Run Simulation"):
@@ -82,7 +82,7 @@ if st.sidebar.button("Run Simulation"):
         
     st.session_state.island_finished = True
 
-story_style = st.sidebar.selectbox("Story Style", options=["Homer", "司马迁", "紫式部", "Cervantes"])
+story_style = st.sidebar.selectbox("Story Style", options=["Homer", "司马迁", "紫式部", "Cervantes", "Shakespeare", "Tolstoy", "Hemingway", "Gabriel García Márquez"])
 
 if "island_finished" not in st.session_state:
     st.session_state.island_finished = False

@@ -488,7 +488,11 @@ class Member():
             "en": "English",
             "cn": "中文",
             "jp": "日本語",
-            "sp": "Español"
+            "sp": "Español",
+            "fr": "Français",
+            "de": "Deutsch",
+            "it": "Italiano",
+            "ru": "Русский"
         }
         log_lang = lang_map.get(island.log_lang, "en")  # Default to English if not found
         

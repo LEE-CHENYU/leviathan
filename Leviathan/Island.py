@@ -80,7 +80,11 @@ class Island():
             "English": "en",
             "中文": "cn",
             "日本語": "jp",
-            "Español": "sp"
+            "Español": "sp",
+            "Français": "fr",
+            "Deutsch": "de",
+            "Italiano": "it",
+            "Русский": "ru"
         }[log_lang]
         
         # Save path
