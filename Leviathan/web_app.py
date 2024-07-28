@@ -94,9 +94,37 @@ if st.sidebar.button("Generate Story", disabled=not st.session_state.island_fini
         st.text(story)
 
 st.sidebar.markdown("### Simulation Description\n"
-                    "This social simulation models the interactions and behaviors of members that powered by LLM within an island ecosystem. "
-                    "You can control various parameters such as the number of rounds, members, land shape, and action probabilities. "
-                    "The simulation will log the actions and outcomes, allowing you to analyze the dynamics of the ecosystem. "
-                    "Try to generate a story based on the simulation results to explore the narrative possibilities!"
+    """
+## Multi-Agent Survival and Social Dynamics Sandbox
+
+This LLM-powered simulation lets you explore emergent behaviors in a virtual island ecosystem. Agents navigate a 2D grid, making decisions based on genetic traits and environmental factors.
+
+### Key Features:
+
+1. **Configurable Parameters:** Adjust rounds, population, island topology, and action probabilities.
+
+2. **Turn-Based Logic:** Agents choose to challenge, offer resources, or reproduce each round.
+
+3. **2D Grid Environment:** Agents claim territory and interact with neighbors.
+
+4. **Social Interaction Model:** Simulates alliance formation, resource sharing, and conflict.
+
+5. **Genetic Algorithm:** Inheritable traits influence agent decision-making.
+
+6. **Event Logging:** Capture all actions and outcomes for data analysis.
+
+7. **Narrative Generation:** Use simulation data to create storylines and scenarios.
+
+### Quick Start:
+
+1. **Initialize Parameters:** Set island size, population, and other variables.
+2. **Run Simulation:** Launch and watch agent interactions unfold.
+3. **Data Analysis(See our Github project):** Monitor events, alliances, and conflicts in real-time.
+4. **Post-Processing:** Generate narratives or analyze trends from simulation data.
+
+> **Note:** This is a simulated environment for research and experimentation. Behaviors do not reflect real-world scenarios but provide a sandbox for studying complex social systems.
+
+Ready to explore emergent behaviors? Launch your simulation and start mining insights!
+    """
                     "\n\n#### Author: "
                     "\n\nChenyu Li, Danyang Chen, Mengjun Zhu")
