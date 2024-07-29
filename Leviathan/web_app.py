@@ -91,7 +91,7 @@ if st.sidebar.button("Generate Story", disabled=not st.session_state.island_fini
     with st.spinner("Generating story..."):
             
         story = generate_story_using_gpt(author=story_style, log_path=os.path.join(path, "log.txt"), lang=log_lang)
-        st.text(story)
+        st.text(story.replace('. ', '.\n'))
 
 st.sidebar.markdown("### Simulation Description\n"
     """
