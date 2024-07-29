@@ -1,6 +1,24 @@
 # Leviathan
 
-Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
+##Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
+
+Inspired by the mechanical-like collective behaviors observed in Thomas Hobbes’ conceptual society of Leviathan, we’ve crafted a social simulator entirely powered by AI agents. Each agent must fend for survival just like our ancestral counterparts, with options to attack others for resources 🗡️, gift to garner favor 🎁, or reproduce to add new members 👶. Interactions forge relationships, which in turn dictate behaviors. Simple exchanges can evolve into complex patterns akin to cellular automata 🌀.
+
+370 years ago, in the shadow of the English Civil War, political philosopher Thomas Hobbes published “Leviathan” 📜, a seminal text on the origins of states. Rather than invoking a divine creator, Hobbes approached the formation of societies as a physical model, starting from basic assumptions and sandboxing potential outcomes 🏗️.
+
+This sandbox starts in a “state of nature,” where each individual behaves like a molecule in a thermodynamic experiment 🌬️. Despite randomly set initial conditions, human nature drives collective behavior towards certain states, much like increasing entropy in a physical system 🌪️. According to Hobbes, this inevitably leads to a “war of all against all” 🛡️.
+
+In a lawless environment, even slight disparities in strength make everyone a potential enemy. The quest for resources, power, or merely survival, can plunge people into conflict. Driven by fear and the basic need for security, humans would opt to surrender the right to fight, forming a Leviathan—a state—to secure their survival 🏰.
+
+In Hobbes’ theory, order isn’t crafted by a divine figure or a wise ruler but emerges spontaneously from collective evolution 🌿.
+
+This emergent evolution is the central theme of our Leviathan simulator, just as Hobbes envisioned the state as the product of rational contracts among individuals. In our model, social structures like states arise naturally, much like life or intelligence, governed by inherent laws. Mimicking Alan Turing’s use of the Turing machine to simulate cognitive processes in the brain, we aim to use Leviathan to model the genesis of states as conceived by Hobbes 🧠.
+
+Check out Leviathan online through the links at the end of this post, and run the simulator with a single click after entering your OpenAI API key 🚀. We’ve also introduced a “historian” feature, allowing your favorite writers to narrate the story of Leviathan 📖.
+
+Our Leviathan build team currently consists of three members, working on enhancing the agents’ decision-making capabilities through reinforcement learning and incorporating human players into the mix. We’re open to like-minded folks joining us! 🤝
+
+If you’re into our project, don’t forget to hit the support button at the bottom of the web app’s left menu bar—look for the blue square 💙.
 
 ## Concept
 
