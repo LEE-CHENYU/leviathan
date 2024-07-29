@@ -128,4 +128,4 @@ Ready to explore emergent behaviors? Launch your simulation and start mining ins
     """
                     "\n\n#### Author: "
                     "\n\nChenyu Li, Danyang Chen, Mengjun Zhu"
-                    "\n\n[![Support Us](https://via.placeholder.com/15/0000FF/000000?text=+)](https://paypal.me/support4leviathan) Click the blue square to support us to build more hacky stuff!")
+                    "\n\n[![Support Us](https://via.placeholder.com/15/0000FF/000000?text=+)](https://paypal.me/support4leviathan) Click the blue square and support us to build more hacky stuff!")
