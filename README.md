@@ -1,6 +1,6 @@
 # Leviathan
 
-##Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
+## Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
 
 Inspired by the mechanical-like collective behaviors observed in Thomas Hobbes’ conceptual society of Leviathan, we’ve crafted a social simulator entirely powered by AI agents. Each agent must fend for survival just like our ancestral counterparts, with options to attack others for resources 🗡️, gift to garner favor 🎁, or reproduce to add new members 👶. Interactions forge relationships, which in turn dictate behaviors. Simple exchanges can evolve into complex patterns akin to cellular automata 🌀.
 
