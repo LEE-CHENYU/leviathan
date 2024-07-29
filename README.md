@@ -1,11 +1,11 @@
 # Leviathan
 
 1.	Leviathan Simulator Streamlit App 🌐:
-Leviathan Simulation on Streamlit
+[Visit Leviathan Simulation on Streamlit](https://leviathan-simulation.streamlit.app/)
 2.	Hugging Face Spaces Page 🤗:
-Leviathan Simulation on Hugging Face
+[Explore Leviathan Simulation on Hugging Face](https://huggingface.co/spaces/chenyusu/leviathan-simulation)
 3.	GitHub Repository 👨‍💻:
-Leviathan Code on GitHub
+[View Leviathan Code on GitHub](https://github.com/lee-chenyu/leviathan/blob/web_app/Leviathan/web_app.py)
 
 ### Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
 
