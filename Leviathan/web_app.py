@@ -96,6 +96,7 @@ if st.sidebar.button("Generate Story", disabled=not st.session_state.island_fini
 st.sidebar.markdown("### Simulation Description\n"
     """
 ## Multi-Agent Survival and Social Dynamics Sandbox
+[Read More About Leviathan on GitHub](https://github.com/LEE-CHENYU/leviathan/blob/web_app/README.md)
 
 This LLM-powered simulation lets you explore emergent behaviors in a virtual island ecosystem. Agents navigate a 2D grid, making decisions based on genetic traits and environmental factors.
 
