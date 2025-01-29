@@ -110,7 +110,6 @@ class Island():
 
         # 初始人物列表，全体人物列表，当前人物列表
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
-        print(f"Init members: {self.init_members[3].surviver_id}")
         self.all_members = self._backup_member_list(self.init_members)
         self.current_members = self._backup_member_list(self.init_members)
 
@@ -256,11 +255,8 @@ class Island():
         修改relationships矩阵，
         重新修改全体人物surviver_id
         """
-        print(f"Drop {len(drop)} members", drop)
         drop_id = np.array([member.id for member in drop])            # 校对id，确保正确删除
-        print(f"Drop IDs: {drop_id}")
         drop_sur_id = np.array([member.surviver_id for member in drop])
-        print(f"Drop Survivor IDs: {drop_sur_id}")
 
         if (drop_sur_id == None).any():
             raise AttributeError(f"被删除对象应该有surviver_id")
@@ -829,7 +825,7 @@ class Island():
         """
         生产  
 
-        1. 根据生产力和土地，增加食物存储
+            1. 根据生产力和土地，增加食物存储
         """
         for member in self.current_members:
             self.record_total_production[-1] += member.produce()
@@ -1357,16 +1353,14 @@ class Island():
             self.generate_decision_history()
             self.compute_vitality_difference()
             self.compute_payoff_matrix()
-          
-          
-#### action sequence version
+            
 class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
         save_path: str,
         random_seed: Optional[int] = None,
-        action_board: List[List[Tuple[str, int, int]]] = None # change
+        action_board: List[List[Tuple[str, int, int]]] = None
     ):
         super().__init__(
             init_member_number,
@@ -1379,9 +1373,9 @@ class IslandExecution(Island):
         self.chain_of_action2 = [('attack', 4, 1), ('attack', 3, 1)]
         self.chain_of_action3 = [('attack', 1, 4), ('offer', 2, 1), ('offer', 1, 2)]
 
-        self.chain_of_action = [self.chain_of_action1, self.chain_of_action2, self.chain_of_action3]
-        # self.action_board = action_board # change 
-        # self.chain_of_action = self.action_board # change
+        # self.chain_of_action = [self.chain_of_action1, self.chain_of_action2, self.chain_of_action3]
+        self.action_board = action_board
+        self.chain_of_action = self.action_board
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -1402,16 +1396,12 @@ class IslandExecution(Island):
             for i in range(len(self.chain_of_action)):
                 if len(self.chain_of_action[i]) > cnt:
                     chain = self.chain_of_action[i][cnt]
-                    dead_list = [member.id for member in self.record_death]
-                    if chain[1] in dead_list or chain[2] in dead_list:
-                        continue
-                    else:
-                        if chain[0] == "attack":
-                            self.attack(self.all_members[chain[1]], self.all_members[chain[2]])
-                        elif chain[0] == "offer":
-                            self.offer(self.all_members[chain[1]], self.all_members[chain[2]], True)
-                        elif chain[0] == "bear":
-                            self.bear(self.all_members[chain[1]], self.all_members[chain[2]])
+                    if chain[0] == "attack":
+                        self.attack(self.all_members[chain[1]], self.all_members[chain[2]])
+                    elif chain[0] == "offer":
+                        self.offer(self.all_members[chain[1]], self.all_members[chain[2]], True)
+                    elif chain[0] == "bear":
+                        self.bear(self.all_members[chain[1]], self.all_members[chain[2]])
                 else:
                     j += 1
                     
@@ -1420,9 +1410,6 @@ class IslandExecution(Island):
             if j >= len(self.chain_of_action):
                 break
 
-    def get_current_members(self): # change
-        return self.current_members
-        
 def main():
     
     from Leviathan.Island import Island
@@ -1449,3 +1436,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
