@@ -168,11 +168,36 @@ class IslandExecution(Island):
             avg_perf = sum(perf_list) / len(perf_list)
             past_performance = f"Previous actions resulted in average performance change of {avg_perf:.2f}"
 
+        # Get previous errors for this member
+        previous_errors = [
+            e for e in self.execution_history['errors'] 
+            if e['member_id'] == member_id
+        ]
+        error_context = "No previous execution errors"
+        if previous_errors:
+            last_error = previous_errors[-1]
+            error_context = (
+                f"Last execution error (Round {last_error['round']}):\n"
+                f"Error type: {last_error['error']}\n"
+                f"Code that caused error:\n{last_error.get('code', '')}"
+            )
+
         # Build a clarifying prompt to reduce hallucinations
         prompt = f"""
+        [Previous code execution context]
+        {error_context}
+
+        [Current task]
         You are member_{member.id} in a survival game. 
         Write a Python function named agent_action(execution_engine, member_id) 
         that uses execution_engine instead of self to carry out your plan of survival.
+
+        [Critical constraints]
+        - Carefully analyze previous errors shown above and avoid repeating them
+        - Never target yourself (member_{member.id}) in any action
+        - Verify member has land before using bear() action
+        - Check member IDs exist before referencing them
+        - Ensure all matrix indices are valid
 
         IMPORTANT: Here are the attributes and methods actually available:
 
@@ -440,17 +465,20 @@ class IslandExecution(Island):
         relationship_modifier = 0
         for relation_type, matrix in self.relationship_dict.items():
             if relation_type == 'benefit':
-                # Positive relationships increase survival chance
-                relationship_modifier += np.sum(matrix[member.id, :]) * 0.2
+                # Use nansum to handle potential NaN values
+                relationship_modifier += np.nansum(matrix[member.id, :]) * 0.2
             elif relation_type == 'victim':
-                # Being attacked reduces survival chance
-                relationship_modifier -= np.sum(matrix[member.id, :]) * 0.3
+                # Use nansum to handle potential NaN values
+                relationship_modifier -= np.nansum(matrix[member.id, :]) * 0.3
         
         # Neighborhood safety (more neighbors = more risk/opportunity)
-        neighbor_count = len(member.current_clear_list)
-        neighborhood_modifier = -0.1 * neighbor_count  # More neighbors = slightly higher risk
+        # Add type conversion to ensure numerical operation
+        neighbor_count = float(len(member.current_clear_list))
+        neighborhood_modifier = -0.1 * neighbor_count
         
-        return base_survival + relationship_modifier + neighborhood_modifier
+        # Ensure final value is finite
+        survival_score = base_survival + relationship_modifier + neighborhood_modifier
+        return np.nan_to_num(survival_score, nan=50.0)  # Default to 50 if calculation fails
 
 def main():
     from Leviathan.Island import Island
