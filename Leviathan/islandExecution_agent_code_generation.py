@@ -198,7 +198,10 @@ class IslandExecution(Island):
         - Verify member has land before using bear() action
         - Check member IDs exist before referencing them
         - Ensure all matrix indices are valid
-
+        - current_members is a LIST accessed by index, not a dictionary
+        - Access members using execution_engine.current_members[index]
+        - Check if index exists: if index < len(execution_engine.current_members)
+        
         IMPORTANT: Here are the attributes and methods actually available:
 
         1) Each member object has:
@@ -244,7 +247,8 @@ class IslandExecution(Island):
 
         def agent_action(execution_engine, member_id):
             # Access your own data
-            me = execution_engine.current_members[member_id]
+            if member_id < len(execution_engine.current_members):
+                me = execution_engine.current_members[member_id]
             my_vitality = me.vitality
             # Possibly parse victim or benefit info from relationship_dict
             total_times_I_was_attacked = execution_engine.relationship_dict['victim'][me.id].sum()
@@ -464,6 +468,8 @@ class IslandExecution(Island):
         # Get relationship bonuses/penalties
         relationship_modifier = 0
         for relation_type, matrix in self.relationship_dict.items():
+            if member.id >= matrix.shape[0]:  # Prevent index out of bounds
+                continue
             if relation_type == 'benefit':
                 # Use nansum to handle potential NaN values
                 relationship_modifier += np.nansum(matrix[member.id, :]) * 0.2
