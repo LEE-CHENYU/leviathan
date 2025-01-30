@@ -119,7 +119,6 @@ class IslandExecution(Island):
         member = self.current_members[member_id]
         relations = self.parse_relationship_matrix(self.relationship_dict)
         features = self.get_current_member_features()
-        print(features)
         
         # Check if action board is empty
         action_board_empty = not hasattr(self, 'action_board') or len(self.action_board) == 0
