@@ -6,6 +6,7 @@ import openai
 import json
 from datetime import datetime
 import traceback
+import os
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -37,6 +38,9 @@ class IslandExecution(Island):
             'relationships': {},
             'survival_tracking': {}
         }
+
+        # Add message storage
+        self.messages = {}  # {member_id: [list_of_messages]}
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -182,8 +186,23 @@ class IslandExecution(Island):
                 f"Code that caused error:\n{last_error.get('code', '')}"
             )
 
+        # Get any received messages (and clear them)
+        received_messages = self.messages.pop(member_id, [])
+        message_context = "\n".join(received_messages) if received_messages else "No messages received"
+        
         # Build a clarifying prompt to reduce hallucinations
         prompt = f"""
+        [Communication Strategy]
+        You can communicate with other members using:
+        execution_engine.send_message(your_id, recipient_id, "message")
+        Example usage:
+        - Coordinate attacks: "Let's attack member_3 together"
+        - Negotiate trades: "I'll give you cargo if you protect me"
+        - Share information: "Member_2 is low on vitality"
+
+        [Received Messages]
+        {message_context}
+
         [Previous code execution context]
         {error_context}
 
@@ -314,7 +333,8 @@ class IslandExecution(Island):
             'timestamp': datetime.now().isoformat(),
             'actions': [],
             'performance_changes': {},
-            'survival_changes': {}
+            'survival_changes': {},
+            'messages': {}  # Add message tracking
         }
 
         for member_id, code_str in self.agent_code_by_member.items():
@@ -334,7 +354,21 @@ class IslandExecution(Island):
 
             error_occurred = None
             try:
-                local_env = {}
+                # Track messages for this member
+                messages_sent = []
+                # Get received messages for this member BEFORE clearing
+                received_messages = self.messages.get(member_id, [])
+                
+                # Modified exec environment with message tracking
+                def tracked_send_message(sender, recipient, msg):
+                    nonlocal messages_sent
+                    messages_sent.append((recipient, msg))
+                    self.send_message(sender, recipient, msg)
+                    
+                local_env = {
+                    'execution_engine': self,
+                    'send_message': tracked_send_message
+                }
                 
                 # Execute the code in a way that makes the function accessible
                 cleaned_code = self.clean_code_string(code_str)
@@ -402,8 +436,15 @@ class IslandExecution(Island):
                 'code_executed': code_str,
                 'old_stats': old_stats,
                 'new_stats': new_stats,
-                'performance_change': performance_change
+                'performance_change': performance_change,
+                'messages_sent': messages_sent
             })
+
+            # Log messages in round data
+            round_data['messages'][member_id] = {
+                'received': received_messages,
+                'sent': messages_sent
+            }
 
         self.execution_history['rounds'].append(round_data)
         
@@ -413,10 +454,14 @@ class IslandExecution(Island):
         # Clear code after execution
         self.agent_code_by_member = {}
 
+        # Add this line to preserve messages until next decision phase
+        self.messages = {k:v for k,v in self.messages.items() if v}  # Only keep non-empty lists
+
     def save_execution_history(self):
         """Save the execution history to a JSON file"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'execution_history_{timestamp}.json'
+        os.makedirs('execution_histories', exist_ok=True)
+        filename = os.path.join('execution_histories', f'execution_history_{timestamp}.json')
         
         try:
             # Convert any non-serializable objects to strings
@@ -486,6 +531,37 @@ class IslandExecution(Island):
         survival_score = base_survival + relationship_modifier + neighborhood_modifier
         return np.nan_to_num(survival_score, nan=50.0)  # Default to 50 if calculation fails
 
+    def send_message(self, sender_id: int, recipient_id: int, message: str):
+        """Allow agents to send messages to each other"""
+        print(f"[MSG] Member {sender_id} -> Member {recipient_id}: {message!r}")
+        # Add validation check
+        if recipient_id < len(self.current_members) and recipient_id >= 0:
+            if recipient_id not in self.messages:
+                self.messages[recipient_id] = []
+            self.messages[recipient_id].append(f"From member_{sender_id}: {message}")
+        else:
+            print(f"Invalid message recipient {recipient_id} from member {sender_id}")
+
+    def print_agent_messages(self):
+        """Print message communication between agents"""
+        print("\n=== Agent Message History ===")
+        for round_idx, round_data in enumerate(self.execution_history['rounds']):
+            print(f"\nRound {round_idx + 1} ({round_data['timestamp']}):")
+            if not round_data['messages']:
+                print("  No messages exchanged")
+                continue
+            
+            for member_id, comm in round_data['messages'].items():
+                print(f"Member {member_id}:")
+                if comm['received']:
+                    print("  Received:")
+                    for msg in comm['received']:
+                        print(f"    - {msg}")
+                if comm['sent']:
+                    print("  Sent:")
+                    for recipient, msg in comm['sent']:
+                        print(f"    -> Member {recipient}: {msg}")
+
 def main():
     from Leviathan.Island import Island
     from Leviathan.Member import Member
@@ -522,6 +598,9 @@ def main():
         
         print("\nPerformance Report:")
         exec.print_agent_performance()
+        
+        # Add this line to show messages
+        exec.print_agent_messages()
         
         exec.log_status(action=True, log_instead_of_print=False)
         
