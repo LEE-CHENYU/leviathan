@@ -8,6 +8,8 @@ from datetime import datetime
 import traceback
 import os
 from collections import defaultdict
+from Leviathan.Member import Member
+from Leviathan.Land import Land
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -305,98 +307,26 @@ class IslandExecution(Island):
         {message_context}
 
         [Social System Design]
-        Example modifications:
-        def pre_init_hook(island):
-            # Set up basic income system
-            island.basic_income = 10.0
-            island.tax_rate = 0.2
-            
-        def modify_member(member, relationships):
-            # Add social status and rights
-            member.social_rank = 0
-            member.voting_power = 1
-            member.tax_paid = 0
-            member.benefits_received = 0
-            return member
-            
-        def modify_land(land, members):
-            # Create communal lands
-            land.communal_areas = []
-            land.private_areas = []
-            return land
-            
-        def modify_relationships(relationships):
-            # Add social bonds
-            relationships['alliance'] = np.zeros_like(relationships['victim'])
-            relationships['trade_history'] = np.zeros_like(relationships['victim'])
-            return relationships
+        IMPORTANT: The following examples are for inspiration only. DO NOT copy them directly.
+        Instead, design your own unique systems and approaches based on your analysis of the current situation.
+
+        Example social system modifications (for inspiration only):
+        - Create a merit-based resource sharing system
+        - Implement rotating leadership roles
+        - Design a mutual defense pact system
+        - Establish trade zones with specific rules
+        - Create specialized roles for members
 
         [Adaptive Survival Framework]
-        Example implementation:
-        def agent_action(execution_engine, member_id):
-            member = execution_engine.current_members[member_id]
-            
-            # Initialize learning structures if not present
-            if not hasattr(member, 'learning'):
-                member.learning = {{
-                    'q_table': defaultdict(float),  # State-action values
-                    'strategy_log': [],  # (action, outcome, reward)
-                    'state_history': [],  # For Markov analysis
-                    'survival_metrics': {{
-                        'vitality_changes': [],
-                        'resource_efficiency': [],
-                        'threat_responses': [],
-                        'success_rates': defaultdict(list)
-                    }}
-                }}
-            
-            # Emergency resource management
-            if member.cargo < member.vitality * 0.5:
-                for other in execution_engine.current_members:
-                    if other.id != member.id and other.cargo > member.cargo:
-                        execution_engine.attack(me, other)
-                        
-            # Adaptive territory defense
-            if member.land_num > 2 and member.vitality < 50:
-                for loc in member.owned_land[1:]:
-                    execution_engine._discard_land(member, loc)
-            
-            # Get current state incorporating survival metrics
-            state = (member.vitality//10, member.cargo//10, 
-                    len(member.current_clear_list))
-            
-            # Choose action using ε-greedy with expanded action space
-            actions = ['attack', 'offer', 'expand', 'hide', 'steal']
-            if np.random.rand() < 0.1:
-                action = np.random.choice(actions)
-            else:
-                action = max(actions, 
-                           key=lambda a: member.learning['q_table'].get((state,a),0))
-            
-            # Execute action
-            outcome = execute_action(action)  # Returns vitality/cargo delta
-            
-            # Calculate reward with survival emphasis
-            reward = (outcome['vitality']*0.7 + 
-                     outcome['cargo']*0.3 + 
-                     (member.vitality/100)*0.2)  # Survival bonus
-            
-            # Q-learning update
-            new_state = (member.vitality//10, member.cargo//10,
-                        len(member.current_clear_list))
-            max_future = max(member.learning['q_table'].get((new_state,a),0) 
-                           for a in actions)
-            member.learning['q_table'][(state,action)] += 0.1 * (
-                reward + 0.9*max_future - member.learning['q_table'][(state,action)]
-            )
-            
-            # Update survival metrics
-            member.learning['strategy_log'].append((action, outcome, reward))
-            member.learning['state_history'].append(state)
-            member.learning['survival_metrics']['vitality_changes'].append(
-                outcome['vitality'])
-            member.learning['survival_metrics']['success_rates'][action].append(
-                1 if reward > 0 else 0)
+        IMPORTANT: The following example is for inspiration only. DO NOT copy this implementation.
+        Instead, create your own unique strategy based on your specific situation and goals.
+
+        Example approach (for inspiration only):
+        - Monitor vital resources
+        - Build strategic relationships
+        - Adapt to threats
+        - Learn from outcomes
+        - Optimize survival chances
 
         Return only the code, no extra text or explanation.
         """
