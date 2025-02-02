@@ -165,7 +165,7 @@ class IslandExecution(Island):
         # Use GPT to make decision
         try:
             completion = openai.chat.completions.create(
-                model="o1-mini", 
+                model="o3-mini", 
                 messages=[
                     {"role": "user", "content": prompt}
                 ]

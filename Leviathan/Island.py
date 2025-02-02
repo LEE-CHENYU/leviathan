@@ -130,16 +130,17 @@ class Island():
         # 初始人物关系
         # 关系矩阵M，第j行 (M[j, :]) 代表第j个主体的被动记忆（受伤/受赠……）
         # 若要修改（增减）人物关系，需要修改：self.relationship_dict, Member.DECISION_INPUT_NAMES, Member._generate_decision_inputs()
-        self.relationship_dict = {}
-        for key, (min, max) in Island._MIN_MAX_INIT_RELATION.items():
-            rela = self._rng.uniform(
-                min, 
-                max, 
-                size=(self.init_member_num, self.init_member_num)
-            )
-            rela[rela < 0] = 0  # 若随机到负值，则该记忆设为0
-            np.fill_diagonal(rela, np.nan)
+        self.relationship_dict = {
+            'victim': None, 
+            'benefit': None,
+            'benefit_land': None
+        }
 
+        # Then populate with random values as before
+        for key in self.relationship_dict:
+            min_val, max_val = Island._MIN_MAX_INIT_RELATION[key]
+            rela = self._rng.uniform(min_val, max_val, size=(self.init_member_num, self.init_member_num))
+            np.fill_diagonal(rela, np.nan)
             self.relationship_dict[key] = rela
 
         assert len(self.relationship_dict) == len(Member._RELATION_SCALES), "关系矩阵数量和关系矩阵缩放量数量不一致"
@@ -356,11 +357,11 @@ class Island():
             obj_col = _normalize(relationship[:, object.surviver_id].copy())
 
             overlaps.append((
-                np.sum(np.sqrt(pri_row * obj_row))
-                + np.sum(np.sqrt(pri_row * obj_col))
-                + np.sum(np.sqrt(pri_col * obj_row))
-                + np.sum(np.sqrt(pri_col * obj_col))) / 4
-            )
+                np.sum(np.sqrt(np.maximum(pri_row * obj_row, 0)))
+                + np.sum(np.sqrt(np.maximum(pri_row * obj_col, 0)))
+                + np.sum(np.sqrt(np.maximum(pri_col * obj_row, 0)))
+                + np.sum(np.sqrt(np.maximum(pri_col * obj_col, 0))) / 4
+            ))
         
         return overlaps
 
@@ -395,10 +396,16 @@ class Island():
         增加矩阵元[member_1.surviver_id, member_2.surviver_id]
         """
         assert member_1 is not member_2, "不能修改关系矩阵中的对角元素"
+        # Add key existence check
+        if relationship_name not in self.relationship_dict:
+            self.relationship_dict[relationship_name] = np.full(
+                (self.init_member_num, self.init_member_num), np.nan
+            )
+        
         relationship = self.relationship_dict[relationship_name]
         relationship[member_1.surviver_id, member_2.surviver_id] += add_value
 
-# =================================== 土地 ======================================
+# =================================== 土地 ======================================
     def _acquire_land(
         self, 
         member: Member, 
@@ -839,6 +846,10 @@ class Island():
         member_1: Member, 
         member_2: Member
     ) -> None:
+        if 'victim' not in self.relationship_dict:
+            self.relationship_dict['victim'] = np.full(
+                (self.init_member_num, self.init_member_num), np.nan
+            )
         # 计算攻击、偷盗值
         strength_1 = member_1.strength
         steal_1 = member_1.steal
@@ -1046,7 +1057,7 @@ class Island():
         """
         member_1 给予 member_2。  
         选出离自己最远的，离对方最近的land。  
-        在提供“理想”位置时，会自动在给予者的土地中选出离assigned_pos最近的土地。
+        在提供"理想"位置时，会自动在给予者的土地中选出离assigned_pos最近的土地。
         """
         
         # 选出离自己最远的，离对方最近的land
@@ -1387,6 +1398,10 @@ class IslandExecution(Island):
         super()._offer(member_1, member_2, parameter_influence)
         
     def attack(self, member_1, member_2):
+        if 'victim' not in self.relationship_dict:
+            self.relationship_dict['victim'] = np.full(
+                (self.init_member_num, self.init_member_num), np.nan
+            )
         super()._attack(member_1, member_2)
 
     def bear(self, member_1, member_2):

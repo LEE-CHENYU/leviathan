@@ -7,20 +7,28 @@ import json
 from datetime import datetime
 import traceback
 import os
+from Leviathan.AgentReadyIsland import AgentReadyIsland
+from Leviathan.Member import Member
+from Leviathan.Land import Land
 
-class IslandExecution(Island):
+class IslandExecution(AgentReadyIsland):
     def __init__(self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
         save_path: str,
         random_seed: Optional[int] = None,
-        action_board: List[List[Tuple[str, int, int]]] = None # change
+        action_board: List[List[Tuple[str, int, int]]] = None,
+        agent_code: Optional[dict] = None
     ):
+        # Store agent modification code
+        self.agent_mod_code = agent_code or {}
+        
         super().__init__(
             init_member_number,
             land_shape,
             save_path,
-            random_seed
+            agent_code=self.agent_mod_code,
+            random_seed=random_seed
         )
         
         # Remove example action board and related attributes since we're not using them
@@ -41,6 +49,10 @@ class IslandExecution(Island):
 
         # Add message storage
         self.messages = {}  # {member_id: [list_of_messages]}
+
+        # Mirror parent's member tracking
+        self.current_member_num = init_member_number  
+        self.init_member_num = init_member_number
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -82,6 +94,11 @@ class IslandExecution(Island):
                         # Same for {j}
                         statement = statement.format(i=i, j=j)
                         summary.append(statement)
+        
+        # Apply agent modifications to relationships
+        for modifier in self.agent_code_registry.get('relationship_mods', []):
+            _, modify_func = modifier
+            relationship_dict = modify_func(relationship_dict, self.current_members)
         
         return summary
     
@@ -279,6 +296,24 @@ class IslandExecution(Island):
                 execution_engine.attack(me, execution_engine.current_members[1])
 
         Return only the code, no extra text or explanation.
+
+        [Class Modification Section]
+        You can modify class behavior by defining:
+        
+        def pre_init_hook(island):
+            \"\"\"Modify island before member initialization\"\"\"
+            island.custom_param = 42  # Example modification
+        
+        def modify_member(member, relationships):
+            \"\"\"Modify member instances after creation\"\"\"
+            member.extra_capacity = relationships['benefit'][member.id].sum()
+            return member
+            
+        def post_init_hook(island):
+            \"\"\"Modify island after full initialization\"\"\"
+            island.land.adjust_resource_distribution()
+        
+        Include these modifications in your code response.
         """
 
         try:
@@ -372,8 +407,24 @@ class IslandExecution(Island):
                 
                 # Execute the code in a way that makes the function accessible
                 cleaned_code = self.clean_code_string(code_str)
-                exec(cleaned_code, local_env)
-
+                exec_env = {
+                    'island': self,
+                    'Member': Member,
+                    'Land': Land,
+                    '__builtins__': {}
+                }
+                
+                # Execute code and capture modifications
+                exec(cleaned_code, exec_env)
+                
+                # Store any class modifications
+                for hook_type in ['pre_init_hook', 'post_init_hook', 
+                                'modify_member', 'modify_land']:
+                    if hook_type in exec_env:
+                        self.agent_code_registry[hook_type].append(
+                            (member_id, exec_env[hook_type])
+                        )
+                        
                 if 'agent_action' in local_env and callable(local_env['agent_action']):
                     print(f"Executing agent_action() for Member {member_id}")
                     # Pass self as execution_engine and member_id

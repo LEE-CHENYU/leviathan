@@ -14,8 +14,22 @@ class IslandExecution(Island):
         land_shape: Tuple[int, int],
         save_path: str,
         random_seed: Optional[int] = None,
-        action_board: List[List[Tuple[str, int, int]]] = None # change
+        action_board: List[List[Tuple[str, int, int]]] = None,
+        agent_modifications: dict = None
     ):
+        # Add agent modification tracking
+        self.agent_modifications = {
+            'pre_init': [],
+            'post_init': [],
+            'member_mods': [],
+            'land_mods': [],
+            'relationship_mods': []
+        }
+        
+        # Apply agent modifications before super().__init__
+        if agent_modifications:
+            self._apply_agent_modifications(agent_modifications)
+            
         super().__init__(
             init_member_number,
             land_shape,
@@ -192,13 +206,51 @@ class IslandExecution(Island):
         
         # Build a clarifying prompt to reduce hallucinations
         prompt = f"""
+        [Social System Design]
+        You can modify the simulation environment to create social systems and constitutions.
+        Consider implementing:
+        - Resource redistribution systems
+        - Taxation and welfare
+        - Property rights and inheritance
+        - Democratic voting mechanisms
+        - Social hierarchies and roles
+        - Trade and market systems
+        - Justice and conflict resolution
+
+        Example modifications:
+        def pre_init_hook(island):
+            # Set up basic income system
+            island.basic_income = 10.0
+            island.tax_rate = 0.2
+            
+        def modify_member(member, relationships):
+            # Add social status and rights
+            member.social_rank = 0
+            member.voting_power = 1
+            member.tax_paid = 0
+            member.benefits_received = 0
+            return member
+            
+        def modify_land(land, members):
+            # Create communal lands
+            land.communal_areas = []
+            land.private_areas = []
+            return land
+            
+        def modify_relationships(relationships):
+            # Add social bonds
+            relationships['alliance'] = np.zeros_like(relationships['victim'])
+            relationships['trade_history'] = np.zeros_like(relationships['victim'])
+            return relationships
+
         [Communication Strategy]
         You can communicate with other members using:
         execution_engine.send_message(your_id, recipient_id, "message")
         Example usage:
-        - Coordinate attacks: "Let's attack member_3 together"
-        - Negotiate trades: "I'll give you cargo if you protect me"
-        - Share information: "Member_2 is low on vitality"
+        - Propose policies: "Let's establish a basic income of 10 units per round"
+        - Form alliances: "Join my coalition for resource sharing"
+        - Vote on decisions: "I vote to increase communal land"
+        - Trade agreements: "Let's establish regular resource exchanges"
 
         [Received Messages]
         {message_context}
@@ -207,9 +259,18 @@ class IslandExecution(Island):
         {error_context}
 
         [Current task]
-        You are member_{member.id} in a survival game. 
+        You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) 
-        that uses execution_engine instead of self to carry out your plan of survival.
+        that implements your vision of social organization while ensuring your survival.
+
+        Consider these social strategies:
+        1. Establish redistribution mechanisms
+        2. Form coalitions and alliances
+        3. Create social safety nets
+        4. Set up trading systems
+        5. Implement democratic decision-making
+        6. Define property rights
+        7. Create conflict resolution systems
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -262,21 +323,24 @@ class IslandExecution(Island):
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
 
-        Example minimal code:
+        Example minimal code with social system:
 
+        def pre_init_hook(island):
+            # Set up basic income system
+            island.basic_income = 5.0
+            
         def agent_action(execution_engine, member_id):
-            # Access your own data
-            if member_id < len(execution_engine.current_members):
-                me = execution_engine.current_members[member_id]
-            my_vitality = me.vitality
-            # Possibly parse victim or benefit info from relationship_dict
-            total_times_I_was_attacked = execution_engine.relationship_dict['victim'][me.id].sum()
-
-            # Make a decision
-            if my_vitality < 50.0:
-                execution_engine.offer(me, execution_engine.current_members[0], True)
-            else:
-                execution_engine.attack(me, execution_engine.current_members[1])
+            if member_id >= len(execution_engine.current_members):
+                return
+                
+            me = execution_engine.current_members[member_id]
+            
+            # Implement basic income
+            for other in execution_engine.current_members:
+                if other.id != me.id and other.vitality < 30.0:
+                    execution_engine.offer(me, other, True)
+                    execution_engine.send_message(me.id, other.id, 
+                        "Basic income support provided. Let's build a cooperative society.")
 
         Return only the code, no extra text or explanation.
         """
@@ -561,6 +625,40 @@ class IslandExecution(Island):
                     print("  Sent:")
                     for recipient, msg in comm['sent']:
                         print(f"    -> Member {recipient}: {msg}")
+
+    def _apply_agent_modifications(self, modifications):
+        """Safely apply environment modification code from agents"""
+        for mod_type, code in modifications.items():
+            try:
+                # Restricted execution environment
+                exec_env = {
+                    'island': self,
+                    'Member': Member,
+                    'Land': Land,
+                    '__builtins__': {}
+                }
+                exec(code, exec_env)
+                
+                # Store successful modifications
+                if mod_type == 'pre_init':
+                    self.agent_modifications['pre_init'].append(exec_env)
+                elif mod_type == 'post_init':
+                    self.agent_modifications['post_init'].append(exec_env)
+                    
+            except Exception as e:
+                self._log_modification_error(mod_type, code, e)
+                
+    def _log_modification_error(self, mod_type, code, error):
+        """Log agent modification errors"""
+        error_info = {
+            'mod_type': mod_type,
+            'code': code,
+            'error': str(error),
+            'traceback': traceback.format_exc()
+        }
+        self.execution_history['errors'].append(error_info)
+        print(f"Error applying {mod_type} modification:")
+        print(traceback.format_exc())
 
 def main():
     from Leviathan.Island import Island
