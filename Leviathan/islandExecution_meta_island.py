@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 import traceback
 import os
+from collections import defaultdict
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -59,11 +60,17 @@ class IslandExecution(Island):
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
         
+    def offer_land(self, member_1, member_2, parameter_influence):
+        super()._offer_land(member_1, member_2, parameter_influence)
+        
     def attack(self, member_1, member_2):
         super()._attack(member_1, member_2)
 
     def bear(self, member_1, member_2):
         super()._bear(member_1, member_2)
+    
+    def expand(self, member_1, member_2):
+        super()._expand(member_1, member_2)
 
     def parse_relationship_matrix(self, relationship_dict):
         """
@@ -90,11 +97,13 @@ class IslandExecution(Island):
                     # Filter out invalid or zero entries
                     if not np.isnan(val) and val != 0:
                         # Construct a description
+                        member_i_id = self.current_members[i].id
+                        member_j_id = self.current_members[j].id
                         statement = (f"{rel_map[relation_type]} "
                                      f"(value={val:.2f})")
                         # Replace {i} with actual index+1 (or keep zero-based)
                         # Same for {j}
-                        statement = statement.format(i=i, j=j)
+                        statement = statement.format(i=member_i_id, j=member_j_id)
                         summary.append(statement)
         
         return summary
@@ -206,55 +215,6 @@ class IslandExecution(Island):
         
         # Build a clarifying prompt to reduce hallucinations
         prompt = f"""
-        [Social System Design]
-        You can modify the simulation environment to create social systems and constitutions.
-        Consider implementing:
-        - Resource redistribution systems
-        - Taxation and welfare
-        - Property rights and inheritance
-        - Democratic voting mechanisms
-        - Social hierarchies and roles
-        - Trade and market systems
-        - Justice and conflict resolution
-
-        Example modifications:
-        def pre_init_hook(island):
-            # Set up basic income system
-            island.basic_income = 10.0
-            island.tax_rate = 0.2
-            
-        def modify_member(member, relationships):
-            # Add social status and rights
-            member.social_rank = 0
-            member.voting_power = 1
-            member.tax_paid = 0
-            member.benefits_received = 0
-            return member
-            
-        def modify_land(land, members):
-            # Create communal lands
-            land.communal_areas = []
-            land.private_areas = []
-            return land
-            
-        def modify_relationships(relationships):
-            # Add social bonds
-            relationships['alliance'] = np.zeros_like(relationships['victim'])
-            relationships['trade_history'] = np.zeros_like(relationships['victim'])
-            return relationships
-
-        [Communication Strategy]
-        You can communicate with other members using:
-        execution_engine.send_message(your_id, recipient_id, "message")
-        Example usage:
-        - Propose policies: "Let's establish a basic income of 10 units per round"
-        - Form alliances: "Join my coalition for resource sharing"
-        - Vote on decisions: "I vote to increase communal land"
-        - Trade agreements: "Let's establish regular resource exchanges"
-
-        [Received Messages]
-        {message_context}
-
         [Previous code execution context]
         {error_context}
 
@@ -264,13 +224,20 @@ class IslandExecution(Island):
         that implements your vision of social organization while ensuring your survival.
 
         Consider these social strategies:
-        1. Establish redistribution mechanisms
-        2. Form coalitions and alliances
-        3. Create social safety nets
-        4. Set up trading systems
-        5. Implement democratic decision-making
-        6. Define property rights
-        7. Create conflict resolution systems
+        - Design systems for resource distribution and allocation
+        - Build alliances and cooperative networks 
+        - Create mechanisms for collective decision making
+        - Establish norms and rules for interaction
+        - Develop methods for conflict resolution
+
+        You can also propose plausible modifications to the game mechanics themselves, such as:
+        - Adding new resource types or currencies
+        - Creating new actions or interaction types
+        - Implementing voting systems or governance structures
+        - Defining property rights and ownership rules
+        - Adding social status or reputation systems
+        - Creating markets or trading mechanisms
+        - Defining new win conditions or goals
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -301,8 +268,10 @@ class IslandExecution(Island):
             For example, 'member_2 was attacked by member_1 (value=3.00)'.
         4) You can use these methods on execution_engine:
             • execution_engine.attack(member1, member2)
-            • execution_engine.offer(member1, member2, True)
-            • execution_engine.bear(member1, member2)
+            • execution_engine.offer(member1, member2, True) - Offers resources
+            • execution_engine.offer_land(member1, member2, True) - Offers land
+            • execution_engine.bear(member1, member2) - Bears offspring
+            • execution_engine.expand(member1, member2) - Expands territory
         5) The members are accessed by execution_engine.current_members[id].
             For example, execution_engine.current_members[2] for the member with ID=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
@@ -323,24 +292,111 @@ class IslandExecution(Island):
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
 
-        Example minimal code with social system:
+        [Communication Strategy]
+        You can communicate with other members using:
+        execution_engine.send_message(your_id, recipient_id, "message")
+        Example usage:
+        - Propose policies: "Let's establish a basic income of 10 units per round"
+        - Form alliances: "Join my coalition for resource sharing"
+        - Vote on decisions: "I vote to increase communal land"
+        - Trade agreements: "Let's establish regular resource exchanges"
 
+        [Received Messages]
+        {message_context}
+
+        [Social System Design]
+        Example modifications:
         def pre_init_hook(island):
             # Set up basic income system
-            island.basic_income = 5.0
+            island.basic_income = 10.0
+            island.tax_rate = 0.2
             
+        def modify_member(member, relationships):
+            # Add social status and rights
+            member.social_rank = 0
+            member.voting_power = 1
+            member.tax_paid = 0
+            member.benefits_received = 0
+            return member
+            
+        def modify_land(land, members):
+            # Create communal lands
+            land.communal_areas = []
+            land.private_areas = []
+            return land
+            
+        def modify_relationships(relationships):
+            # Add social bonds
+            relationships['alliance'] = np.zeros_like(relationships['victim'])
+            relationships['trade_history'] = np.zeros_like(relationships['victim'])
+            return relationships
+
+        [Adaptive Survival Framework]
+        Example implementation:
         def agent_action(execution_engine, member_id):
-            if member_id >= len(execution_engine.current_members):
-                return
-                
-            me = execution_engine.current_members[member_id]
+            member = execution_engine.current_members[member_id]
             
-            # Implement basic income
-            for other in execution_engine.current_members:
-                if other.id != me.id and other.vitality < 30.0:
-                    execution_engine.offer(me, other, True)
-                    execution_engine.send_message(me.id, other.id, 
-                        "Basic income support provided. Let's build a cooperative society.")
+            # Initialize learning structures if not present
+            if not hasattr(member, 'learning'):
+                member.learning = {{
+                    'q_table': defaultdict(float),  # State-action values
+                    'strategy_log': [],  # (action, outcome, reward)
+                    'state_history': [],  # For Markov analysis
+                    'survival_metrics': {{
+                        'vitality_changes': [],
+                        'resource_efficiency': [],
+                        'threat_responses': [],
+                        'success_rates': defaultdict(list)
+                    }}
+                }}
+            
+            # Emergency resource management
+            if member.cargo < member.vitality * 0.5:
+                for other in execution_engine.current_members:
+                    if other.id != member.id and other.cargo > member.cargo:
+                        execution_engine.attack(me, other)
+                        
+            # Adaptive territory defense
+            if member.land_num > 2 and member.vitality < 50:
+                for loc in member.owned_land[1:]:
+                    execution_engine._discard_land(member, loc)
+            
+            # Get current state incorporating survival metrics
+            state = (member.vitality//10, member.cargo//10, 
+                    len(member.current_clear_list))
+            
+            # Choose action using ε-greedy with expanded action space
+            actions = ['attack', 'offer', 'expand', 'hide', 'steal']
+            if np.random.rand() < 0.1:
+                action = np.random.choice(actions)
+            else:
+                action = max(actions, 
+                           key=lambda a: member.learning['q_table'].get((state,a),0))
+            
+            # Execute action
+            outcome = execute_action(action)  # Returns vitality/cargo delta
+            
+            # Calculate reward with survival emphasis
+            reward = (outcome['vitality']*0.7 + 
+                     outcome['cargo']*0.3 + 
+                     (member.vitality/100)*0.2)  # Survival bonus
+            
+            # Q-learning update
+            new_state = (member.vitality//10, member.cargo//10,
+                        len(member.current_clear_list))
+            max_future = max(member.learning['q_table'].get((new_state,a),0) 
+                           for a in actions)
+            member.learning['q_table'][(state,action)] += 0.1 * (
+                reward + 0.9*max_future - member.learning['q_table'][(state,action)]
+            )
+            
+            # Update survival metrics
+            member.learning['strategy_log'].append((action, outcome, reward))
+            member.learning['state_history'].append(state)
+            member.learning['survival_metrics']['vitality_changes'].append(
+                outcome['vitality'])
+            member.learning['survival_metrics']['success_rates'][action].append(
+                1 if reward > 0 else 0)
 
         Return only the code, no extra text or explanation.
         """
@@ -571,20 +627,23 @@ class IslandExecution(Island):
         - Current neighborhood situation
         Returns a float representing survival probability
         """
+        # Get member's index in current_members list
+        member_index = self.current_members.index(member)
+        
         # Base survival from own attributes
         base_survival = member.vitality + member.cargo
         
         # Get relationship bonuses/penalties
         relationship_modifier = 0
         for relation_type, matrix in self.relationship_dict.items():
-            if member.id >= matrix.shape[0]:  # Prevent index out of bounds
+            if member_index >= matrix.shape[0]:  # This checks ID against matrix size
                 continue
             if relation_type == 'benefit':
                 # Use nansum to handle potential NaN values
-                relationship_modifier += np.nansum(matrix[member.id, :]) * 0.2
+                relationship_modifier += np.nansum(matrix[member_index, :]) * 0.2
             elif relation_type == 'victim':
                 # Use nansum to handle potential NaN values
-                relationship_modifier -= np.nansum(matrix[member.id, :]) * 0.3
+                relationship_modifier -= np.nansum(matrix[member_index, :]) * 0.3
         
         # Neighborhood safety (more neighbors = more risk/opportunity)
         # Add type conversion to ensure numerical operation
@@ -599,7 +658,7 @@ class IslandExecution(Island):
         """Allow agents to send messages to each other"""
         print(f"[MSG] Member {sender_id} -> Member {recipient_id}: {message!r}")
         # Add validation check
-        if recipient_id < len(self.current_members) and recipient_id >= 0:
+        if any(m.id == recipient_id for m in self.current_members):
             if recipient_id not in self.messages:
                 self.messages[recipient_id] = []
             self.messages[recipient_id].append(f"From member_{sender_id}: {message}")
