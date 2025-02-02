@@ -225,21 +225,24 @@ class IslandExecution(Island):
         Write a Python function named agent_action(execution_engine, member_id) 
         that implements your vision of social organization while ensuring your survival.
 
-        Consider these social strategies:
-        - Design systems for resource distribution and allocation
-        - Build alliances and cooperative networks 
-        - Create mechanisms for collective decision making
-        - Establish norms and rules for interaction
-        - Develop methods for conflict resolution
+        Consider researching and applying established theories and frameworks from:
+        - Resource management and commons governance
+        - Game theory and strategic behavior
+        - Social network analysis
+        - Institutional and behavioral economics 
+        - Evolutionary dynamics
+        - Mechanism design
+        - Political economy
 
-        You can also propose plausible modifications to the game mechanics themselves, such as:
-        - Adding new resource types or currencies
-        - Creating new actions or interaction types
-        - Implementing voting systems or governance structures
-        - Defining property rights and ownership rules
-        - Adding social status or reputation systems
-        - Creating markets or trading mechanisms
-        - Defining new win conditions or goals
+        You can implement proven mechanisms like:
+        - Reputation tracking
+        - Rule enforcement systems
+        - Governance structures
+        - Social capital development
+        - Resource sharing schemes
+        - Monitoring systems
+        - Democratic processes
+        - Market mechanisms
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -295,9 +298,24 @@ class IslandExecution(Island):
         If it failed, try a different approach.
 
         [Communication Strategy]
-        You can communicate with other members using:
+        You can communicate with multiple members in a single round using:
         execution_engine.send_message(your_id, recipient_id, "message")
+
         Example usage:
+        - Broadcast to all: 
+          for member in execution_engine.current_members:
+              if member.id != your_id:
+                  execution_engine.send_message(your_id, member.id, "Let's cooperate")
+        - Message allies:
+          for ally_id in [1, 3, 5]:
+              if ally_id < len(execution_engine.current_members):
+                  execution_engine.send_message(your_id, ally_id, "Alliance update")
+        - Group coordination:
+          message = "Proposal: share resources equally"
+          for neighbor_id in member.current_clear_list:
+              execution_engine.send_message(your_id, neighbor_id, message)
+
+        Common message types:
         - Propose policies: "Let's establish a basic income of 10 units per round"
         - Form alliances: "Join my coalition for resource sharing"
         - Vote on decisions: "I vote to increase communal land"
@@ -307,26 +325,10 @@ class IslandExecution(Island):
         {message_context}
 
         [Social System Design]
-        IMPORTANT: The following examples are for inspiration only. DO NOT copy them directly.
-        Instead, design your own unique systems and approaches based on your analysis of the current situation.
-
-        Example social system modifications (for inspiration only):
-        - Create a merit-based resource sharing system
-        - Implement rotating leadership roles
-        - Design a mutual defense pact system
-        - Establish trade zones with specific rules
-        - Create specialized roles for members
+        IMPORTANT: Research and apply established theories and frameworks from social sciences, economics, and political science to design your strategy. Do not rely on basic examples - develop sophisticated approaches based on proven research.
 
         [Adaptive Survival Framework]
-        IMPORTANT: The following example is for inspiration only. DO NOT copy this implementation.
-        Instead, create your own unique strategy based on your specific situation and goals.
-
-        Example approach (for inspiration only):
-        - Monitor vital resources
-        - Build strategic relationships
-        - Adapt to threats
-        - Learn from outcomes
-        - Optimize survival chances
+        IMPORTANT: Study successful systems and strategies from academic literature. Implement evidence-based approaches rather than simple heuristics.
 
         Return only the code, no extra text or explanation.
         """
