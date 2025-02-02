@@ -1,4 +1,6 @@
 from Leviathan.Island import Island
+from Leviathan.Member import Member
+from Leviathan.Land import Land
 from typing import List, Tuple, Optional
 import numpy as np
 import pandas as pd
@@ -8,8 +10,6 @@ from datetime import datetime
 import traceback
 import os
 from collections import defaultdict
-from Leviathan.Member import Member
-from Leviathan.Land import Land
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -225,24 +225,21 @@ class IslandExecution(Island):
         Write a Python function named agent_action(execution_engine, member_id) 
         that implements your vision of social organization while ensuring your survival.
 
-        Consider researching and applying established theories and frameworks from:
-        - Resource management and commons governance
-        - Game theory and strategic behavior
-        - Social network analysis
-        - Institutional and behavioral economics 
-        - Evolutionary dynamics
-        - Mechanism design
-        - Political economy
+        Consider these social strategies:
+        - Design systems for resource distribution and allocation
+        - Build alliances and cooperative networks 
+        - Create mechanisms for collective decision making
+        - Establish norms and rules for interaction
+        - Develop methods for conflict resolution
 
-        You can implement proven mechanisms like:
-        - Reputation tracking
-        - Rule enforcement systems
-        - Governance structures
-        - Social capital development
-        - Resource sharing schemes
-        - Monitoring systems
-        - Democratic processes
-        - Market mechanisms
+        You can also propose plausible modifications to the game mechanics themselves, such as:
+        - Adding new resource types or currencies
+        - Creating new actions or interaction types
+        - Implementing voting systems or governance structures
+        - Defining property rights and ownership rules
+        - Adding social status or reputation systems
+        - Creating markets or trading mechanisms
+        - Defining new win conditions or goals
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -297,40 +294,123 @@ class IslandExecution(Island):
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
 
+        IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
+
         [Communication Strategy]
         You can communicate with multiple members in a single round using:
         execution_engine.send_message(your_id, recipient_id, "message")
-
         Example usage:
         - Broadcast to all: 
-          for member in execution_engine.current_members:
-              if member.id != your_id:
-                  execution_engine.send_message(your_id, member.id, "Let's cooperate")
+          for recipient in range(len(execution_engine.current_members)):
+              if recipient != your_id:
+                  execution_engine.send_message(your_id, recipient, "Let's cooperate!")
         - Message allies:
-          for ally_id in [1, 3, 5]:
-              if ally_id < len(execution_engine.current_members):
-                  execution_engine.send_message(your_id, ally_id, "Alliance update")
+          for ally_id in ally_list:
+              execution_engine.send_message(your_id, ally_id, "Attack target X")
         - Group coordination:
-          message = "Proposal: share resources equally"
-          for neighbor_id in member.current_clear_list:
-              execution_engine.send_message(your_id, neighbor_id, message)
-
-        Common message types:
-        - Propose policies: "Let's establish a basic income of 10 units per round"
-        - Form alliances: "Join my coalition for resource sharing"
-        - Vote on decisions: "I vote to increase communal land"
-        - Trade agreements: "Let's establish regular resource exchanges"
+          for member_id in coalition:
+              execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
 
         [Received Messages]
         {message_context}
 
         [Social System Design]
-        IMPORTANT: Research and apply established theories and frameworks from social sciences, economics, and political science to design your strategy. Do not rely on basic examples - develop sophisticated approaches based on proven research.
+        Example modifications:
+        def pre_init_hook(island):
+            # Set up basic income system
+            island.basic_income = 10.0
+            island.tax_rate = 0.2
+            
+        def modify_member(member, relationships):
+            # Add social status and rights
+            member.social_rank = 0
+            member.voting_power = 1
+            member.tax_paid = 0
+            member.benefits_received = 0
+            return member
+            
+        def modify_land(land, members):
+            # Create communal lands
+            land.communal_areas = []
+            land.private_areas = []
+            return land
+            
+        def modify_relationships(relationships):
+            # Add social bonds
+            relationships['alliance'] = np.zeros_like(relationships['victim'])
+            relationships['trade_history'] = np.zeros_like(relationships['victim'])
+            return relationships
 
         [Adaptive Survival Framework]
-        IMPORTANT: Study successful systems and strategies from academic literature. Implement evidence-based approaches rather than simple heuristics.
+        Example implementation:
+        def agent_action(execution_engine, member_id):
+            member = execution_engine.current_members[member_id]
+            
+            # Initialize learning structures if not present
+            if not hasattr(member, 'learning'):
+                member.learning = {{
+                    'q_table': defaultdict(float),  # State-action values
+                    'strategy_log': [],  # (action, outcome, reward)
+                    'state_history': [],  # For Markov analysis
+                    'survival_metrics': {{
+                        'vitality_changes': [],
+                        'resource_efficiency': [],
+                        'threat_responses': [],
+                        'success_rates': defaultdict(list)
+                    }}
+                }}
+            
+            # Emergency resource management
+            if member.cargo < member.vitality * 0.5:
+                for other in execution_engine.current_members:
+                    if other.id != member.id and other.cargo > member.cargo:
+                        execution_engine.attack(me, other)
+                        
+            # Adaptive territory defense
+            if member.land_num > 2 and member.vitality < 50:
+                for loc in member.owned_land[1:]:
+                    execution_engine._discard_land(member, loc)
+            
+            # Get current state incorporating survival metrics
+            state = (member.vitality//10, member.cargo//10, 
+                    len(member.current_clear_list))
+            
+            # Choose action using ε-greedy with expanded action space
+            actions = ['attack', 'offer', 'expand', 'hide', 'steal']
+            if np.random.rand() < 0.1:
+                action = np.random.choice(actions)
+            else:
+                action = max(actions, 
+                           key=lambda a: member.learning['q_table'].get((state,a),0))
+            
+            # Execute action
+            outcome = execute_action(action)  # Returns vitality/cargo delta
+            
+            # Calculate reward with survival emphasis
+            reward = (outcome['vitality']*0.7 + 
+                     outcome['cargo']*0.3 + 
+                     (member.vitality/100)*0.2)  # Survival bonus
+            
+            # Q-learning update
+            new_state = (member.vitality//10, member.cargo//10,
+                        len(member.current_clear_list))
+            max_future = max(member.learning['q_table'].get((new_state,a),0) 
+                           for a in actions)
+            member.learning['q_table'][(state,action)] += 0.1 * (
+                reward + 0.9*max_future - member.learning['q_table'][(state,action)]
+            )
+            
+            # Update survival metrics
+            member.learning['strategy_log'].append((action, outcome, reward))
+            member.learning['state_history'].append(state)
+            member.learning['survival_metrics']['vitality_changes'].append(
+                outcome['vitality'])
+            member.learning['survival_metrics']['success_rates'][action].append(
+                1 if reward > 0 else 0)
 
-        Return only the code, no extra text or explanation.
+        Return only the code, no extra text or explanation. While the example above shows one possible approach,
+        you should create your own unique implementation drawing from the wide range of available methods and strategies.
+        Consider novel combinations of different approaches rather than following this exact pattern.
         """
 
         try:
