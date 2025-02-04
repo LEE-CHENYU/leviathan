@@ -10,6 +10,7 @@ from datetime import datetime
 import traceback
 import os
 from collections import defaultdict
+import inspect
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -53,7 +54,8 @@ class IslandExecution(Island):
             'performance_metrics': {},
             'errors': [],
             'relationships': {},
-            'survival_tracking': {}
+            'survival_tracking': {},
+            'modification_attempts': []
         }
 
         # Add message storage
@@ -222,6 +224,214 @@ class IslandExecution(Island):
         revision_text = self.agent_prompt_revisions.get(member_id, "").strip()
         revision_section = f"\n[Agent Provided Prompt Revision]\n{revision_text}\n" if revision_text else ""
 
+        # New: Get current game mechanisms and modification attempts
+        current_mechanisms, modification_attempts = self.get_game_mechanisms_and_mods()
+        
+        constrainsAndExamples = """{part0}
+            [Core Game Mechanics & Parameters]
+            The island simulation has several key systems that agents should understand:
+
+            1. Relationship System (_MIN_MAX_INIT_RELATION):
+            - victim: [-50, 100] - Tracks damage received from others
+            - benefit: [-50, 100] - Records resources received from others
+            - benefit_land: [-3, 3] - Tracks land exchanges
+            
+            2. Population Mechanics:
+            - _REPRODUCE_REQUIREMENT = 100 (Combined vitality/cargo needed)
+            - Land must exceed population (land_shape[0] * land_shape[1] > population)
+            - _NEIGHBOR_SEARCH_RANGE = 1000 for interaction radius
+            
+            3. Record Keeping (every _RECORD_PERIOD = 1):
+            - Tracks all attacks, benefits, land transfers
+            - Monitors births, deaths, land ownership
+            - Records production, consumption, and performance metrics
+
+            [Example Mechanism Extensions]
+            def pre_init_hook(island):
+                # New Social Systems
+                island.add_mechanism('parliament', {
+                    'voting_power': lambda member: member.land_num + member.vitality/100,
+                    'proposals': [],
+                    'voting_threshold': 0.66,
+                    'term_length': 10
+                })
+                
+                island.add_mechanism('market', {
+                    'price_discovery': lambda resource, demand: demand * resource.scarcity,
+                    'trade_fee': 0.05,
+                    'order_book': defaultdict(list)
+                })
+                
+                island.add_mechanism('justice', {
+                    'jury_selection': lambda offense: random.sample(
+                        [m for m in island.current_members if m.vitality > 50], 
+                        min(5, len(island.current_members))
+                    ),
+                    'punishment_scale': lambda severity: severity * 10
+                })
+
+            def modify_member(member, relationships):
+                # Add member capabilities
+                member.add_ability('propose_law', 
+                    lambda law: member.parliament.submit_proposal(law)
+                    if member.voting_power > 10 else None
+                )
+                
+                member.add_ability('trade', 
+                    lambda resource, amount, price: member.market.place_order(
+                        resource, amount, price, member.id
+                    )
+                )
+                
+                member.add_ability('file_complaint',
+                    lambda offender, charge: member.justice.submit_case(
+                        plaintiff=member.id,
+                        defendant=offender,
+                        charge=charge
+                    ) if member.vitality > 30 else None
+                )
+                return member
+
+            def modify_land(land, members):
+                # Add land mechanics
+                land.add_feature('zoning', {
+                    'residential': 0.4,
+                    'agricultural': 0.4,
+                    'commercial': 0.2
+                })
+                
+                land.add_feature('development', {
+                    'infrastructure': np.zeros(land.shape),
+                    'improvements': np.zeros(land.shape)
+                })
+                
+                land.add_mechanism('property_tax',
+                    lambda plot: sum(plot.improvements) * 0.1
+                )
+                
+                land.add_mechanism('urban_planning',
+                    lambda zone: zone.calculate_optimal_usage(
+                        population=len(members),
+                        resources=land.resources
+                    )
+                )
+                return land
+
+            def modify_relationships(relationships):
+                # Add relationship mechanics
+                relationships.add_metric('trust', 
+                    lambda m1, m2: sum([
+                        relationships['benefit'][m1.id][m2.id],
+                        -relationships['victim'][m1.id][m2.id] * 2,
+                        relationships['benefit_land'][m1.id][m2.id] * 5
+                    ]) / 100
+                )
+                
+                relationships.add_mechanism('alliance_formation',
+                    lambda m1, m2: relationships.trust(m1, m2) > 0.7
+                )
+                
+                relationships.add_mechanism('conflict_resolution',
+                    lambda m1, m2: {
+                        'mediator': max(members, 
+                            key=lambda m: relationships.trust(m1, m) + relationships.trust(m2, m)
+                        ),
+                        'success_chance': relationships.trust(m1, m2) + 0.3
+                    }
+                )
+                return relationships
+
+            [Suggested Strategies]
+            1. Form parliamentary coalitions to pass beneficial laws
+            2. Use market mechanisms for efficient resource allocation
+            3. Build trust through consistent positive interactions
+            4. Leverage justice system to deter attacks
+            5. Develop land strategically using zoning laws
+            6. Create alliance networks based on trust metrics"""
+            
+        # Move part2 to a separate mechanism section
+        mechanism_section = f"""
+        {constrainsAndExamples}
+        
+        [Current Game Version] 
+        {self._VERSION}
+        
+        [Active Game Mechanisms]
+        {current_mechanisms}
+        
+        [Modification Attempt History]
+        {modification_attempts}
+        
+        [Modification Proposal Guide]
+        To propose rule changes, follow this template:
+
+        1. ANALYSIS PHASE:
+           - Identify limitation in current systems
+           - Check mechanism compatibility using get_game_mechanisms_and_mods()
+           - Review past modification attempts for patterns
+
+        2. PROPOSAL PHASE:
+        def agent_action(execution_engine, member_id):
+            # Example valid modification:
+            modification_code = '''
+            # Add judicial system
+            if not hasattr(execution_engine, 'court'):
+                class CourtSystem:
+                    MECHANISM_META = {{
+                        'type': 'Governance',
+                        'rules': 'Handles conflict resolution through jury trials',
+                        'version': 1.0
+                    }}
+                    def __init__(self):
+                        self.cases = []
+                        
+                    def submit_case(self, plaintiff, defendant, charge):
+                        self.cases.append({{
+                            'plaintiff': plaintiff,
+                            'defendant': defendant,
+                            'charge': charge,
+                            'status': 'pending'
+                        }})
+            
+            execution_engine.court = CourtSystem()
+            '''
+            
+            # Proposal with ratification conditions
+            execution_engine.propose_modification(
+                member_id=member_id,
+                mod_type='post_init',
+                code=modification_code,
+                ratification_condition={{
+                    'type': 'compound',
+                    'conditions': [
+                        {{'type': 'vote', 'threshold': 0.6}},
+                        {{'type': 'resource', 'resource': 'cargo', 'amount': 100}},
+                        {{'type': 'time', 'rounds': 2}}
+                    ]
+                }}
+            )
+
+        [Valid Ratification Conditions]
+        Choose ONE primary condition + optional safeguards:
+        1. Voting: {{'type': 'vote', 'threshold': 0.5-1.0}}
+        2. Resource: {{'type': 'resource', 'resource': 'vitality|cargo|land', 'amount': X}}
+        3. Temporal: {{'type': 'time', 'rounds': N}} (auto-ratify after N rounds)
+        4. Achievement: {{'type': 'achievement', 'metric': 'productivity', 'threshold': X}}
+
+        [Common Errors to Avoid]
+        1. Namespace Conflicts: Check existing mechanisms with dir(execution_engine)
+        2. Invalid References: Use execution_engine.current_members not global members
+        3. Version Mismatches: Increment version when modifying existing systems
+        4. Resource Leaks: Include cleanup functions for new mechanisms
+
+        [Best Practices]
+        - Propose small, testable changes first
+        - Include rollback procedures in code
+        - Add version checks to modifications
+        - Use execution_engine.add_mechanism() helper
+        - Test modifications with 'sandbox=True' parameter
+        """
+
         try:
             # Define iterative prompt parts with specific constraints
             part0 = """
@@ -321,44 +531,7 @@ class IslandExecution(Island):
         [Received Messages]
         {message_context}
             """
-            part2 = """
-            {part0}
-            You can propose plausible modifications to the game mechanics themselves, such as:
-        - Adding new resource types or currencies
-        - Creating new actions or interaction types
-        - Implementing voting systems or governance structures
-        - Defining property rights and ownership rules
-        - Adding social status or reputation systems
-        - Creating markets or trading mechanisms
-        - Defining new win conditions or goals
-        
-        [Social System Design]
-        Example modifications:
-        def pre_init_hook(island):
-            # Set up basic income system
-            island.basic_income = 10.0
-            island.tax_rate = 0.2
-            
-        def modify_member(member, relationships):
-            # Add social status and rights
-            member.social_rank = 0
-            member.voting_power = 1
-            member.tax_paid = 0
-            member.benefits_received = 0
-            return member
-            
-        def modify_land(land, members):
-            # Create communal lands
-            land.communal_areas = []
-            land.private_areas = []
-            return land
-            
-        def modify_relationships(relationships):
-            # Add social bonds
-            relationships['alliance'] = np.zeros_like(relationships['victim'])
-            relationships['trade_history'] = np.zeros_like(relationships['victim'])
-            return relationships
-            """
+            part2 = mechanism_section  # Replace old part2 with new mechanism section
             part3 = """
             {part0}
              [Survival-Centric Adaptation]
@@ -784,6 +957,55 @@ class IslandExecution(Island):
         :param revision_text: The revision text the agent wishes to add to the GPT prompt.
         """
         self.agent_prompt_revisions[member_id] = revision_text
+
+    def get_game_mechanisms_and_mods(self):
+        """Return formatted current mechanisms and modification attempts"""
+        # Dynamically detect all active mechanisms using introspection
+        current_mechanisms = []
+        # Check for any registered mechanisms with a standard interface
+        for name, obj in inspect.getmembers(self):
+            if name.startswith('_'):  # Skip private attributes
+                continue
+            if hasattr(obj, 'mechanism_meta'):
+                current_mechanisms.append(
+                    f"- {name}: {obj.mechanism_meta['type']} system\n"
+                    f"  Rules: {obj.mechanism_meta['rules']}\n"
+                    f"  Version: {obj.mechanism_meta.get('version', 1.0)}"
+                )
+            elif isinstance(obj, dict) and 'mechanism_type' in obj:
+                current_mechanisms.append(
+                    f"- {name}: {obj.get('description', 'Custom mechanism')}\n"
+                    f"  Type: {obj['mechanism_type']}\n"
+                    f"  Last modified: {obj.get('modified_round', 'N/A')}"
+                )
+
+        # Format modification attempts with versioning
+        mod_entries = []
+        for attempt in self.execution_history.get('modification_attempts', []):
+            status = "Pending" if not attempt.get('ratified', False) else "Active"
+            conditions = attempt.get('ratification_condition', {})
+            condition_desc = ", ".join([f"{k}={v}" for k,v in conditions.items()])
+            
+            mod_entries.append(
+                f"Proposed by Member {attempt['member_id']} ({status})\n"
+                f"Type: {attempt['mod_type']}\n"
+                f"Condition: {condition_desc}\n"
+                f"Code Preview: {attempt['code'][:50]}..."
+            )
+
+        return "\n".join(current_mechanisms), "\n\n".join(mod_entries)
+
+    def propose_modification(self, member_id, mod_type, code, ratification_condition):
+        """Track modification attempts"""
+        self.execution_history['modification_attempts'].append({
+            'member_id': member_id,
+            'mod_type': mod_type,
+            'code': code,
+            'ratification_condition': ratification_condition,
+            'ratified': False,
+            'votes': defaultdict(int),
+            'resource_commitments': defaultdict(float)
+        })
 
 def main():
     from Leviathan.Island import Island
