@@ -21,6 +21,9 @@ class IslandExecution(Island):
         action_board: List[List[Tuple[str, int, int]]] = None,
         agent_modifications: dict = None
     ):
+        # Add version tracking
+        self._VERSION = "2.1"
+        
         # Add agent modification tracking
         self.agent_modifications = {
             'pre_init': [],
@@ -63,6 +66,9 @@ class IslandExecution(Island):
         
         # New: Allow agents to revise the prompt passed to them in future rounds.
         self.agent_prompt_revisions = {}
+
+        # Initialize code storage
+        self.agent_code_by_member = {}
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -354,7 +360,7 @@ class IslandExecution(Island):
         {constrainsAndExamples}
         
         [Current Game Version] 
-        {self._VERSION}
+        {self._VERSION if hasattr(self, '_VERSION') else '1.1'}
         
         [Active Game Mechanisms]
         {current_mechanisms}
@@ -594,7 +600,7 @@ class IslandExecution(Island):
             return max(roi, key=roi.get)
             """
             
-            prompt_parts = [part1, part2, part3]
+            prompt_parts = [part2]
             
             # Iteratively build the final prompt from the parts
             final_prompt = ""
@@ -858,7 +864,9 @@ class IslandExecution(Island):
         Returns a float representing survival probability
         """
         # Get member's index in current_members list
-        member_index = self.current_members.index(member)
+        member_index = next((i for i, m in enumerate(self.current_members) if m.id == member.id), -1)
+        if member_index == -1:
+            return 0.0  # Member not found
         
         # Base survival from own attributes
         base_survival = member.vitality + member.cargo
@@ -1006,6 +1014,16 @@ class IslandExecution(Island):
             'votes': defaultdict(int),
             'resource_commitments': defaultdict(float)
         })
+
+    def add_mechanism(self, name, mechanism_dict):
+        """Helper method for agents to safely add mechanisms"""
+        if not hasattr(self, name):
+            mechanism_dict['mechanism_meta'] = {
+                'type': 'Custom',
+                'rules': mechanism_dict.get('description', 'Agent-created mechanism'),
+                'version': 1.0
+            }
+            setattr(self, name, mechanism_dict)
 
 def main():
     from Leviathan.Island import Island
