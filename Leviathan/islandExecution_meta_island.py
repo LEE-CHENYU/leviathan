@@ -58,6 +58,9 @@ class IslandExecution(Island):
 
         # Add message storage
         self.messages = {}  # {member_id: [list_of_messages]}
+        
+        # New: Allow agents to revise the prompt passed to them in future rounds.
+        self.agent_prompt_revisions = {}
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -215,9 +218,14 @@ class IslandExecution(Island):
         received_messages = self.messages.pop(member_id, [])
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
         
-        # Build a clarifying prompt to reduce hallucinations
-        prompt = f"""
-        [Previous code execution context]
+        # New: Incorporate agent-specific prompt revision if available.
+        revision_text = self.agent_prompt_revisions.get(member_id, "").strip()
+        revision_section = f"\n[Agent Provided Prompt Revision]\n{revision_text}\n" if revision_text else ""
+
+        try:
+            # Define iterative prompt parts with specific constraints
+            part0 = """
+            [Previous code execution context]
         {error_context}
 
         [Current task]
@@ -277,10 +285,17 @@ class IslandExecution(Island):
         Based on the previous code performance, adapt and improve the strategy.
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
-
+        
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
-        [Social Strategies]
+        Return only the code, no extra text or explanation. While the example above shows one possible approach,
+        you should create your own unique implementation drawing from the wide range of available methods and strategies.
+        
+        Consider novel combinations of different approaches rather than following this exact pattern.
+        """
+            part1 = f"""
+            {part0}
+            [Social Strategies]
         Consider these social strategies:
         - Design systems for resource distribution and allocation
         - Build alliances and cooperative networks 
@@ -305,8 +320,10 @@ class IslandExecution(Island):
 
         [Received Messages]
         {message_context}
-
-        You can also propose plausible modifications to the game mechanics themselves, such as:
+            """
+            part2 = """
+            {part0}
+            You can also propose plausible modifications to the game mechanics themselves, such as:
         - Adding new resource types or currencies
         - Creating new actions or interaction types
         - Implementing voting systems or governance structures
@@ -341,8 +358,17 @@ class IslandExecution(Island):
             relationships['alliance'] = np.zeros_like(relationships['victim'])
             relationships['trade_history'] = np.zeros_like(relationships['victim'])
             return relationships
-
-        [Survival-Centric Adaptation]
+            """
+            part3 = """
+            {part0}
+            [Part 3: Communication Guidelines]
+            - Use the provided method (execution_engine.send_message) for sending messages.
+            - You may coordinate with multiple members.
+            Constraints: Ensure proper validation of member indices and avoid self-targeting.
+            """
+            part4 = """
+            {part0}
+             [Survival-Centric Adaptation]
         Implement systems focused on:
         1. Personal resource optimization
         2. Threat assessment and neutralization
@@ -400,16 +426,32 @@ class IslandExecution(Island):
                 cost = outcome['vitality_cost']
                 roi[action] = vitality_gain / cost if cost > 0 else 0
             return max(roi, key=roi.get)
-
-        Return only the code, no extra text or explanation. While the example above shows one possible approach,
-        you should create your own unique implementation drawing from the wide range of available methods and strategies.
-        Consider novel combinations of different approaches rather than following this exact pattern.
-        """
-
-        try:
+            """
+            
+            prompt_parts = [part1, part2, part3, part4]
+            
+            # Iteratively build the final prompt from the parts
+            final_prompt = ""
+            for idx, part in enumerate(prompt_parts, start=1):
+                update_message = (
+                    f"Current integrated prompt:\n{final_prompt}\n"
+                    f"Please incorporate the following new section (Part {idx}) into the prompt, "
+                    f"ensuring all previous constraints are preserved and adding these new constraints:\n{part}\n"
+                    f"Return the updated full prompt, emphasizing that agents should implement solutions "
+                    f"according to their individual needs, beliefs, and circumstances."
+                )
+                completion = openai.chat.completions.create(
+                    model="o3-mini", 
+                    messages=[{"role": "user", "content": update_message}]
+                )
+                final_prompt = completion.choices[0].message.content.strip()
+            
+            # Append a final instruction to generate the code function
+            final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation of the function agent_action(execution_engine, member_id) that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Return only the code."
+            
             completion = openai.chat.completions.create(
                 model="o3-mini",
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": final_prompt_command}]
             )
             code_result = completion.choices[0].message.content.strip()
 
@@ -424,7 +466,8 @@ class IslandExecution(Island):
             self.execution_history['generated_code'][round_num][member_id] = {
                 'code': code_result,
                 'features_at_generation': features.to_dict('records'),
-                'relationships_at_generation': relations
+                'relationships_at_generation': relations,
+                'final_prompt': final_prompt_command  # optionally log the final prompt used
             }
 
             print(f"\nGenerated code for Member {member_id}:")
@@ -723,6 +766,15 @@ class IslandExecution(Island):
         self.execution_history['errors'].append(error_info)
         print(f"Error applying {mod_type} modification:")
         print(traceback.format_exc())
+
+    # New method to let agents update their prompt revision
+    def update_agent_prompt_revision(self, member_id, revision_text: str) -> None:
+        """
+        Allows an agent to update the prompt revision for future code generation rounds.
+        :param member_id: ID of the member
+        :param revision_text: The revision text the agent wishes to add to the GPT prompt.
+        """
+        self.agent_prompt_revisions[member_id] = revision_text
 
 def main():
     from Leviathan.Island import Island
