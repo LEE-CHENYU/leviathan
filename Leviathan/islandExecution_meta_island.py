@@ -361,13 +361,6 @@ class IslandExecution(Island):
             """
             part3 = """
             {part0}
-            [Part 3: Communication Guidelines]
-            - Use the provided method (execution_engine.send_message) for sending messages.
-            - You may coordinate with multiple members.
-            Constraints: Ensure proper validation of member indices and avoid self-targeting.
-            """
-            part4 = """
-            {part0}
              [Survival-Centric Adaptation]
         Implement systems focused on:
         1. Personal resource optimization
@@ -428,7 +421,7 @@ class IslandExecution(Island):
             return max(roi, key=roi.get)
             """
             
-            prompt_parts = [part1, part2, part3, part4]
+            prompt_parts = [part1, part2, part3]
             
             # Iteratively build the final prompt from the parts
             final_prompt = ""
