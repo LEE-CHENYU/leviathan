@@ -225,22 +225,6 @@ class IslandExecution(Island):
         Write a Python function named agent_action(execution_engine, member_id) 
         that implements your vision of social organization while ensuring your survival.
 
-        Consider these social strategies:
-        - Design systems for resource distribution and allocation
-        - Build alliances and cooperative networks 
-        - Create mechanisms for collective decision making
-        - Establish norms and rules for interaction
-        - Develop methods for conflict resolution
-
-        You can also propose plausible modifications to the game mechanics themselves, such as:
-        - Adding new resource types or currencies
-        - Creating new actions or interaction types
-        - Implementing voting systems or governance structures
-        - Defining property rights and ownership rules
-        - Adding social status or reputation systems
-        - Creating markets or trading mechanisms
-        - Defining new win conditions or goals
-
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
         - Never target yourself (member_{member.id}) in any action
@@ -295,6 +279,14 @@ class IslandExecution(Island):
         If it failed, try a different approach.
 
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
+        
+        [Social Strategies]
+        Consider these social strategies:
+        - Design systems for resource distribution and allocation
+        - Build alliances and cooperative networks 
+        - Create mechanisms for collective decision making
+        - Establish norms and rules for interaction
+        - Develop methods for conflict resolution
 
         [Communication Strategy]
         You can communicate with multiple members in a single round using:
@@ -314,6 +306,15 @@ class IslandExecution(Island):
         [Received Messages]
         {message_context}
 
+        You can also propose plausible modifications to the game mechanics themselves, such as:
+        - Adding new resource types or currencies
+        - Creating new actions or interaction types
+        - Implementing voting systems or governance structures
+        - Defining property rights and ownership rules
+        - Adding social status or reputation systems
+        - Creating markets or trading mechanisms
+        - Defining new win conditions or goals
+        
         [Social System Design]
         Example modifications:
         def pre_init_hook(island):
@@ -341,72 +342,64 @@ class IslandExecution(Island):
             relationships['trade_history'] = np.zeros_like(relationships['victim'])
             return relationships
 
-        [Adaptive Survival Framework]
-        Example implementation:
+        [Survival-Centric Adaptation]
+        Implement systems focused on:
+        1. Personal resource optimization
+        2. Threat assessment and neutralization
+        3. Vitality preservation techniques
+        4. Adaptive hoarding strategies
+        5. Predictive danger modeling
+
+        Survival-First Examples:
         def agent_action(execution_engine, member_id):
-            member = execution_engine.current_members[member_id]
+            me = execution_engine.current_members[member_id]
             
-            # Initialize learning structures if not present
-            if not hasattr(member, 'learning'):
-                member.learning = {{
-                    'q_table': defaultdict(float),  # State-action values
-                    'strategy_log': [],  # (action, outcome, reward)
-                    'state_history': [],  # For Markov analysis
-                    'survival_metrics': {{
-                        'vitality_changes': [],
-                        'resource_efficiency': [],
-                        'threat_responses': [],
-                        'success_rates': defaultdict(list)
-                    }}
-                }}
-            
-            # Emergency resource management
-            if member.cargo < member.vitality * 0.5:
+            # Emergency resource reserve
+            if me.cargo < me.vitality * 0.5:
                 for other in execution_engine.current_members:
-                    if other.id != member.id and other.cargo > member.cargo:
+                    if other.id != me.id and other.cargo > me.cargo:
                         execution_engine.attack(me, other)
-                        
+            
             # Adaptive territory defense
-            if member.land_num > 2 and member.vitality < 50:
-                for loc in member.owned_land[1:]:
-                    execution_engine._discard_land(member, loc)
+            if me.land_num > 2 and me.vitality < 50:
+                for loc in me.owned_land[1:]:
+                    execution_engine._discard_land(me, loc)
             
-            # Get current state incorporating survival metrics
-            state = (member.vitality//10, member.cargo//10, 
-                    len(member.current_clear_list))
+            # Survival Q-learning
+            if not hasattr(me, 'survival_q'):
+                me.survival_q = defaultdict(float)
+                
+            state = (me.vitality//20, me.cargo//20)
+            action = max(['attack','hide','steal'], 
+                        key=lambda a: me.survival_q.get((state,a),0))
             
-            # Choose action using ε-greedy with expanded action space
-            actions = ['attack', 'offer', 'expand', 'hide', 'steal']
-            if np.random.rand() < 0.1:
-                action = np.random.choice(actions)
-            else:
-                action = max(actions, 
-                           key=lambda a: member.learning['q_table'].get((state,a),0))
-            
-            # Execute action
-            outcome = execute_action(action)  # Returns vitality/cargo delta
-            
-            # Calculate reward with survival emphasis
-            reward = (outcome['vitality']*0.7 + 
-                     outcome['cargo']*0.3 + 
-                     (member.vitality/100)*0.2)  # Survival bonus
-            
-            # Q-learning update
-            new_state = (member.vitality//10, member.cargo//10,
-                        len(member.current_clear_list))
-            max_future = max(member.learning['q_table'].get((new_state,a),0) 
-                           for a in actions)
-            member.learning['q_table'][(state,action)] += 0.1 * (
-                reward + 0.9*max_future - member.learning['q_table'][(state,action)]
-            )
-            
-            # Update survival metrics
-            member.learning['strategy_log'].append((action, outcome, reward))
-            member.learning['state_history'].append(state)
-            member.learning['survival_metrics']['vitality_changes'].append(
-                outcome['vitality'])
-            member.learning['survival_metrics']['success_rates'][action].append(
-                1 if reward > 0 else 0)
+            # Execute and update based on survival outcome
+            if action == 'attack':
+                # Implementation logic
+                me.survival_q[(state,action)] += me.vitality * 0.1
+
+        [Survival Metrics]
+        Evaluate strategies by:
+        - Personal vitality delta
+        - Resource acquisition rate
+        - Threat neutralization count
+        - Survival probability increase
+        - Attack success:fail ratio
+
+        [Implementation Priorities]
+        1. Create personal health monitoring systems
+        2. Develop egocentric threat models
+        3. Optimize actions for caloric ROI
+        4. Implement fail-deadly safeguards
+        5. Build predictive self-preservation models
+
+        def calculate_survival_roi(action_history):
+            roi = {{}}
+            for action, outcome in action_history:
+                vitality_gain = outcome['vitality']
+                cost = outcome['vitality_cost']
+                roi[action] = vitality_gain / cost if cost > 0 else 0
+            return max(roi, key=roi.get)
 
         Return only the code, no extra text or explanation. While the example above shows one possible approach,
         you should create your own unique implementation drawing from the wide range of available methods and strategies.
