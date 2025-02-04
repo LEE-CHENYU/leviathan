@@ -511,6 +511,10 @@ class IslandExecution(Island):
         """
             part1 = f"""
             {part0}
+            
+            [Current Game Mechanisms]
+            {current_mechanisms}
+            
             [Social Strategies]
         Consider these social strategies:
         - Design systems for resource distribution and allocation
@@ -540,6 +544,10 @@ class IslandExecution(Island):
             part2 = mechanism_section  # Replace old part2 with new mechanism section
             part3 = """
             {part0}
+            
+            [Current Game Mechanisms]
+            {current_mechanisms}
+            
              [Survival-Centric Adaptation]
         Implement systems focused on:
         1. Personal resource optimization
