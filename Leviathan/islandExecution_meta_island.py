@@ -431,7 +431,23 @@ class IslandExecution(Island):
                     f"Please incorporate the following new section (Part {idx}) into the prompt, "
                     f"ensuring all previous constraints are preserved and adding these new constraints:\n{part}\n"
                     f"Return the updated full prompt, emphasizing that agents should implement solutions "
-                    f"according to their individual needs, beliefs, and circumstances."
+                    f"according to their individual needs, beliefs, and circumstances.\n\n"
+                    f"Additionally, analyze the game mechanics to understand:\n"
+                    f"1. The core objective - Is it pure survival, domination, or cooperation?\n" 
+                    f"2. Key success metrics - What truly determines 'winning'?\n"
+                    f"3. Potential improvements - What mechanics could be added/modified?\n\n"
+                    f"Then formulate strategic approaches considering:\n"
+                    f"1. Resource optimization vs social capital\n"
+                    f"2. Individual vs collective success\n"
+                    f"3. Short-term survival vs long-term prosperity\n"
+                    f"4. Competition vs cooperation dynamics\n"
+                    f"5. Risk vs reward tradeoffs\n\n"
+                    f"Analyze other players' strategies:\n"
+                    f"1. What are their apparent objectives and demands?\n"
+                    f"2. What strategies are they employing?\n"
+                    f"3. How can you leverage their behaviors for mutual benefit?\n"
+                    f"4. Remember they are symmetric agents like you - how would you respond to your own actions?\n"
+                    f"5. How can individual strategies align for collective goals?"
                 )
                 completion = openai.chat.completions.create(
                     model="o3-mini", 
@@ -440,7 +456,7 @@ class IslandExecution(Island):
                 final_prompt = completion.choices[0].message.content.strip()
             
             # Append a final instruction to generate the code function
-            final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation of the function agent_action(execution_engine, member_id) that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Return only the code."
+            final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
             completion = openai.chat.completions.create(
                 model="o3-mini",
