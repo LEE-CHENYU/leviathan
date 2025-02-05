@@ -233,128 +233,94 @@ class IslandExecution(Island):
         # New: Get current game mechanisms and modification attempts
         current_mechanisms, modification_attempts = self.get_game_mechanisms_and_mods()
         
-        constrainsAndExamples = """{part0}
-            [Core Game Mechanics & Parameters]
-            The island simulation has several key systems that agents should understand:
+        constrainsAndExamples = """
+        {part0}
+        [Core Game Mechanics & Parameters]
+        The island simulation has several key systems that agents should understand:
 
-            1. Relationship System (_MIN_MAX_INIT_RELATION):
-            - victim: [-50, 100] - Tracks damage received from others
-            - benefit: [-50, 100] - Records resources received from others
-            - benefit_land: [-3, 3] - Tracks land exchanges
+        1. Relationship System (_MIN_MAX_INIT_RELATION):
+        - victim: [-50, 100] - Tracks damage received from others
+        - benefit: [-50, 100] - Records resources received from others
+        - benefit_land: [-3, 3] - Tracks land exchanges
+        
+        2. Population Mechanics:
+        - _REPRODUCE_REQUIREMENT = 100 (Combined vitality/cargo needed)
+        - Land must exceed population (land_shape[0] * land_shape[1] > population)
+        - _NEIGHBOR_SEARCH_RANGE = 1000 for interaction radius
+        
+        3. Record Keeping (every _RECORD_PERIOD = 1):
+        - Tracks all attacks, benefits, land transfers
+        - Monitors births, deaths, land ownership
+        - Records production, consumption, and performance metrics
+        
+        [Example Mechanism Extensions]
+        # Basic mechanism template
+        if not hasattr(island, 'new_system'):
+            class CustomMechanism:
+                def __init__(self):
+                    self.data = {}
+                    self.meta = {'version': 1.0, 'type': 'custom'}
             
-            2. Population Mechanics:
-            - _REPRODUCE_REQUIREMENT = 100 (Combined vitality/cargo needed)
-            - Land must exceed population (land_shape[0] * land_shape[1] > population)
-            - _NEIGHBOR_SEARCH_RANGE = 1000 for interaction radius
+            island.new_system = CustomMechanism()
+
+        # Member capability example
+        def modify_member(member, relationships):
+            if not hasattr(member, 'custom_abilities'):
+                member.custom_abilities = {}
             
-            3. Record Keeping (every _RECORD_PERIOD = 1):
-            - Tracks all attacks, benefits, land transfers
-            - Monitors births, deaths, land ownership
-            - Records production, consumption, and performance metrics
+            # Add trading capability
+            member.custom_abilities['trade'] = lambda resource: (
+                print(f"Trading {resource}") if member.vitality > 20 else None
+            )
+            return member
 
-            [Example Mechanism Extensions]
-            def pre_init_hook(island):
-                # New Social Systems
-                island.add_mechanism('parliament', {
-                    'voting_power': lambda member: member.land_num + member.vitality/100,
-                    'proposals': [],
-                    'voting_threshold': 0.66,
-                    'term_length': 10
-                })
-                
-                island.add_mechanism('market', {
-                    'price_discovery': lambda resource, demand: demand * resource.scarcity,
-                    'trade_fee': 0.05,
-                    'order_book': defaultdict(list)
-                })
-                
-                island.add_mechanism('justice', {
-                    'jury_selection': lambda offense: random.sample(
-                        [m for m in island.current_members if m.vitality > 50], 
-                        min(5, len(island.current_members))
-                    ),
-                    'punishment_scale': lambda severity: severity * 10
-                })
-
-            def modify_member(member, relationships):
-                # Add member capabilities
-                member.add_ability('propose_law', 
-                    lambda law: member.parliament.submit_proposal(law)
-                    if member.voting_power > 10 else None
-                )
-                
-                member.add_ability('trade', 
-                    lambda resource, amount, price: member.market.place_order(
-                        resource, amount, price, member.id
-                    )
-                )
-                
-                member.add_ability('file_complaint',
-                    lambda offender, charge: member.justice.submit_case(
-                        plaintiff=member.id,
-                        defendant=offender,
-                        charge=charge
-                    ) if member.vitality > 30 else None
-                )
-                return member
-
-            def modify_land(land, members):
-                # Add land mechanics
-                land.add_feature('zoning', {
+        # Land modification example  
+        def modify_land(land, members):
+            if not hasattr(land, 'zoning'):
+                land.zoning = {
                     'residential': 0.4,
                     'agricultural': 0.4,
                     'commercial': 0.2
-                })
-                
-                land.add_feature('development', {
-                    'infrastructure': np.zeros(land.shape),
-                    'improvements': np.zeros(land.shape)
-                })
-                
-                land.add_mechanism('property_tax',
-                    lambda plot: sum(plot.improvements) * 0.1
-                )
-                
-                land.add_mechanism('urban_planning',
-                    lambda zone: zone.calculate_optimal_usage(
-                        population=len(members),
-                        resources=land.resources
-                    )
-                )
-                return land
-
-            def modify_relationships(relationships):
-                # Add relationship mechanics
-                relationships.add_metric('trust', 
-                    lambda m1, m2: sum([
-                        relationships['benefit'][m1.id][m2.id],
-                        -relationships['victim'][m1.id][m2.id] * 2,
-                        relationships['benefit_land'][m1.id][m2.id] * 5
-                    ]) / 100
-                )
-                
-                relationships.add_mechanism('alliance_formation',
-                    lambda m1, m2: relationships.trust(m1, m2) > 0.7
-                )
-                
-                relationships.add_mechanism('conflict_resolution',
-                    lambda m1, m2: {
-                        'mediator': max(members, 
-                            key=lambda m: relationships.trust(m1, m) + relationships.trust(m2, m)
-                        ),
-                        'success_chance': relationships.trust(m1, m2) + 0.3
-                    }
-                )
-                return relationships
-
-            [Suggested Strategies]
-            1. Form parliamentary coalitions to pass beneficial laws
-            2. Use market mechanisms for efficient resource allocation
-            3. Build trust through consistent positive interactions
-            4. Leverage justice system to deter attacks
-            5. Develop land strategically using zoning laws
-            6. Create alliance networks based on trust metrics"""
+                }
             
+            # Add development tracking
+            land.development_level = np.zeros(land.shape)
+            return land
+
+        # Relationship system extension
+        def modify_relationships(relationships):
+            relationships.trust_matrix = np.zeros_like(relationships['benefit'])
+            return relationships
+
+        [Implementation Patterns]
+        1. Check existence first: if not hasattr(obj, 'feature')
+        2. Add attributes directly: obj.new_feature = ...
+        3. Use simple data structures: dicts, lists, numpy arrays
+        4. Include version metadata in new systems
+        5. Add cleanup methods for complex systems:
+
+        class TemporarySystem:
+            def __init__(self):
+                self.active = True
+            
+            def cleanup(self):
+                self.active = False
+
+        if not hasattr(island, 'temp_system'):
+            island.temp_system = TemporarySystem()
+
+        [Error Prevention]
+        - Use try-except when accessing new features
+        - Check attribute existence before use
+        - Maintain backward compatibility
+        - Use version checks for existing systems:
+
+        if (hasattr(island, 'market') and 
+            getattr(island.market, 'version', 0) < 2):
+            # Add compatibility layer
+            island.market.legacy_support = True
+"""
+        
         # Move part2 to a separate mechanism section
         mechanism_section = f"""
         {constrainsAndExamples}
