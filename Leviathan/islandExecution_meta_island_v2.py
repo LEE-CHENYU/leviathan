@@ -600,7 +600,18 @@ class IslandExecution(Island):
                     f"2. What strategies are they employing?\n"
                     f"3. How can you leverage their behaviors for mutual benefit?\n"
                     f"4. Remember they are symmetric agents like you - how would you respond to your own actions?\n"
-                    f"5. How can individual strategies align for collective goals?"
+                    f"5. How can individual strategies align for collective goals?\n\n"
+                    f"Challenge your implementation:\n"
+                    f"1. What assumptions are you making? Are they valid?\n"
+                    f"2. What alternative strategies have you not considered?\n"
+                    f"3. How would your strategy perform in edge cases?\n"
+                    f"4. Are there more efficient ways to achieve your goals?\n"
+                    f"5. What are the weaknesses in your current approach?\n"
+                    f"6. Have you considered unconventional solutions?\n"
+                    f"7. Could a completely different paradigm work better?\n"
+                    f"8. What would happen if other agents adopted your strategy?\n"
+                    f"9. Are you balancing short-term and long-term objectives optimally?\n"
+                    f"10. How could your strategy be countered, and how would you adapt?"
                 )
                 completion = openai.chat.completions.create(
                     model="o3-mini", 
