@@ -51,7 +51,8 @@ class IslandExecution(Island):
             'rounds': [],
             'generated_code': {},
             'performance_metrics': {},
-            'errors': [],
+            'agent_code_errors': [],
+            'mechanism_errors': [],
             'relationships': {},
             'survival_tracking': {},
             'modification_attempts': [],
@@ -60,9 +61,6 @@ class IslandExecution(Island):
 
         # Add message storage
         self.messages = {}  # {member_id: [list_of_messages]}
-        
-        # New: Allow agents to revise the prompt passed to them in future rounds.
-        self.agent_prompt_revisions = {}
 
         # Initialize code storage
         self.agent_code_by_member = {}
@@ -207,7 +205,7 @@ class IslandExecution(Island):
 
         # Get previous errors for this member
         previous_errors = [
-            e for e in self.execution_history['errors'] 
+            e for e in self.execution_history['agent_code_errors'] 
             if e['member_id'] == member_id
         ]
         error_context = "No previous execution errors"
@@ -228,7 +226,14 @@ class IslandExecution(Island):
         revision_section = f"\n[Agent Provided Prompt Revision]\n{revision_text}\n" if revision_text else ""
 
         # New: Get current game mechanisms and modification attempts
-        current_mechanisms, modification_attempts = self.get_game_mechanisms_and_mods()
+        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
+        current_round = len(self.execution_history['rounds'])
+        start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
+        # Use a list comprehension since modification_attempts is a list
+        modification_attempts = [
+            mod for mod in self.execution_history['modification_attempts']
+            if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
+        ]
         
         constrainsAndExamples = """
         {part0}
@@ -504,7 +509,6 @@ class IslandExecution(Island):
         [Received Messages]
         {message_context}
             """
-            part2 = mechanism_section  # Replace old part2 with new mechanism section
             part3 = """
             {part0}
             
@@ -571,7 +575,7 @@ class IslandExecution(Island):
             return max(roi, key=roi.get)
             """
             
-            prompt_parts = [part2]
+            prompt_parts = [part1, part3]
             
             # Iteratively build the final prompt from the parts
             final_prompt = ""
@@ -656,7 +660,7 @@ class IslandExecution(Island):
                 'traceback': traceback.format_exc(),
                 'code': code_result
             }
-            self.execution_history['errors'].append(error_info)
+            self.execution_history['agent_code_errors'].append(error_info)
             print(f"Error generating code for member {member_id}:")
             print(traceback.format_exc())
             self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")
@@ -733,7 +737,7 @@ class IslandExecution(Island):
                     'error': str(e),
                     'traceback': traceback.format_exc()
                 }
-                self.execution_history['errors'].append(error_info)
+                self.execution_history['agent_code_errors'].append(error_info)
                 print(f"Error executing code for member {member_id}:")
                 print(traceback.format_exc())
                 self._logger.error(f"Error executing code for member {member_id}: {e}")
@@ -935,7 +939,7 @@ class IslandExecution(Island):
 
         # Get previous errors for this member
         previous_errors = [
-            e for e in self.execution_history['errors'] 
+            e for e in self.execution_history['mechanism_errors'] 
             if e['member_id'] == member_id
         ]
         error_context = "No previous execution errors"
@@ -951,12 +955,8 @@ class IslandExecution(Island):
         received_messages = self.messages.pop(member_id, [])
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
         
-        # New: Incorporate agent-specific prompt revision if available.
-        revision_text = self.agent_prompt_revisions.get(member_id, "").strip()
-        revision_section = f"\n[Agent Provided Prompt Revision]\n{revision_text}\n" if revision_text else ""
-        
         # NEW: Get current game mechanisms and modification attempts from recent rounds
-        current_mechanisms = []  # Placeholder for actual current mechanisms
+        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
         current_round = len(self.execution_history['rounds'])
         start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
         # Use a list comprehension since modification_attempts is a list
@@ -1206,10 +1206,8 @@ class IslandExecution(Island):
         
         try:
             # Define iterative prompt parts with specific constraints
-
-            part2 = mechanism_section  # Replace old part2 with new mechanism section
             
-            prompt_parts = [part2]
+            prompt_parts = [mechanism_section]
             
             # Iteratively build the final prompt from the parts
             final_prompt = ""
@@ -1268,7 +1266,7 @@ class IslandExecution(Island):
             self.execution_history['modification_attempts'].append(mod_proposal)
 
             print(f"\nGenerated code for Member {member_id}:")
-            print(code_result)
+            # print(code_result)
 
             # NEW: Store the generated modification proposal code for later reference.
             if not hasattr(self, 'modification_attempts_by_member'):
@@ -1284,7 +1282,7 @@ class IslandExecution(Island):
                 'traceback': traceback.format_exc(),
                 'code': code_result
             }
-            self.execution_history['errors'].append(error_info)
+            self.execution_history['mechanism_errors'].append(error_info)
             print(f"Error generating code for member {member_id}:")
             print(traceback.format_exc())
             self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")
@@ -1328,8 +1326,12 @@ class IslandExecution(Island):
         
         for mod in modifications_to_ratify:
             try:
+                print(f"\nExecuting modification code for Member {mod['member_id']}:")
+                print(mod['code'])
+
                 # Execute modification code
                 exec(mod['code'], exec_env)
+                print(f"Modification code executed successfully for Member {mod['member_id']}")
                 
                 # Track successful modification
                 mod['executed_round'] = current_round
@@ -1338,12 +1340,12 @@ class IslandExecution(Island):
             except Exception as e:
                 error_info = {
                     'round': current_round,
-                    'type': 'modification_execution',
+                    'type': 'modification_execution', 
                     'error': str(e),
                     'traceback': traceback.format_exc(),
                     'code': mod['code']
                 }
-                self.execution_history['errors'].append(error_info)
+                self.execution_history['mechanism_errors'].append(error_info)
                 print(f"Error executing code for member {mod['member_id']}:")
                 print(traceback.format_exc())
                 self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
@@ -1384,9 +1386,11 @@ def main():
         # exec.execute_code_actions()
         # exec.consume()
         
+        print("\nGenerating mechanism modifications...")
         for i in range(len(exec.current_members)):
             exec.agent_mechanism_proposal(i)
         
+        print("\nExecuting mechanism modifications...")
         exec.execute_mechanism_modifications()
         
         print("\nPerformance Report:")
