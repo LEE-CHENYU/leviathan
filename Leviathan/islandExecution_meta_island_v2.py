@@ -220,10 +220,6 @@ class IslandExecution(Island):
         # Get any received messages (and clear them)
         received_messages = self.messages.pop(member_id, [])
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
-        
-        # New: Incorporate agent-specific prompt revision if available.
-        revision_text = self.agent_prompt_revisions.get(member_id, "").strip()
-        revision_section = f"\n[Agent Provided Prompt Revision]\n{revision_text}\n" if revision_text else ""
 
         # New: Get current game mechanisms and modification attempts
         current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
@@ -237,7 +233,7 @@ class IslandExecution(Island):
 
         try:
             # Define iterative prompt parts with specific constraints
-            part0 = """
+            part0 = f"""
             [Previous code execution context]
         {error_context}
 
@@ -338,7 +334,7 @@ class IslandExecution(Island):
         [Received Messages]
         {message_context}
             """
-            part3 = """
+            part3 = f"""
             {part0}
             
             [Current Game Mechanisms]
@@ -430,7 +426,8 @@ class IslandExecution(Island):
                     f"2. What strategies are they employing?\n"
                     f"3. How can you leverage their behaviors for mutual benefit?\n"
                     f"4. Remember they are symmetric agents like you - how would you respond to your own actions?\n"
-                    f"5. How can individual strategies align for collective goals?\n\n"
+                    f"5. Are they sending you deceiving messages to trick you?\n"
+                    f"6. How can individual strategies align for collective goals?\n\n"
                     f"Challenge your implementation:\n"
                     f"1. What assumptions are you making? Are they valid?\n"
                     f"2. What alternative strategies have you not considered?\n"
@@ -794,7 +791,7 @@ class IslandExecution(Island):
             if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
         ]
         
-        part0 = """
+        part0 = f"""
             [Previous code execution context]
         {error_context}
         
@@ -863,7 +860,7 @@ class IslandExecution(Island):
         
         Consider novel combinations of different approaches rather than following this exact pattern.
         """
-        constrainsAndExamples = """
+        constrainsAndExamples = f"""
         {part0}
         [Core Game Mechanics & Parameters]
         The island simulation has several key systems that agents should understand:
@@ -888,30 +885,30 @@ class IslandExecution(Island):
         if not hasattr(island, 'new_system'):
             class CustomMechanism:
                 def __init__(self):
-                    self.data = {}
-                    self.meta = {'version': 1.0, 'type': 'custom'}
+                    self.data = {{}}
+                    self.meta = {{'version': 1.0, 'type': 'custom'}}
             
             island.new_system = CustomMechanism()
 
         # Member capability example
         def modify_member(member, relationships):
             if not hasattr(member, 'custom_abilities'):
-                member.custom_abilities = {}
+                member.custom_abilities = {{}}
             
             # Add trading capability
             member.custom_abilities['trade'] = lambda resource: (
-                print(f"Trading {resource}") if member.vitality > 20 else None
+                print(f"Trading {{resource}}") if member.vitality > 20 else None
             )
             return member
 
         # Land modification example  
         def modify_land(land, members):
             if not hasattr(land, 'zoning'):
-                land.zoning = {
+                land.zoning = {{
                     'residential': 0.4,
                     'agricultural': 0.4,
                     'commercial': 0.2
-                }
+                }}
             
             # Add development tracking
             land.development_level = np.zeros(land.shape)
@@ -1095,11 +1092,6 @@ class IslandExecution(Island):
             print(f"\nGenerated code for Member {member_id}:")
             # print(code_result)
 
-            # NEW: Store the generated modification proposal code for later reference.
-            if not hasattr(self, 'modification_attempts_by_member'):
-                self.modification_attempts_by_member = {}
-            self.modification_attempts_by_member[member_id] = code_result
-
         except Exception as e:
             error_info = {
                 'type': 'modification_proposal',
@@ -1204,13 +1196,13 @@ def main():
         exec.get_neighbors()
         # exec.produce()
         
-        # print("\nGenerating agent decisions...")
-        # for i in range(len(exec.current_members)):
-        #     exec.agent_code_decision(i)
+        print("\nGenerating agent decisions...")
+        for i in range(len(exec.current_members)):
+            exec.agent_code_decision(i)
         
-        # print("\nExecuting agent actions...")
-        # exec.execute_code_actions()
-        # exec.consume()
+        print("\nExecuting agent actions...")
+        exec.execute_code_actions()
+        exec.consume()
         
         print("\nGenerating mechanism modifications...")
         for i in range(len(exec.current_members)):
