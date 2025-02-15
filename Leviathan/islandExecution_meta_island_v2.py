@@ -51,6 +51,7 @@ class IslandExecution(Island):
             'rounds': [],
             'generated_code': {},
             'performance_metrics': {},
+            'analysis_code_errors': {},
             'agent_code_errors': [],
             'mechanism_errors': [],
             'relationships': {},
@@ -64,6 +65,9 @@ class IslandExecution(Island):
 
         # Initialize code storage
         self.agent_code_by_member = {}
+        
+        # Initialize analysis reports
+        self.analysis_reports = {}
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -177,13 +181,158 @@ class IslandExecution(Island):
                 
         return "\n".join(summary)
 
-    # -- NEW METHOD TO REQUEST PYTHON CODE FROM GPT --
-    def agent_code_decision(self, member_id) -> None:
-        """
-        Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
-        The code will define a function agent_action(execution_engine, member_id), 
-        which references attributes that actually exist.
-        """
+    def analyze(self, member_id):
+        """Analyze member data for strategic insights"""
+        previous_errors = self.execution_history['analysis_code_errors'].get(member_id, {})
+        analysis_prompt = f"""
+        {previous_errors}
+            [Data-Driven Survival Framework]
+        Collect and analyze ALL available game variables:
+        
+        [Core Member Metrics]
+        - Vitality: [m.vitality for m in execution_engine.current_members]
+        - Cargo: [m.cargo for m in execution_engine.current_members]
+        - Land_num: [m.land_num for m in execution_engine.current_members]
+        - Age: [m.age for m in execution_engine.current_members]
+        - Surviver_id: [m.surviver_id for m in execution_engine.current_members]
+        - Owned_land: [m.owned_land for m in execution_engine.current_members]
+        - Parameters: attack_decision=[m.attack_decision for m in execution_engine.current_members], 
+          offer_decision=[m.offer_decision for m in execution_engine.current_members]
+        
+        [Social Dynamics]
+        - Relationship matrices: victim=execution_engine.relationship_dict['victim'],
+          benefit=execution_engine.relationship_dict['benefit'],
+          benefit_land=execution_engine.relationship_dict['benefit_land']
+        - Action logs: attacks=execution_engine.record_action_dict['attack'],
+          benefits=execution_engine.record_action_dict['benefit'],
+          land_transfers=execution_engine.record_action_dict['benefit_land']
+        
+        [Territory Analysis] 
+        - Land ownership map: execution_engine.land.owner_id
+        - Land shape: execution_engine.land.shape
+        - Strategic positions: [m.center_of_land(execution_engine.land) for m in execution_engine.current_members]
+        
+        [Economic Indicators]
+        - Total production: execution_engine.record_total_production
+        - Total consumption: execution_engine.record_total_consumption
+        - Resource flow rates: [m.cargo/max(m.vitality,1) for m in execution_engine.current_members]
+        
+        [Evolutionary Trends]
+        - Birth/death rates: len(execution_engine.record_born)/len(execution_engine.record_death)
+        - Parameter drift: [m._parameter_drift for m in execution_engine.current_members]
+        - Color inheritance: [m._current_color for m in execution_engine.current_members]
+
+        [Analysis Protocol]
+        1. Calculate resource inequality using Gini coefficient on cargo+land
+        2. Perform network analysis on benefit relationships to identify power brokers
+        3. Compute territory clustering coefficients
+        4. Track parameter evolution vs survival outcomes
+        5. Model vitality-cargo-land survival probability surface
+        
+        Example Implementation:
+        def analyze_island_state(execution_engine, member_id):
+            me = execution_engine.current_members[member_id]
+            
+            # Collect raw data
+            data = {{ 
+                'members': execution_engine.current_members,
+                'relationships': execution_engine.relationship_dict,
+                'land': execution_engine.land,
+                'economics': (execution_engine.record_total_production, 
+                             execution_engine.record_total_consumption),
+                'actions': execution_engine.record_action_dict
+            }}
+            
+            # Perform analysis
+            analysis = {{
+                'gini': np.std([m.cargo + m.land_num*10 for m in data['members']])/np.mean([m.cargo + m.land_num*10 for m in data['members']]),
+                'central_nodes': [m.id for m in data['members'] if np.nanmean(data['relationships']['benefit'][m.surviver_id]) > np.nanpercentile(data['relationships']['benefit'], 75)],
+                'cluster_density': len(me.owned_land)/execution_engine.land.shape[0]**2,
+                'optimal_vitality': max(50, np.percentile([m.vitality for m in data['members']], 75)),
+                'survival_prob': me.vitality/(me.vitality + me.cargo + 1)
+            }}
+            
+            # Generate report
+            report = generate_strategy_report({{
+                **analysis,
+                'top_holders': sorted(data['members'], key=lambda x: x.cargo, reverse=True)[:3],
+                'rich_areas': [loc for loc in me.owned_land if execution_engine.land.resource_yield(loc) > 0.7],
+                'rec_action1': "Secure defensive alliances" if analysis['survival_prob'] < 0.5 else "Expand territory",
+                'rec_action2': "Diversify resource streams" if analysis['gini'] > 0.4 else "Consolidate assets",
+                'rec_action3': "Optimize parameter mix: " + str(me._parameter_drift)
+            }})
+            
+            # Store in member memory
+            if not hasattr(me, 'data_memory'):
+                me.data_memory = {{'reports': [], 'strategies': []}}
+            me.data_memory['reports'].append(report)
+            
+            # Update strategy parameters
+            me.attack_decision *= (1 + analysis['survival_prob']/10)
+            me.offer_decision *= (1 - analysis['gini']/5)
+            
+            print(f"\nStrategic Analysis Report:\n{{report}}")
+            return analysis  
+            
+        If a previous strategy worked well (high performance), consider building upon it.
+        If it failed, try a different approach.
+        
+        IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
+        
+        Return only the code, no extra text or explanation. While the example above shows one possible approach,
+        you should create your own unique implementation drawing from the wide range of available methods and strategies.
+        
+        Consider novel combinations of different approaches rather than following this exact pattern.
+            """
+        completion = openai.chat.completions.create(
+                    model="o3-mini", 
+                    messages=[{"role": "user", "content": analysis_prompt}]
+                )
+        analysis_code = completion.choices[0].message.content.strip()
+        analysis_code = self.clean_code_string(analysis_code)
+        
+        print(f"\nStrategic Analysis Code:\n{analysis_code}")
+        
+        # Execute the code in a new environment
+        exec_env = {}
+        exec_env['execution_engine'] = self
+        exec_env['member_id'] = member_id
+        exec_env['me'] = self.current_members[member_id]
+        exec_env['np'] = np  # Make numpy available in the environment
+        
+        try:
+            # First execute the code to define the functions
+            exec(analysis_code, exec_env)
+            
+            # Then call the analysis function
+            result = exec_env['analyze_game_state'](self, member_id)
+            
+            if result:
+                print(f"Analysis result: {result}")
+                if member_id not in self.analysis_reports:
+                    self.analysis_reports[member_id] = []
+                self.analysis_reports[member_id].append(result)
+            else:
+                print("No analysis result returned")
+                return None
+            
+        except Exception as e:
+            print(f"Error executing analysis code: {e}")
+            print(f"Traceback:\n{traceback.format_exc()}")
+            print(f"Analysis code that failed:\n{analysis_code}")
+            print(f"Member ID: {member_id}")
+            print(f"Current round: {len(self.execution_history['rounds'])}")
+            self.execution_history['analysis_code_errors'][member_id] = {
+                'member_id': member_id,
+                'round': len(self.execution_history['rounds']),
+                'error': str(e),
+                'code': analysis_code,
+                'type': 'analysis'
+            }
+            return None
+
+    def prepare_agent_data(self, member_id):
+        """Prepares and returns all necessary data for agent mechanism proposal."""
         member = self.current_members[member_id]
         # Gather relationship info
         relations = self.parse_relationship_matrix(self.relationship_dict)
@@ -197,6 +346,13 @@ class IslandExecution(Island):
             f'round_{len(self.execution_history["rounds"])}_{member_id}'
         ] = relations
 
+        # Analysis Memory
+        analysis_memory = "No previous analysis"
+        if member_id in self.analysis_reports and self.analysis_reports[member_id]:
+            analysis_list = self.analysis_reports[member_id]
+            analysis_memory = f"Previous analysis reports: {analysis_list}"
+        
+        # Performance Memory
         past_performance = "No previous actions"
         if member_id in self.performance_history and self.performance_history[member_id]:
             perf_list = self.performance_history[member_id]
@@ -205,7 +361,7 @@ class IslandExecution(Island):
 
         # Get previous errors for this member
         previous_errors = [
-            e for e in self.execution_history['agent_code_errors'] 
+            e for e in self.execution_history['mechanism_errors'] 
             if e['member_id'] == member_id
         ]
         error_context = "No previous execution errors"
@@ -220,6 +376,34 @@ class IslandExecution(Island):
         # Get any received messages (and clear them)
         received_messages = self.messages.pop(member_id, [])
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
+
+        return {
+            'member': member,
+            'relations': relations,
+            'features': features,
+            'code_memory': code_memory,
+            'analysis_memory': analysis_memory,
+            'past_performance': past_performance,
+            'error_context': error_context,
+            'message_context': message_context
+        }
+
+    # -- NEW METHOD TO REQUEST PYTHON CODE FROM GPT --
+    def agent_code_decision(self, member_id) -> None:
+        """
+        Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
+        The code will define a function agent_action(execution_engine, member_id), 
+        which references attributes that actually exist.
+        """
+        data = self.prepare_agent_data(member_id)
+        member = data['member']
+        relations = data['relations']
+        features = data['features']
+        code_memory = data['code_memory']
+        analysis_memory = data['analysis_memory']
+        past_performance = data['past_performance']
+        error_context = data['error_context']
+        message_context = data['message_context']
 
         # New: Get current game mechanisms and modification attempts
         current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
@@ -292,6 +476,9 @@ class IslandExecution(Island):
 
         Code Memory and Previous Performance:
         {code_memory}
+        
+        Analysis Memory:
+        {analysis_memory}
 
         Performance history:
         {past_performance}
@@ -313,7 +500,6 @@ class IslandExecution(Island):
             [Current Game Mechanisms]
             {current_mechanisms}
             
-            [Social Strategies]
         Consider these social strategies:
         - Design systems for resource distribution and allocation
         - Build alliances and cooperative networks 
@@ -420,19 +606,6 @@ class IslandExecution(Island):
                     f"1. The core objective - Is it pure survival, domination, or cooperation?\n" 
                     f"2. Key success metrics - What truly determines 'winning'?\n"
                     f"3. Potential improvements - What mechanics could be added/modified?\n\n"
-                    f"Then formulate strategic approaches considering:\n"
-                    f"1. Resource optimization vs social capital\n"
-                    f"2. Individual vs collective success\n"
-                    f"3. Short-term survival vs long-term prosperity\n"
-                    f"4. Competition vs cooperation dynamics\n"
-                    f"5. Risk vs reward tradeoffs\n\n"
-                    f"Analyze other players' strategies:\n"
-                    f"1. What are their apparent objectives and demands?\n"
-                    f"2. What strategies are they employing?\n"
-                    f"3. How can you leverage their behaviors for mutual benefit?\n"
-                    f"4. Remember they are symmetric agents like you - how would you respond to your own actions?\n"
-                    f"5. Are they sending you deceiving messages to trick you?\n"
-                    f"6. How can individual strategies align for collective goals?\n\n"
                     f"Challenge your implementation:\n"
                     f"1. What assumptions are you making? Are they valid?\n"
                     f"2. What alternative strategies have you not considered?\n"
@@ -748,43 +921,18 @@ class IslandExecution(Island):
         The code will define a function agent_action(execution_engine, member_id), 
         which references attributes that actually exist.
         """
+        # Prepare data for the proposal
+        data = self.prepare_agent_data(member_id)
         
-        member = self.current_members[member_id]
-        # Gather relationship info
-        relations = self.parse_relationship_matrix(self.relationship_dict)
-        features = self.get_current_member_features()
-
-        # Summaries of past code
-        code_memory = self.get_code_memory_summary(member_id)
-
-        # Track relationships for logging
-        self.execution_history['relationships'][
-            f'round_{len(self.execution_history["rounds"])}_{member_id}'
-        ] = relations
-
-        past_performance = "No previous actions"
-        if member_id in self.performance_history and self.performance_history[member_id]:
-            perf_list = self.performance_history[member_id]
-            avg_perf = sum(perf_list) / len(perf_list)
-            past_performance = f"Previous actions resulted in average performance change of {avg_perf:.2f}"
-
-        # Get previous errors for this member
-        previous_errors = [
-            e for e in self.execution_history['mechanism_errors'] 
-            if e['member_id'] == member_id
-        ]
-        error_context = "No previous execution errors"
-        if previous_errors:
-            last_error = previous_errors[-1]
-            error_context = (
-                f"Last execution error (Round {last_error['round']}):\n"
-                f"Error type: {last_error['error']}\n"
-                f"Code that caused error:\n{last_error.get('code', '')}"
-            )
-
-        # Get any received messages (and clear them)
-        received_messages = self.messages.pop(member_id, [])
-        message_context = "\n".join(received_messages) if received_messages else "No messages received"
+        # Use the prepared data
+        member = data['member']
+        relations = data['relations']
+        features = data['features']
+        code_memory = data['code_memory']
+        analysis_memory = data['analysis_memory']
+        past_performance = data['past_performance']
+        error_context = data['error_context']
+        message_context = data['message_context']
         
         # NEW: Get current game mechanisms and modification attempts from recent rounds
         current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
@@ -850,6 +998,9 @@ class IslandExecution(Island):
 
         Code Memory and Previous Performance:
         {code_memory}
+
+        Analysis Memory:
+        {analysis_memory}
 
         Performance history:
         {past_performance}
@@ -974,7 +1125,7 @@ class IslandExecution(Island):
            - Review past modification attempts for patterns
         
         2. PROPOSAL PHASE:
-        def agent_action(execution_engine, member_id):
+        def propose_modification(execution_engine, member_id):
             # Example valid modification:
             modification_code = '''
             # Add judicial system
@@ -1154,6 +1305,7 @@ class IslandExecution(Island):
 
                 # Execute modification code
                 exec(mod['code'], exec_env)
+                exec_env['propose_modification'](self, mod['member_id'])
                 print(f"Modification code executed successfully for Member {mod['member_id']}")
                 
                 # Track successful modification
@@ -1203,7 +1355,8 @@ def main():
         
         print("\nGenerating agent decisions...")
         for i in range(len(exec.current_members)):
-            exec.agent_code_decision(i)
+            exec.analyze(i)
+            # exec.agent_code_decision(i)
         
         print("\nExecuting agent actions...")
         exec.execute_code_actions()
