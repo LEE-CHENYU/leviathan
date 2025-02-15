@@ -1311,7 +1311,6 @@ class IslandExecution(Island):
     def execute_mechanism_modifications(self):
         """Execute ratified modifications"""
         current_round = len(self.execution_history['rounds'])
-        modifications_to_ratify = []
 
         # Process voting first
         self.process_voting_mechanism()
@@ -1324,7 +1323,7 @@ class IslandExecution(Island):
         # Execute ratified modifications
         exec_env = {'execution_engine': self}
         
-        for mod in modifications_to_ratify:
+        for mod in self.execution_history['modification_attempts']:
             try:
                 print(f"\nExecuting modification code for Member {mod['member_id']}:")
                 print(mod['code'])
@@ -1361,7 +1360,7 @@ def main():
 
     rng = np.random.default_rng()
     path = save.datetime_dir("../data")
-    exec = IslandExecution(5, (5, 5), path, 2023)
+    exec = IslandExecution(4, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
     Member._DECISION_BACKEND = 'inner product'
     Member._PARAMETER_INFLUENCE = 0
