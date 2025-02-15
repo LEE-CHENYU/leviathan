@@ -63,9 +63,9 @@ def _requirement_for_offer_land(
 
 class Island():
     _MIN_MAX_INIT_RELATION = {
-        "victim": [-50, 100],                # 若随机到负值，则该记忆初始化为0
-        "benefit": [-50, 100],        
-        "benefit_land": [-3, 3],           
+        "victim": [-500, 1000],                # 若随机到负值，则该记忆初始化为0
+        "benefit": [-500, 1000],        
+        "benefit_land": [-30, 30],           
     }
 
     _NEIGHBOR_SEARCH_RANGE = 1000

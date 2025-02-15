@@ -265,8 +265,13 @@ class IslandExecution(Island):
             Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
             The keys are: 'victim', 'benefit', 'benefit_land'.
             Example usage:
-                matrix = execution_engine.relationship_dict['victim']
-                # matrix[i, j] indicates how many times member_i was attacked by member_j (if > 0).
+                victim_matrix = execution_engine.relationship_dict['victim']
+                # victim_matrix[i,j] indicates how much vitality member_i lost from member_j's attacks (if > 0)
+                # A higher value means member_j has attacked member_i more severely or frequently
+                
+                benefit_matrix = execution_engine.relationship_dict['benefit']
+                # benefit_matrix[i,j] indicates how much resources member_i received from member_j (if > 0)
+                # A higher value means member_j has helped member_i more generously or frequently
         3) The parse_relationship_matrix method is used to produce a summary of relationships as a list of strings.
             For example, 'member_2 was attacked by member_1 (value=3.00)'.
         4) You can use these methods on execution_engine:
@@ -1194,7 +1199,7 @@ def main():
         
         exec.new_round()
         exec.get_neighbors()
-        # exec.produce()
+        exec.produce()
         
         print("\nGenerating agent decisions...")
         for i in range(len(exec.current_members)):
@@ -1204,12 +1209,12 @@ def main():
         exec.execute_code_actions()
         exec.consume()
         
-        print("\nGenerating mechanism modifications...")
-        for i in range(len(exec.current_members)):
-            exec.agent_mechanism_proposal(i)
+        # print("\nGenerating mechanism modifications...")
+        # for i in range(len(exec.current_members)):
+        #     exec.agent_mechanism_proposal(i)
         
-        print("\nExecuting mechanism modifications...")
-        exec.execute_mechanism_modifications()
+        # print("\nExecuting mechanism modifications...")
+        # exec.execute_mechanism_modifications()
         
         print("\nPerformance Report:")
         exec.print_agent_performance()
