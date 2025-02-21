@@ -1,7 +1,8 @@
 import openai
 import traceback
+import ast
 
-def agent_mechanism_proposal(self, member_id) -> None:
+def _agent_mechanism_proposal(self, member_id) -> None:
     """ 
     Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
     The code will define a function agent_action(execution_engine, member_id), 
@@ -24,6 +25,8 @@ def agent_mechanism_proposal(self, member_id) -> None:
     modification_attempts = data['modification_attempts']
     report = data['report']
     
+    base_code = self.base_class_code
+    
     part0 = f"""
         [Previous code execution context]
     {error_context}
@@ -43,6 +46,9 @@ def agent_mechanism_proposal(self, member_id) -> None:
     - Access members using execution_engine.current_members[index]
     - Check if index exists: if index < len(execution_engine.current_members)
     
+    [Base Code]
+    {base_code}
+        
     IMPORTANT: Here are the attributes and methods actually available:
 
     1) Each member object has:
@@ -272,6 +278,13 @@ def agent_mechanism_proposal(self, member_id) -> None:
     - Add version checks to modifications
     """
     
+    def make_class_picklable(class_name, class_dict):
+        """Make dynamically created classes picklable by adding them to globals"""
+        # Create the class and add it to the global namespace
+        new_class = type(class_name, (), class_dict)
+        globals()[class_name] = new_class
+        return new_class
+
     try:
         # Define iterative prompt parts with specific constraints
         
@@ -336,6 +349,17 @@ def agent_mechanism_proposal(self, member_id) -> None:
         print(f"\nGenerated code for Member {member_id}:")
         # print(code_result)
 
+        # Extract class definitions from the code
+        tree = ast.parse(code_result)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                # Make the class picklable before it's instantiated
+                class_dict = {'__module__': '__main__'}  # Set the module to __main__
+                make_class_picklable(node.name, class_dict)
+                
+        # Now execute the code
+        exec(code_result)
+        
     except Exception as e:
         error_info = {
             'type': 'modification_proposal',

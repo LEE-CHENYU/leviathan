@@ -1,10 +1,6 @@
-from Leviathan.Island import Island
-from Leviathan.Member import Member
-from Leviathan.Land import Land
 from typing import List, Tuple, Optional
 import numpy as np
 import pandas as pd
-import openai
 import json
 from datetime import datetime
 import traceback
@@ -12,11 +8,16 @@ import os
 from collections import defaultdict
 import inspect
 
-from Leviathan.agent_code_decision import agent_code_decision
-from Leviathan.agent_mechanism_proposal import agent_mechanism_proposal
-from Leviathan.analyze import analyze
+from MetaIsland.base_island import BaseIsland
 
-class IslandExecution(Island):
+from MetaIsland.agent_code_decision import _agent_code_decision
+from MetaIsland.agent_mechanism_proposal import _agent_mechanism_proposal
+from MetaIsland.analyze import _analyze
+
+from dotenv import load_dotenv
+load_dotenv()
+
+class IslandExecution(BaseIsland):
     def __init__(self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
@@ -25,8 +26,21 @@ class IslandExecution(Island):
         action_board: List[List[Tuple[str, int, int]]] = None,
         agent_modifications: dict = None
     ):
+        # Create directories for saving generated code
+        self.code_save_path = os.path.join(save_path, 'generated_code')
+        os.makedirs(self.code_save_path, exist_ok=True)
+        
+        # Create subdirectories for different types of code
+        self.agent_code_path = os.path.join(self.code_save_path, 'agent_actions')
+        self.mechanism_code_path = os.path.join(self.code_save_path, 'mechanisms')
+        os.makedirs(self.agent_code_path, exist_ok=True)
+        os.makedirs(self.mechanism_code_path, exist_ok=True)
+        
         # Add version tracking
         self._VERSION = "2.1"
+        
+        # Add base class code storage
+        self.base_class_code = self._load_base_class_code()
         
         # Add agent modification tracking
         self.agent_modifications = {
@@ -34,8 +48,6 @@ class IslandExecution(Island):
             'post_init': [],
 
         }
-        
-  
             
         super().__init__(
             init_member_number,
@@ -44,7 +56,6 @@ class IslandExecution(Island):
             random_seed
         )
         
-        # Remove example action board and related attributes since we're not using them
         self.performance_history = {}  # {member_id: [list_of_performance_metrics]}
         
         # Add code memory tracking
@@ -72,6 +83,32 @@ class IslandExecution(Island):
         
         # Initialize analysis reports
         self.analysis_reports = {}
+
+    def _load_base_class_code(self) -> dict:
+        """Load the source code of base classes as strings."""
+        base_code = {}
+        
+        # Get the source code for BaseIsland
+        try:
+            base_code['base_island'] = inspect.getsource(BaseIsland)
+        except Exception as e:
+            base_code['base_island'] = f"Error loading BaseIsland code: {str(e)}"
+            
+        # Get the source code for BaseLand
+        try:
+            from MetaIsland.base_land import BaseLand
+            base_code['base_land'] = inspect.getsource(BaseLand)
+        except Exception as e:
+            base_code['base_land'] = f"Error loading BaseLand code: {str(e)}"
+            
+        # Get the source code for BaseMember
+        try:
+            from MetaIsland.base_member import BaseMember
+            base_code['base_member'] = inspect.getsource(BaseMember)
+        except Exception as e:
+            base_code['base_member'] = f"Error loading BaseMember code: {str(e)}"
+            
+        self.base_code = base_code
 
     def offer(self, member_1, member_2, parameter_influence):
         super()._offer(member_1, member_2, parameter_influence)
@@ -183,9 +220,6 @@ class IslandExecution(Island):
                 
         return "\n".join(summary)
 
-    def analyze(self, member_id):
-        return analyze(member_id)
-
     def prepare_agent_data(self, member_id):
         """Prepares and returns all necessary data for agent mechanism proposal."""
         member = self.current_members[member_id]
@@ -258,14 +292,25 @@ class IslandExecution(Island):
             'report': report
         }
 
-    # -- NEW METHOD TO REQUEST PYTHON CODE FROM GPT --
+    ## Prompting Agents
+    
+    def analyze(self, member_id):
+        """Analyze the game state and propose strategic actions."""
+        return _analyze(self, member_id)
+    
     def agent_code_decision(self, member_id) -> None:
-        """
-        Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
-        The code will define a function agent_action(execution_engine, member_id), 
-        which references attributes that actually exist.
-        """
-        return agent_code_decision(member_id)
+        """Modified to save generated code"""
+        code_result = _agent_code_decision(self, member_id)
+        if code_result:
+            self.save_generated_code(code_result, member_id, 'agent_action')
+        return code_result
+    
+    def agent_mechanism_proposal(self, member_id) -> None:
+        """Modified to save generated code"""
+        code_result = _agent_mechanism_proposal(self, member_id)
+        if code_result:
+            self.save_generated_code(code_result, member_id, 'mechanism')
+        return code_result
 
     def execute_code_actions(self) -> None:
         """Executes all code that the agents wrote (if any) using a restricted namespace."""
@@ -512,14 +557,6 @@ class IslandExecution(Island):
                     for recipient, msg in comm['sent']:
                         print(f"    -> Member {recipient}: {msg}")
 
-    def agent_mechanism_proposal(self, member_id) -> None:
-        """ 
-        Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
-        The code will define a function agent_action(execution_engine, member_id), 
-        which references attributes that actually exist.
-        """
-        return agent_mechanism_proposal(member_id)
-
     def process_voting_mechanism(self):
         """Handle voting process for modification proposals"""
         current_round = len(self.execution_history['rounds'])
@@ -584,12 +621,39 @@ class IslandExecution(Island):
                 print(traceback.format_exc())
                 self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
 
+    def save_generated_code(self, code: str, member_id: int, code_type: str) -> None:
+        """
+        Save generated code to appropriate directory
+        
+        Args:
+            code (str): The code to save
+            member_id (int): ID of the member who generated the code
+            code_type (str): Type of code ('agent_action' or 'mechanism')
+        """
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        round_num = len(self.execution_history['rounds'])
+        
+        if code_type == 'agent_action':
+            save_dir = self.agent_code_path
+            filename = f'agent_{member_id}_round_{round_num}_{timestamp}.py'
+        else:  # mechanism
+            save_dir = self.mechanism_code_path
+            filename = f'mechanism_{member_id}_round_{round_num}_{timestamp}.py'
+            
+        file_path = os.path.join(save_dir, filename)
+        
+        try:
+            with open(file_path, 'w') as f:
+                f.write(f"# Generated code for Member {member_id} in Round {round_num}\n")
+                f.write(f"# Generated at: {timestamp}\n\n")
+                f.write(self.clean_code_string(code))
+            print(f"Saved generated code to {file_path}")
+        except Exception as e:
+            print(f"Error saving generated code: {e}")
+            print(traceback.format_exc())
+
 def main():
-    from Leviathan.Island import Island
-    from Leviathan.Member import Member
-    from Leviathan.Analyzer import Analyzer
     from time import time
-    from Leviathan.Land import Land
     from utils import save
     import os
 
@@ -597,8 +661,6 @@ def main():
     path = save.datetime_dir("../data")
     exec = IslandExecution(4, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
-    Member._DECISION_BACKEND = 'inner product'
-    Member._PARAMETER_INFLUENCE = 0
 
     action_prob = 0.5
     round_num = 10
@@ -614,6 +676,7 @@ def main():
         
         # print("\nGenerating agent decisions...")
         # for i in range(len(exec.current_members)):
+        #     print(f"Member {i} is deciding...")
         #     exec.analyze(i)
         #     exec.agent_code_decision(i)
         
@@ -621,9 +684,14 @@ def main():
         # exec.execute_code_actions()
         # exec.consume()
         
-        print("\nGenerating mechanism modifications...")
-        for i in range(len(exec.current_members)):
-            exec.agent_mechanism_proposal(i)
+        # print("\nGenerating mechanism modifications...")
+        # for i in range(len(exec.current_members)):
+        #     print(f"Member {i} is deciding...")
+        #     exec.agent_mechanism_proposal(i)
+        
+        print("\nMember 0 is deciding...")
+        exec.agent_code_decision(0)
+        exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")
         exec.execute_mechanism_modifications()

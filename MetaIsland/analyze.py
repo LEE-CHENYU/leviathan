@@ -2,7 +2,7 @@ import numpy as np
 import openai
 import traceback
 
-def analyze(self, member_id):
+def _analyze(self, member_id):
     """
     Analyze member data for strategic insights
     """

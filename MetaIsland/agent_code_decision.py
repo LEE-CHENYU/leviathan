@@ -1,7 +1,7 @@
 import openai
 import traceback
 
-def agent_code_decision(self, member_id) -> None:
+def _agent_code_decision(self, member_id) -> None:
         """
         Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
         The code will define a function agent_action(execution_engine, member_id), 
@@ -20,6 +20,8 @@ def agent_code_decision(self, member_id) -> None:
         current_mechanisms = data['current_mechanisms']
         modification_attempts = data['modification_attempts']
         report = data['report']
+        
+        base_code = self.base_class_code
         
         try:
             # Define iterative prompt parts with specific constraints
@@ -41,6 +43,9 @@ def agent_code_decision(self, member_id) -> None:
         - current_members is a LIST accessed by index, not a dictionary
         - Access members using execution_engine.current_members[index]
         - Check if index exists: if index < len(execution_engine.current_members)
+        
+        [Base Code]
+        {base_code}
         
         IMPORTANT: Here are the attributes and methods actually available:
 
