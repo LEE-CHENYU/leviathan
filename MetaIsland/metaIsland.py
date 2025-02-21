@@ -7,6 +7,7 @@ import traceback
 import os
 from collections import defaultdict
 import inspect
+import sys
 
 from MetaIsland.base_island import Island
 
@@ -16,6 +17,9 @@ from MetaIsland.analyze import _analyze
 
 from dotenv import load_dotenv
 load_dotenv()
+
+from MetaIsland.ui.dashboard import launch_dashboard
+from PyQt5.QtCore import QThread
 
 class IslandExecution(Island):
     def __init__(self, 
@@ -74,6 +78,9 @@ class IslandExecution(Island):
         
         # Initialize analysis reports
         self.analysis_reports = {}
+
+        # Add UI thread reference
+        self.ui_thread = None
 
     def new_round(self):
         """
@@ -306,7 +313,23 @@ class IslandExecution(Island):
             ]
             modification_attempts.extend(member_attempts)
 
-        print(modification_attempts)
+        # Save modification attempts to txt file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        attempts_filename = f'modification_attempts_{member_id}_{timestamp}.txt'
+        attempts_path = os.path.join(self.mechanism_code_path, attempts_filename)
+        
+        try:
+            with open(attempts_path, 'w') as f:
+                f.write(f"Modification Attempts for Member {member_id}\n")
+                f.write(f"Generated at: {timestamp}\n\n")
+                for attempt in modification_attempts:
+                    f.write(f"Round {attempt.get('round', 'Unknown')}\n")
+                    f.write(f"Code:\n{attempt.get('code', '')}\n")
+                    f.write("-" * 80 + "\n\n")
+            print(f"Saved modification attempts to {attempts_path}")
+        except Exception as e:
+            print(f"Error saving modification attempts: {e}")
+            print(traceback.format_exc())
 
         report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
 
@@ -690,10 +713,20 @@ class IslandExecution(Island):
             print(f"Error saving generated code: {e}")
             print(traceback.format_exc())
 
+    def run_ui(self):
+        """Start the dashboard UI in a separate thread"""
+        def run():
+            launch_dashboard(self)
+            
+        self.ui_thread = QThread()
+        self.ui_thread.run = run
+        self.ui_thread.start()
+
 def main():
     from time import time
     from utils import save
     import os
+    from PyQt5.QtWidgets import QApplication
 
     rng = np.random.default_rng()
     path = save.datetime_dir("../data")
@@ -702,6 +735,8 @@ def main():
 
     action_prob = 0.5
     round_num = 10
+    
+    app = QApplication(sys.argv)
     
     for round_i in range(round_num):
         print(f"\n{'='*50}")
@@ -748,6 +783,11 @@ def main():
             survival_chance = exec.compute_survival_chance(member)
             print(f"Member {member.id}: Vitality={member.vitality:.2f}, "
                   f"Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}")
+
+    # Create and show dashboard
+    exec.run_ui()
+    
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

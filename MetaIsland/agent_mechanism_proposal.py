@@ -31,9 +31,9 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         [Previous code execution context]
     {error_context}
     
-    [Current task]
+    [Current Task]
     You are member_{member.id} in a society that you can help shape.
-    Write a Python function named agent_action(execution_engine, member_id) 
+    Write a Python function named propose_modification(execution_engine, member_id) 
     that implements your vision of social organization while ensuring your survival.
     
     [Critical constraints]
@@ -195,12 +195,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     
     mechanism_section = f"""
     {constrainsAndExamples}
-    
-    [Current Task]
-    You are member_{member.id} in a society that you can help shape.
-    Write a Python function named propose_modification(execution_engine, member_id) 
-    that implements your vision of social organization while ensuring your survival.
-    
+
     [Active Game Mechanisms]
     {current_mechanisms}
     
