@@ -582,7 +582,7 @@ class IslandExecution(Island):
         """Handle voting process for modification proposals"""
         current_round = len(self.execution_history['rounds'])
         
-        for mod in self.execution_history['modification_attempts']:
+        for mod in self.execution_history['rounds'][-1]['modification_attempts']:
             if mod['ratified'] or 'ratification_condition' not in mod:
                 continue
 
@@ -604,7 +604,7 @@ class IslandExecution(Island):
         current_round = len(self.execution_history['rounds'])
            
         # Process voting first
-        self.process_voting_mechanism()
+        # self.process_voting_mechanism()
 
         # Check remaining ratification conditions
         # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
@@ -728,8 +728,6 @@ def main():
         #     print(f"Member {i} is deciding...")
         #     exec.agent_mechanism_proposal(i)
             
-        print(exec.execution_history['rounds'][-1])
-        print(exec.execution_history['rounds'][-1]['errors'])
         exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")
