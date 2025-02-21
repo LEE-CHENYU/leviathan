@@ -71,8 +71,8 @@ def _agent_code_decision(self, member_id) -> None:
             For example, 'member_2 was attacked by member_1 (value=3.00)'.
         4) You can use these methods on execution_engine:
             • execution_engine.attack(member1, member2)
-            • execution_engine.offer(member1, member2, True) - Offers resources
-            • execution_engine.offer_land(member1, member2, True) - Offers land
+            • execution_engine.offer(member1, member2) - Offers resources
+            • execution_engine.offer_land(member1, member2) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
             • execution_engine.expand(member1, member2) - Expands territory
         5) The members are accessed by execution_engine.current_members[id].
@@ -252,10 +252,10 @@ def _agent_code_decision(self, member_id) -> None:
 
             # Log the generated code
             round_num = len(self.execution_history['rounds'])
-            if round_num not in self.execution_history['generated_code']:
-                self.execution_history['generated_code'][round_num] = {}
+            if round_num not in self.execution_history['rounds'][-1]['generated_code']:
+                self.execution_history['rounds'][-1]['generated_code'][round_num] = {}
 
-            self.execution_history['generated_code'][round_num][member_id] = {
+            self.execution_history['rounds'][-1]['generated_code'][round_num][member_id] = {
                 'code': code_result,
                 'features_at_generation': features.to_dict('records'),
                 'relationships_at_generation': relations,
@@ -273,12 +273,12 @@ def _agent_code_decision(self, member_id) -> None:
             error_info = {
                 'round': len(self.execution_history['rounds']),
                 'member_id': member_id,
-                'type': 'code_generation',
+                'type': 'agent_action',
                 'error': str(e),
                 'traceback': traceback.format_exc(),
                 'code': code_result
             }
-            self.execution_history['agent_code_errors'].append(error_info)
+            self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
             print(f"Error generating code for member {member_id}:")
             print(traceback.format_exc())
             self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")

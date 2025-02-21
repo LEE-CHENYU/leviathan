@@ -8,7 +8,7 @@ import os
 from collections import defaultdict
 import inspect
 
-from MetaIsland.base_island import BaseIsland
+from MetaIsland.base_island import Island
 
 from MetaIsland.agent_code_decision import _agent_code_decision
 from MetaIsland.agent_mechanism_proposal import _agent_mechanism_proposal
@@ -17,7 +17,7 @@ from MetaIsland.analyze import _analyze
 from dotenv import load_dotenv
 load_dotenv()
 
-class IslandExecution(BaseIsland):
+class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
         land_shape: Tuple[int, int],
@@ -63,16 +63,7 @@ class IslandExecution(BaseIsland):
         
         # Add execution history tracking
         self.execution_history = {
-            'rounds': [],
-            'generated_code': {},
-            'performance_metrics': {},
-            'analysis_code_errors': {},
-            'agent_code_errors': [],
-            'mechanism_errors': [],
-            'relationships': {},
-            'survival_tracking': {},
-            'modification_attempts': [],
-            'ratified_mods': []
+            'rounds': []
         }
 
         # Add message storage
@@ -84,37 +75,64 @@ class IslandExecution(BaseIsland):
         # Initialize analysis reports
         self.analysis_reports = {}
 
+    def new_round(self):
+        """
+        Initialize a new round in the execution history with a structured record.
+        """
+        # If the parent class has a new_round(), call it.
+        if hasattr(super(), "new_round"):
+            super().new_round()
+            
+        round_record = {
+            "round_number": len(self.execution_history['rounds']) + 1,
+            "timestamp": datetime.now().isoformat(),
+            "agent_actions": [],      # List of agent code execution details
+            "agent_messages": {},     # Dictionary keyed by member_id
+            "mechanism_modifications": {
+                "attempts": [],       # Proposed modifications this round
+                "executed": []        # Those that have been successfully executed
+            },
+            "errors": {
+                "agent_code_errors": [],
+                "mechanism_errors": [],
+                "analyze_code_errors": {}
+            },
+            "relationships": {},       # Relationships logged per member (if needed)
+            "generated_code": {}
+        }
+        self.execution_history['rounds'].append(round_record)
+    
     def _load_base_class_code(self) -> dict:
         """Load the source code of base classes as strings."""
         base_code = {}
         
-        # Get the source code for BaseIsland
+        # Get the source code for Island
         try:
-            base_code['base_island'] = inspect.getsource(BaseIsland)
+            base_code['base_island'] = inspect.getsource(Island)
         except Exception as e:
-            base_code['base_island'] = f"Error loading BaseIsland code: {str(e)}"
+            base_code['base_island'] = f"Error loading Island code: {str(e)}"
             
-        # Get the source code for BaseLand
+        # Get the source code for Land
         try:
-            from MetaIsland.base_land import BaseLand
-            base_code['base_land'] = inspect.getsource(BaseLand)
+            from MetaIsland.base_land import Land
+            base_code['base_land'] = inspect.getsource(Land)
         except Exception as e:
-            base_code['base_land'] = f"Error loading BaseLand code: {str(e)}"
+            base_code['base_land'] = f"Error loading Land code: {str(e)}"
             
-        # Get the source code for BaseMember
+        # Get the source code for Member
         try:
-            from MetaIsland.base_member import BaseMember
-            base_code['base_member'] = inspect.getsource(BaseMember)
+            from MetaIsland.base_member import Member
+            base_code['base_member'] = inspect.getsource(Member)
         except Exception as e:
-            base_code['base_member'] = f"Error loading BaseMember code: {str(e)}"
+            base_code['base_member'] = f"Error loading Member code: {str(e)}"
             
         self.base_code = base_code
 
-    def offer(self, member_1, member_2, parameter_influence):
-        super()._offer(member_1, member_2, parameter_influence)
+    def offer(self, member_1, member_2):
+        super()._offer(member_1, member_2)
         
-    def offer_land(self, member_1, member_2, parameter_influence):
-        super()._offer_land(member_1, member_2, parameter_influence)
+    def offer_land(self, member_1, member_2):
+        super()._offer_land(member_1, member_2)
         
     def attack(self, member_1, member_2):
         super()._attack(member_1, member_2)
@@ -122,8 +140,8 @@ class IslandExecution(BaseIsland):
     def bear(self, member_1, member_2):
         super()._bear(member_1, member_2)
     
-    def expand(self, member_1, member_2):
-        super()._expand(member_1, member_2)
+    def expand(self, member_1):
+        super()._expand(member_1)
 
     def parse_relationship_matrix(self, relationship_dict):
         """
@@ -231,9 +249,8 @@ class IslandExecution(BaseIsland):
         code_memory = self.get_code_memory_summary(member_id)
 
         # Track relationships for logging
-        self.execution_history['relationships'][
-            f'round_{len(self.execution_history["rounds"])}_{member_id}'
-        ] = relations
+        current_round = len(self.execution_history["rounds"])
+        self.execution_history['rounds'][current_round-1]['relationships'] = relations
 
         # Analysis Memory
         analysis_memory = "No previous analysis"
@@ -250,7 +267,7 @@ class IslandExecution(BaseIsland):
 
         # Get previous errors for this member
         previous_errors = [
-            e for e in self.execution_history['mechanism_errors'] 
+            e for e in self.execution_history['rounds'][-1]['errors']['mechanism_errors']
             if e['member_id'] == member_id
         ]
         error_context = "No previous execution errors"
@@ -267,14 +284,22 @@ class IslandExecution(BaseIsland):
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
 
         # Get current game mechanisms and modification attempts
-        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
         current_round = len(self.execution_history['rounds'])
         start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
-        # Use a list comprehension since modification_attempts is a list
-        modification_attempts = [
-            mod for mod in self.execution_history['modification_attempts']
-            if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
-        ]
+        
+        # Get executed modifications from recent rounds
+        current_mechanisms = []
+        for round_data in self.execution_history['rounds'][start_round:]:
+            current_mechanisms.extend(round_data['mechanism_modifications']['executed'])
+            
+        # Get modification attempts from recent rounds for this member
+        modification_attempts = []
+        for round_data in self.execution_history['rounds'][start_round:]:
+            member_attempts = [
+                attempt for attempt in round_data['mechanism_modifications']['attempts']
+                if attempt.get('member_id') == member_id
+            ]
+            modification_attempts.extend(member_attempts)
 
         report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
 
@@ -332,7 +357,7 @@ class IslandExecution(BaseIsland):
                 continue
 
             print(f"\nExecuting code for Member {member_id}:")
-            print(code_str)
+            # print(code_str)
 
             # Track old stats before executing
             old_survival = self.compute_survival_chance(self.current_members[member_id])
@@ -377,13 +402,13 @@ class IslandExecution(BaseIsland):
                 error_occurred = str(e)
                 error_info = {
                     'round': round_num,
+                    'type': 'agent_code_execution',
                     'member_id': member_id,
                     'code': code_str,
-                    'type': 'code_execution',
                     'error': str(e),
                     'traceback': traceback.format_exc()
                 }
-                self.execution_history['agent_code_errors'].append(error_info)
+                self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
                 print(f"Error executing code for member {member_id}:")
                 print(traceback.format_exc())
                 self._logger.error(f"Error executing code for member {member_id}: {e}")
@@ -502,7 +527,7 @@ class IslandExecution(BaseIsland):
         if member_index == -1:
             return 0.0  # Member not found
         
-        # Base survival from own attributes
+        #  survival from own attributes
         base_survival = member.vitality + member.cargo
         
         # Get relationship bonuses/penalties
@@ -586,17 +611,32 @@ class IslandExecution(BaseIsland):
         self.process_voting_mechanism()
 
         # Check remaining ratification conditions
-        # for mod in self.execution_history['modification_attempts']:
-        #     if mod['ratified']:
-        #         modifications_to_ratify.append(mod)
+        # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
+        #     if not mod.get('ratified'):
+        #         conditions = mod.get('ratification_condition', {}).get('conditions', [])
+        #         all_conditions_met = True
+                
+        #         for condition in conditions:
+        #             if condition['type'] != 'vote':  # Skip vote conditions handled earlier
+        #                 # Add condition checking logic here
+        #                 all_conditions_met = False
+        #                 break
+                        
+        #         if all_conditions_met:
+        #             mod['ratified'] = True
+        #             mod['ratified_round'] = current_round
+        #             self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
 
         # Execute ratified modifications
         exec_env = {'execution_engine': self}
         
-        for mod in self.execution_history['modification_attempts']:
+        for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
+            if not mod.get('ratified'):
+                continue
+                
             try:
                 print(f"\nExecuting modification code for Member {mod['member_id']}:")
-                print(mod['code'])
+                # print(mod['code'])
 
                 # Execute modification code
                 exec(mod['code'], exec_env)
@@ -605,18 +645,18 @@ class IslandExecution(BaseIsland):
                 
                 # Track successful modification
                 mod['executed_round'] = current_round
-                self.execution_history['ratified_mods'].append(mod)
+                self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
                 
             except Exception as e:
                 error_info = {
                     'round': current_round,
-                    'type': 'modification_execution', 
+                    'type': 'execute_mechanism_modifications', 
                     'error': str(e),
                     'traceback': traceback.format_exc(),
                     'code': mod['code'],
                     'member_id': mod['member_id']
                 }
-                self.execution_history['mechanism_errors'].append(error_info)
+                self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
                 print(f"Error executing code for member {mod['member_id']}:")
                 print(traceback.format_exc())
                 self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
@@ -674,23 +714,25 @@ def main():
         exec.get_neighbors()
         exec.produce()
         
-        # print("\nGenerating agent decisions...")
+        print("\nGenerating agent decisions...")
         # for i in range(len(exec.current_members)):
         #     print(f"Member {i} is deciding...")
         #     exec.analyze(i)
         #     exec.agent_code_decision(i)
         
-        # print("\nExecuting agent actions...")
-        # exec.execute_code_actions()
-        # exec.consume()
+        exec.analyze(0)
+        exec.agent_code_decision(0)
+            
+        print("\nExecuting agent actions...")
+        exec.execute_code_actions()
+        exec.consume()
         
-        # print("\nGenerating mechanism modifications...")
+        print("\nGenerating mechanism modifications...")
         # for i in range(len(exec.current_members)):
         #     print(f"Member {i} is deciding...")
         #     exec.agent_mechanism_proposal(i)
-        
-        print("\nMember 0 is deciding...")
-        exec.agent_code_decision(0)
+            
+        print(exec.execution_history['rounds'][-1]['relationships'])
         exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")

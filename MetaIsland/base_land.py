@@ -1,53 +1,237 @@
 from __future__ import annotations
 import numpy as np
-from typing import TYPE_CHECKING, List, Optional, Tuple
+import matplotlib.pyplot as plt
 
-if TYPE_CHECKING:
-    from MetaIsland.base_member import BaseMember
-    from MetaIsland.base_island import BaseIsland
+import MetaIsland.base_member as Member
+import MetaIsland.base_island as Island
 
-class BaseLand:
-    def __init__(self, shape: Tuple[int, int]):
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+
+
+class Land():
+    def __init__(
+        self,
+        shape: Tuple[int, int],
+
+    ):
         self.shape = shape
-        self.owner: np.ndarray = np.full(shape, None, dtype=object)
+        self.owner: np.ndarray[Member.Member] = np.ndarray(shape, dtype=Member.Member)
 
-    def __getitem__(self, key: Tuple[int, int]) -> Optional[BaseMember]:
-        return self.owner[key]
+    def __getitem__(self, key) -> Member.Member:
+        if isinstance(key, tuple):
+            return self.owner[key]
+        else:
+            raise ValueError("土地目前只接受元组查询")
+
+    def __str__(self):
+        """重载print函数表示"""
+        return self.owner.__str__()
+
+    def __repr__(self):
+        """重载其他print形式的表示"""
+        return self.owner.__repr__()
 
     def distance(self, loc_1: Tuple[int, int], loc_2: Tuple[int, int]) -> float:
-        return np.linalg.norm([
-            min(abs(loc_1[0]-loc_2[0]), self.shape[0]-abs(loc_1[0]-loc_2[0])),
-            min(abs(loc_1[1]-loc_2[1]), self.shape[1]-abs(loc_1[1]-loc_2[1]))
+        dis_in_period = lambda x1, x2, period: np.min([
+            (x1 - x2) % period,
+            (x2 - x1) % period,
         ])
+        direction = [
+            dis_in_period(loc_1[0], loc_2[0], self.shape[0]),
+            dis_in_period(loc_1[1], loc_2[1], self.shape[1]),
+        ]
+        distance = np.linalg.norm(direction)
+        return distance
+
+    def _find_neighbors(
+        self, 
+        clear_list: List[int],
+        self_blocked_list: List[int],
+        neighbor_blocked_list: List[Tuple[int, int]],
+        empty_loc_list: List[Tuple[int, int]],
+        location: Tuple[int, int], 
+        member: Member.Member, 
+        is_passed: np.ndarray,
+        iteration_cnt: int,
+        max_iter: int,
+        island: Island.Island,
+        # decision_threshold: int = 1,
+        backend: Optional[str] = None,
+    ) -> None:
+
+        if iteration_cnt >= max_iter:
+            return
+
+        # 走到这个格子时候剩余的步数
+        is_passed[location] = max_iter - iteration_cnt
+
+        # print(f"In inter = {iteration_cnt}, ispassed: ")
+        # print("\t", is_passed)
+
+        loc_0, loc_1 = location
+        land_owner = self[location]
+        in_owned_land = (member == land_owner)
+
+        loc_to_pass = [
+            [loc_0, (loc_1 + 1) % self.shape[1]],
+            [(loc_0 + 1) % self.shape[0], loc_1],
+            [loc_0, (loc_1 - 1) % self.shape[1]],
+            [(loc_0 - 1) % self.shape[0], loc_1],
+        ]
+        island._rng.shuffle(loc_to_pass, axis=0)
+
+        # 遍历四个方向
+        for direction in loc_to_pass:
+            direction = tuple(direction)
+
+            # print(f"\t Now in pos: {direction}, {is_passed[direction[0], direction[1]]}, {max_iter - iteration_cnt - 1}")
+
+            # 如果之前曾经走到过下一个地点，并且当时的剩余步数比现在多，就不用继续探索了
+            # if is_passed[direction[0], direction[1]] > (max_iter - iteration_cnt - 1): 
+
+            if is_passed[direction[0], direction[1]] > 0: 
+                continue
+
+            member_to_pass = self[direction]
+
+            # 如果是边界，记录，并继续遍历
+            if member_to_pass is None:
+                if direction not in empty_loc_list:
+                    empty_loc_list.append(direction)
+                continue
+
+            # 如果成员曾经阻拦
+            if member_to_pass.id in self_blocked_list:
+                continue
+            if (land_owner.id, member_to_pass.id) in neighbor_blocked_list:
+                if in_owned_land:
+                    neighbor_blocked_list.remove((land_owner.id, member_to_pass.id))
+                    self_blocked_list.append(member_to_pass.id)
+                continue
+
+            # 如果成员曾经放行，或遇到自己领地
+            if member_to_pass.id in clear_list or member_to_pass == member:
+                self._find_neighbors(
+                    clear_list,
+                    self_blocked_list,
+                    neighbor_blocked_list,
+                    empty_loc_list,
+                    direction, 
+                    member, 
+                    is_passed,
+                    iteration_cnt + 1,
+                    max_iter,
+                    island,
+                    backend,
+                )
+                continue
+
+        return 
 
     def neighbors(
         self, 
-        member: BaseMember, 
-        island: BaseIsland, 
-        max_iter: int = 1000
-    ) -> Tuple[List[int], List[int], List[Tuple[int, int]], List[Tuple[int, int]]]:
-        # Simplified neighbor finding logic
+        member: Member.Member, 
+        island: Island, 
+        max_iter: int = np.inf, 
+        # decision_threshold: int = 1,
+        backend: Optional[str] = None,
+    ):
+        """
+        返回四个列表：
+        - clear_list: 允许通行
+        - self_blocked_list: 与member直接接壤
+        - neighbor_blocked_list: 与member间接接壤的成员以及作为桥梁的地主，存储格式为（地主，间接接壤成员）
+        - empty_loc_list: 闲置土地
+        """
         clear_list = []
-        self_blocked = []
-        neighbor_blocked = []
-        empty_locs = []
+        self_blocked_list = []
+        neighbor_blocked_list = []
+        empty_loc_list = []
 
-        for loc in member.owned_land:
-            for dx in [-1, 0, 1]:
-                for dy in [-1, 0, 1]:
-                    if dx == 0 and dy == 0:
-                        continue
-                    
-                    x = (loc[0] + dx) % self.shape[0]
-                    y = (loc[1] + dy) % self.shape[1]
-                    neighbor = self.owner[x, y]
-                    
-                    if neighbor is None:
-                        empty_locs.append((x, y))
-                    elif neighbor.id not in clear_list:
-                        clear_list.append(neighbor.id)
+        is_passed = np.zeros(self.shape)
 
-        return clear_list, self_blocked, neighbor_blocked, empty_locs
+        for land in member.owned_land:
+            # if is_passed[land]:
+            #     continue
+            self._find_neighbors(
+                clear_list,
+                self_blocked_list,
+                neighbor_blocked_list,
+                empty_loc_list,
+                location = land,
+                member = member,
+                is_passed = is_passed,
+                iteration_cnt = 0,
+                max_iter = max_iter,
+                island = island,
+                # decision_threshold = decision_threshold,
+                backend = backend,
+            )
 
-    def owner_id_map(self) -> np.ndarray:
-        return np.vectorize(lambda x: x.id if x else -1)(self.owner)
+        return (
+            clear_list, 
+            self_blocked_list,
+            neighbor_blocked_list,
+            empty_loc_list
+        )
+
+    def owner_id(
+        self,
+    ) -> np.ndarray:
+        data = np.zeros(self.shape, dtype=int)
+        for idx, _ in np.ndenumerate(data):
+            if self[idx] is not None:
+                data[idx] = self[idx].id
+            else:
+                data[idx] = -1
+
+        return data
+
+    def _color_map(
+        self, 
+        original_color = True,
+        ):
+        map = np.zeros(self.shape + (3,), dtype=int)
+        for idx in np.ndindex(self.shape):
+            mem: Member.Member = self.owner[idx]
+            if mem is not None:
+                if original_color:
+                    map[idx] = mem._color
+                else:
+                    map[idx] = mem._current_color
+            else:
+                map[idx] = [255, 255, 255]
+
+        return map
+
+    def _plot_map(
+        self,
+        ax,
+        map,
+        show_id = True,
+    ):
+        ax.imshow(map)
+
+        if not show_id:
+            return
+
+        for (i, j), owner in np.ndenumerate(self.owner):
+            if owner is not None:
+                ax.text(j, i, f"{owner.id:d}", ha='center', va='center', c="white", fontsize=5)
+
+    def plot(
+        self,
+        axs = None,
+        show_id = True,
+    ):
+        if axs is None: 
+            fig, axs = plt.subplots(1, 2, figsize=np.array(self.shape)[::-1]*0.3, dpi=150)
+
+        ax = axs[0]
+        original_map = self._color_map(original_color=True)
+        self._plot_map(ax, original_map, show_id)
+
+        ax = axs[1]
+        current_map = self._color_map(original_color=False)
+        self._plot_map(ax, current_map, show_id)
+

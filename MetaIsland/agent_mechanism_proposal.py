@@ -344,10 +344,10 @@ def _agent_mechanism_proposal(self, member_id) -> None:
             'final_prompt': final_prompt_command,
             'ratified': False
         }
-        self.execution_history['modification_attempts'].append(mod_proposal)
+        self.execution_history['rounds'][-1]['mechanism_modifications']['attempts'].append(mod_proposal)
 
         print(f"\nGenerated code for Member {member_id}:")
-        # print(code_result)
+        print(code_result)
 
         # Extract class definitions from the code
         tree = ast.parse(code_result)
@@ -362,14 +362,14 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         
     except Exception as e:
         error_info = {
-            'type': 'modification_proposal',
             'round': len(self.execution_history['rounds']),
             'member_id': member_id,
+            'type': 'propose_modification',
             'error': str(e),
             'traceback': traceback.format_exc(),
             'code': code_result
         }
-        self.execution_history['mechanism_errors'].append(error_info)
+        self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
         print(f"Error generating code for member {member_id}:")
         print(traceback.format_exc())
         self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")

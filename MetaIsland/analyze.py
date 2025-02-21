@@ -9,10 +9,15 @@ def _analyze(self, member_id):
     
     member = self.current_members[member_id]
     
+    base_code = self.base_class_code
+    
     """Analyze member data for strategic insights"""
-    previous_errors = self.execution_history['analysis_code_errors'].get(member_id, {})
+    previous_errors = self.execution_history['rounds'][-1]['errors']['analyze_code_errors'].get(member_id, {})
     analysis_prompt = f"""
     {previous_errors}
+    
+    [Base Code]
+    {base_code}
     
     [Current task]
     [You are member_{member.id} in a society that you can help shape.
@@ -78,6 +83,7 @@ def _analyze(self, member_id):
         }}
         
         # Perform analysis
+        ## Try not to copy the example implementation below.
         analysis = {{
             'gini': float(np.std([m.cargo + m.land_num*10 for m in data['members']]))/float(np.mean([m.cargo + m.land_num*10 for m in data['members']])),
             'central_nodes': [m.id for m in data['members'] if float(np.nanmean(data['relationships']['benefit'][m.surviver_id])) > float(np.nanpercentile(data['relationships']['benefit'], 75))],
@@ -87,6 +93,7 @@ def _analyze(self, member_id):
         }}
         
         # Generate report
+        ## Try not to copy the example implementation below.
         report = {{
             **analysis,
             'top_holders': sorted(data['members'], key=lambda x: x.cargo, reverse=True)[:3],
@@ -101,12 +108,6 @@ def _analyze(self, member_id):
             me.data_memory = {{'reports': [], 'strategies': []}}
         me.data_memory['reports'].append(report)
         
-        # Update strategy parameters
-        if hasattr(me, 'attack_decision'):
-            me.attack_decision = float(me.attack_decision) * (1.0 + float(analysis['survival_prob'])/10.0)
-        if hasattr(me, 'offer_decision'):
-            me.offer_decision = float(me.offer_decision) * (1.0 - float(analysis['gini'])/5.0)
-        
         print(f"\nStrategic Analysis Report:\n{{report}}")
         return analysis  
         
@@ -120,6 +121,39 @@ def _analyze(self, member_id):
     
     Consider novel combinations of different approaches rather than following this exact pattern.
         """
+        
+    # Iteratively build the final prompt from the parts
+    final_prompt = ""
+    update_message = (
+        f"Current prompt:\n{analysis_prompt}\n"
+        f"Ensuring all previous constraints are preserved and adding these new constraints.\n\n"
+        f"Return the updated full prompt, emphasizing that agents should implement solutions "
+        f"according to their individual needs, beliefs, and circumstances.\n\n"
+        f"Additionally, analyze the game mechanics to understand:\n"
+        f"1. The core objective - Is it pure survival, domination, or cooperation?\n" 
+        f"2. Key success metrics - What truly determines 'winning'?\n"
+        f"3. Potential improvements - What mechanics could be added/modified?\n\n"
+        f"Challenge your implementation:\n"
+        f"1. What assumptions are you making? Are they valid?\n"
+        f"2. What alternative strategies have you not considered?\n"
+        f"3. How would your strategy perform in edge cases?\n"
+        f"4. Are there more efficient ways to achieve your goals?\n"
+        f"5. What are the weaknesses in your current approach?\n"
+        f"6. Have you considered unconventional solutions?\n"
+        f"7. Could a completely different paradigm work better?\n"
+        f"8. What would happen if other agents adopted your strategy?\n"
+        f"9. Are you balancing short-term and long-term objectives optimally?\n"
+        f"10. How could your strategy be countered, and how would you adapt?"
+    )
+    completion = openai.chat.completions.create(
+        model="o3-mini", 
+        messages=[{"role": "user", "content": update_message}]
+    )
+    final_prompt = completion.choices[0].message.content.strip()
+    
+    # Append a final instruction to generate the code function
+    final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+            
     completion = openai.chat.completions.create(
                 model="o3-mini", 
                 messages=[{"role": "user", "content": analysis_prompt}]
@@ -158,11 +192,11 @@ def _analyze(self, member_id):
         print(f"Analysis code that failed:\n{analysis_code}")
         print(f"Member ID: {member_id}")
         print(f"Current round: {len(self.execution_history['rounds'])}")
-        self.execution_history['analysis_code_errors'][member_id] = {
-            'member_id': member_id,
+        self.execution_history['rounds'][-1]['errors']['analyze_code_errors'][member_id] = {
             'round': len(self.execution_history['rounds']),
+            'member_id': member_id,
+            'type': 'analyze_game_state',
             'error': str(e),
-            'code': analysis_code,
-            'type': 'analysis'
+            'code': analysis_code
         }
         return None
