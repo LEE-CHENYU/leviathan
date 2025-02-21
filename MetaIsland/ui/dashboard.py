@@ -15,10 +15,10 @@ class IslandDashboard(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
         self.setupUI()
         
-        # Setup update timer
+        # Use a faster refresh rate and ensure UI updates get processed
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update)
-        self.timer.start(1000)  # Update every 1 second
+        self.timer.timeout.connect(self.force_update)
+        self.timer.start(200)  # Increased refresh rate to 200ms
 
     def setupUI(self):
         main_widget = QWidget()
@@ -63,6 +63,11 @@ class IslandDashboard(QMainWindow):
         
         main_layout.addWidget(splitter)
 
+    def force_update(self):
+        """Process events and update display"""
+        QApplication.processEvents()
+        self.update()
+
     def update(self):
         """Refresh all dashboard components with latest data"""
         self.update_agent_table()
@@ -93,6 +98,10 @@ class IslandDashboard(QMainWindow):
             for col, item in enumerate(items):
                 item.setFlags(item.flags() ^ Qt.ItemIsEditable)
                 self.agent_table.setItem(row, col, item)
+
+        # Auto-select first row if nothing is selected
+        if members and self.agent_table.currentRow() == -1:
+            self.agent_table.setCurrentCell(0, 0)
 
     def update_mechanism_list(self):
         self.mechanism_list.clear()

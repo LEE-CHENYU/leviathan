@@ -165,48 +165,21 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         return relationships
 
     [Implementation Patterns]
-    1. Extend IslandExecution's propose_modification:
-    def propose_modification(self, member_id):
-        # Call parent class method first
-        super().propose_modification(member_id)
-        
-        # Add your custom modification code here
-        if not hasattr(self, 'new_feature'):
-            self.new_feature = {{}}
-            
-    2. Use self instead of execution_engine:
-        - Access members through self.current_members
-        - Use self.relationship_dict for relationships
-        - Call methods directly: self.attack(), self.offer(), etc.
-    
-    3. Include version metadata in new systems
-    4. Add cleanup methods for complex systems
+    1. Check existence first: if not hasattr(obj, 'feature')
+    2. Add attributes directly: obj.new_feature = ...
+    3. Use simple data structures: dicts, lists, numpy arrays
+    4. Include version metadata in new systems
+    5. Add cleanup methods for complex systems:
 
-    [Example Mechanism Extensions]
-    def propose_modification(self, member_id):
-        # Call parent implementation first
-        super().propose_modification(member_id)
+    class TemporarySystem:
+        def __init__(self):
+            self.active = True
         
-        # Add judicial system
-        if not hasattr(self, 'court'):
-            class CourtSystem:
-                MECHANISM_META = {{
-                    'type': 'Governance',
-                    'rules': 'Handles conflict resolution through jury trials',
-                    'version': 1.0
-                }}
-                def __init__(self):
-                    self.cases = []
-                    
-                def submit_case(self, plaintiff, defendant, charge):
-                    self.cases.append({{
-                        'plaintiff': plaintiff,
-                        'defendant': defendant,
-                        'charge': charge,
-                        'status': 'pending'
-                    }})
-        
-        self.court = CourtSystem()
+        def cleanup(self):
+            self.active = False
+
+    if not hasattr(island, 'temp_system'):
+        island.temp_system = TemporarySystem()
 
     [Error Prevention]
     - Use try-except when accessing new features
@@ -241,13 +214,12 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         - Review past modification attempts for patterns
     
     2. PROPOSAL PHASE:
-    def propose_modification(execution_engine, member_id):
+    # This method will be added to the IslandExecution class
+    def propose_modification(self, member_id):
         # Example valid modification:
-        modification_code = '''
-        # Add judicial system
-        if not hasattr(execution_engine, 'court'):
+        if not hasattr(self, 'court'):
             class CourtSystem:
-                MECHANISM_META = {{
+                    MECHANISM_META = {{
                     'type': 'Governance',
                     'rules': 'Handles conflict resolution through jury trials',
                     'version': 1.0
@@ -263,30 +235,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
                         'status': 'pending'
                     }})
         
-        execution_engine.court = CourtSystem()
-        '''
-        
-        # Proposal with ratification conditions
-        execution_engine.propose_modification(
-            member_id=member_id,
-            mod_type='post_init',
-            code=modification_code,
-            ratification_condition={{
-                'type': 'compound',
-                'conditions': [
-                    {{'type': 'vote', 'threshold': 0.6}},
-                    {{'type': 'resource', 'resource': 'cargo', 'amount': 100}},
-                    {{'type': 'time', 'rounds': 2}}
-                ]
-            }}
-        )
-    
-    [Valid Ratification Conditions]
-    Choose ONE primary condition + optional safeguards:
-    1. Voting: {{'type': 'vote', 'threshold': 0.5-1.0}}
-    2. Resource: {{'type': 'resource', 'resource': 'vitality|cargo|land', 'amount': X}}
-    3. Temporal: {{'type': 'time', 'rounds': N}} (auto-ratify after N rounds)
-    4. Achievement: {{'type': 'achievement', 'metric': 'productivity', 'threshold': X}}
+        self.court = CourtSystem()
     
     [Common Errors to Avoid]
     1. Namespace Conflicts: Check existing mechanisms with dir(execution_engine)

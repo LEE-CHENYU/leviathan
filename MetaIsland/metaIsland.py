@@ -585,26 +585,26 @@ class IslandExecution(Island):
                     for recipient, msg in comm['sent']:
                         print(f"    -> Member {recipient}: {msg}")
 
-    def process_voting_mechanism(self):
-        """Handle voting process for modification proposals"""
-        current_round = len(self.execution_history['rounds'])
+    # def process_voting_mechanism(self):
+    #     """Handle voting process for modification proposals"""
+    #     current_round = len(self.execution_history['rounds'])
         
-        for mod in self.execution_history['rounds'][-1]['modification_attempts']:
-            if mod['ratified'] or 'ratification_condition' not in mod:
-                continue
+    #     for mod in self.execution_history['rounds'][-1]['modification_attempts']:
+    #         if mod['ratified'] or 'ratification_condition' not in mod:
+    #             continue
 
-            # Check if this modification requires voting
-            vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
-                              if c['type'] == 'vote']
+    #         # Check if this modification requires voting
+    #         vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
+    #                           if c['type'] == 'vote']
             
-            for condition in vote_conditions:
-                total_voters = len(self.current_members)
-                yes_votes = mod.get('votes', {}).get('yes', 0)
+    #         for condition in vote_conditions:
+    #             total_voters = len(self.current_members)
+    #             yes_votes = mod.get('votes', {}).get('yes', 0)
                 
-                if yes_votes / total_voters >= condition['threshold']:
-                    mod['ratified'] = True
-                    mod['ratified_round'] = current_round
-                    print(f"Modification from member {mod['member_id']} ratified by vote")
+    #             if yes_votes / total_voters >= condition['threshold']:
+    #                 mod['ratified'] = True
+    #                 mod['ratified_round'] = current_round
+    #                 print(f"Modification from member {mod['member_id']} ratified by vote")
                     
     def execute_mechanism_modifications(self):
         """Execute ratified modifications"""
@@ -696,39 +696,36 @@ class IslandExecution(Island):
             print(traceback.format_exc())
 
     def run_ui(self):
-        """Start the dashboard UI in a separate thread"""
-        def run():
-            launch_dashboard(self)
-            
-        self.ui_thread = QThread()
-        self.ui_thread.run = run
-        self.ui_thread.start()
+        """Start the dashboard UI"""
+        # Run dashboard directly on main thread instead of creating a new thread
+        launch_dashboard(self)
 
 def main():
     from time import time
     from utils import save
     import os
     from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import QTimer
 
     rng = np.random.default_rng()
     path = save.datetime_dir("data")
     exec = IslandExecution(4, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
-    # Import and launch dashboard
-    from MetaIsland.ui.dashboard import launch_dashboard
-    
-    # Start the dashboard with the execution engine
-    launch_dashboard(exec)
-
-    action_prob = 0.5
-    round_num = 10
-    
     app = QApplication(sys.argv)
     
-    for round_i in range(round_num):
+    # Create a timer to run simulation steps
+    round_count = 0
+    max_rounds = 10
+    
+    def run_simulation_step():
+        nonlocal round_count
+        if round_count >= max_rounds:
+            app.quit()
+            return
+            
         print(f"\n{'='*50}")
-        print(f"=== Round {round_i + 1} ===")
+        print(f"=== Round {round_count + 1} ===")
         print(f"{'='*50}")
         
         exec.new_round()
@@ -752,7 +749,7 @@ def main():
         # for i in range(len(exec.current_members)):
         #     print(f"Member {i} is deciding...")
         #     exec.agent_mechanism_proposal(i)
-            
+        
         exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")
@@ -760,8 +757,6 @@ def main():
         
         print("\nPerformance Report:")
         exec.print_agent_performance()
-        
-        # Add this line to show messages
         exec.print_agent_messages()
         
         exec.log_status(action=True, log_instead_of_print=False)
@@ -771,8 +766,15 @@ def main():
             survival_chance = exec.compute_survival_chance(member)
             print(f"Member {member.id}: Vitality={member.vitality:.2f}, "
                   f"Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}")
+                  
+        round_count += 1
 
-    # Create and show dashboard
+    # Create and start timer before launching UI
+    timer = QTimer()
+    timer.timeout.connect(run_simulation_step)
+    timer.start(1000)  # Run every 1000ms (1 second)
+    
+    # Launch dashboard after timer is set up
     exec.run_ui()
     
     sys.exit(app.exec_())
