@@ -68,6 +68,8 @@ def _analyze(self, member_id):
     5. Model vitality-cargo-land survival probability surface
     
     Example Implementation:
+    IMPORTANT: Do not simply copy the example implementation. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
+    
     def analyze_game_state(execution_engine, member_id):
         me = execution_engine.current_members[member_id]
         
@@ -113,8 +115,6 @@ def _analyze(self, member_id):
         
     If a previous strategy worked well (high performance), consider building upon it.
     If it failed, try a different approach.
-    
-    IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
     
     Return only the code, no extra text or explanation. While the example above shows one possible approach,
     you should create your own unique implementation drawing from the wide range of available methods and strategies.

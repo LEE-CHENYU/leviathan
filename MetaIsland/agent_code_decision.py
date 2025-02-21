@@ -253,9 +253,9 @@ def _agent_code_decision(self, member_id) -> None:
             # Log the generated code
             round_num = len(self.execution_history['rounds'])
             if round_num not in self.execution_history['rounds'][-1]['generated_code']:
-                self.execution_history['rounds'][-1]['generated_code'][round_num] = {}
+                self.execution_history['rounds'][-1]['generated_code'] = {}
 
-            self.execution_history['rounds'][-1]['generated_code'][round_num][member_id] = {
+            self.execution_history['rounds'][-1]['generated_code'][member_id] = {
                 'code': code_result,
                 'features_at_generation': features.to_dict('records'),
                 'relationships_at_generation': relations,

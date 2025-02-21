@@ -266,10 +266,15 @@ class IslandExecution(Island):
             past_performance = f"Previous actions resulted in average performance change of {avg_perf:.2f}"
 
         # Get previous errors for this member
-        previous_errors = [
-            e for e in self.execution_history['rounds'][-1]['errors']['mechanism_errors']
-            if e['member_id'] == member_id
-        ]
+        previous_errors = []
+        if (self.execution_history['rounds'] and 
+            'errors' in self.execution_history['rounds'][-1] and 
+            'mechanism_errors' in self.execution_history['rounds'][-1]['errors']):
+            previous_errors = [
+                e for e in self.execution_history['rounds'][-1]['errors']['mechanism_errors']
+                if e.get('member_id') == member_id
+            ]
+        
         error_context = "No previous execution errors"
         if previous_errors:
             last_error = previous_errors[-1]
@@ -344,13 +349,6 @@ class IslandExecution(Island):
             return
 
         round_num = len(self.execution_history['rounds'])
-        round_data = {
-            'timestamp': datetime.now().isoformat(),
-            'actions': [],
-            'performance_changes': {},
-            'survival_changes': {},
-            'messages': {}  # Add message tracking
-        }
 
         for member_id, code_str in self.agent_code_by_member.items():
             if not code_str:
@@ -447,7 +445,7 @@ class IslandExecution(Island):
             self.performance_history[member_id].append(performance_change)
 
             # Log changes for this round
-            round_data['actions'].append({
+            self.execution_history['rounds'][-1]['agent_actions'].append({
                 'member_id': member_id,
                 'code_executed': code_str,
                 'old_stats': old_stats,
@@ -457,12 +455,10 @@ class IslandExecution(Island):
             })
 
             # Log messages in round data
-            round_data['messages'][member_id] = {
+            self.execution_history['rounds'][-1]['agent_messages'][member_id] = {
                 'received': received_messages,
                 'sent': messages_sent
             }
-
-        self.execution_history['rounds'].append(round_data)
         
         # Save execution history after each round
         self.save_execution_history()
@@ -567,11 +563,11 @@ class IslandExecution(Island):
         print("\n=== Agent Message History ===")
         for round_idx, round_data in enumerate(self.execution_history['rounds']):
             print(f"\nRound {round_idx + 1} ({round_data['timestamp']}):")
-            if not round_data['messages']:
+            if not round_data['agent_messages']:
                 print("  No messages exchanged")
                 continue
             
-            for member_id, comm in round_data['messages'].items():
+            for member_id, comm in round_data['agent_messages'].items():
                 print(f"Member {member_id}:")
                 if comm['received']:
                     print("  Received:")
@@ -732,7 +728,8 @@ def main():
         #     print(f"Member {i} is deciding...")
         #     exec.agent_mechanism_proposal(i)
             
-        print(exec.execution_history['rounds'][-1]['relationships'])
+        print(exec.execution_history['rounds'][-1])
+        print(exec.execution_history['rounds'][-1]['errors'])
         exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")
