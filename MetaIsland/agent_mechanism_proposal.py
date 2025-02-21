@@ -318,7 +318,6 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         self.execution_history['rounds'][-1]['mechanism_modifications']['attempts'].append(mod_proposal)
 
         print(f"\nGenerated code for Member {member_id}:")
-        print(code_result)
 
         # Extract class definitions from the code
         tree = ast.parse(code_result)
@@ -327,6 +326,8 @@ def _agent_mechanism_proposal(self, member_id) -> None:
                 # Make the class picklable before it's instantiated
                 class_dict = {'__module__': '__main__'}  # Set the module to __main__
                 make_class_picklable(node.name, class_dict)
+                
+        return code_result
         
     except Exception as e:
         error_info = {

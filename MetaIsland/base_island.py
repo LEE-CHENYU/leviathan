@@ -869,7 +869,8 @@ class Island():
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
             if save_file:
-                self.save_to_pickle(self._save_path + f"{self.current_round:d}.island")
+                # self.save_to_pickle(self._save_path + f"{self.current_round:d}.island")
+                pass
 
             # 输出
             if log_status:

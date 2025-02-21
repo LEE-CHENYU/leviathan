@@ -263,11 +263,12 @@ def _agent_code_decision(self, member_id) -> None:
             }
 
             print(f"\nGenerated code for Member {member_id}:")
-            print(code_result)
 
             if not hasattr(self, 'agent_code_by_member'):
                 self.agent_code_by_member = {}
             self.agent_code_by_member[member_id] = code_result
+            
+            return code_result
 
         except Exception as e:
             error_info = {
