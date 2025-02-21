@@ -306,6 +306,8 @@ class IslandExecution(Island):
             ]
             modification_attempts.extend(member_attempts)
 
+        print(modification_attempts)
+
         report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
 
         return {
@@ -330,17 +332,17 @@ class IslandExecution(Island):
     
     def agent_code_decision(self, member_id) -> None:
         """Modified to save generated code"""
-        code_result = _agent_code_decision(self, member_id)
-        if code_result:
-            self.save_generated_code(code_result, member_id, 'agent_action')
-        return code_result
+        agent_code_decision_result = _agent_code_decision(self, member_id)
+        if agent_code_decision_result:
+            self.save_generated_code(agent_code_decision_result, member_id, 'agent_action')
+        return agent_code_decision_result
     
     def agent_mechanism_proposal(self, member_id) -> None:
         """Modified to save generated code"""
-        code_result = _agent_mechanism_proposal(self, member_id)
-        if code_result:
-            self.save_generated_code(code_result, member_id, 'mechanism')
-        return code_result
+        agent_mechanism_proposal_result = _agent_mechanism_proposal(self, member_id)
+        if agent_mechanism_proposal_result:
+            self.save_generated_code(agent_mechanism_proposal_result, member_id, 'mechanism')
+        return agent_mechanism_proposal_result
 
     def execute_code_actions(self) -> None:
         """Executes all code that the agents wrote (if any) using a restricted namespace."""
@@ -627,8 +629,8 @@ class IslandExecution(Island):
         exec_env = {'execution_engine': self}
         
         for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-            if not mod.get('ratified'):
-                continue
+            # if not mod.get('ratified'):
+            #     continue
                 
             try:
                 print(f"\nExecuting modification code for Member {mod['member_id']}:")

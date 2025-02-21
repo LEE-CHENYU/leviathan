@@ -356,9 +356,6 @@ def _agent_mechanism_proposal(self, member_id) -> None:
                 # Make the class picklable before it's instantiated
                 class_dict = {'__module__': '__main__'}  # Set the module to __main__
                 make_class_picklable(node.name, class_dict)
-                
-        # Now execute the code
-        exec(code_result)
         
     except Exception as e:
         error_info = {
