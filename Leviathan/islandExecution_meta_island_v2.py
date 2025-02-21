@@ -1129,6 +1129,11 @@ class IslandExecution(Island):
         mechanism_section = f"""
         {constrainsAndExamples}
         
+        [Current Task]
+        You are member_{member.id} in a society that you can help shape.
+        Write a Python function named propose_modification(execution_engine, member_id) 
+        that implements your vision of social organization while ensuring your survival.
+        
         [Active Game Mechanisms]
         {current_mechanisms}
         
@@ -1308,7 +1313,7 @@ class IslandExecution(Island):
     def execute_mechanism_modifications(self):
         """Execute ratified modifications"""
         current_round = len(self.execution_history['rounds'])
-
+           
         # Process voting first
         self.process_voting_mechanism()
 
@@ -1340,7 +1345,8 @@ class IslandExecution(Island):
                     'type': 'modification_execution', 
                     'error': str(e),
                     'traceback': traceback.format_exc(),
-                    'code': mod['code']
+                    'code': mod['code'],
+                    'member_id': mod['member_id']
                 }
                 self.execution_history['mechanism_errors'].append(error_info)
                 print(f"Error executing code for member {mod['member_id']}:")
@@ -1375,21 +1381,21 @@ def main():
         exec.get_neighbors()
         exec.produce()
         
-        print("\nGenerating agent decisions...")
-        for i in range(len(exec.current_members)):
-            exec.analyze(i)
-            exec.agent_code_decision(i)
-        
-        print("\nExecuting agent actions...")
-        exec.execute_code_actions()
-        exec.consume()
-        
-        # print("\nGenerating mechanism modifications...")
+        # print("\nGenerating agent decisions...")
         # for i in range(len(exec.current_members)):
-        #     exec.agent_mechanism_proposal(i)
+        #     exec.analyze(i)
+        #     exec.agent_code_decision(i)
         
-        # print("\nExecuting mechanism modifications...")
-        # exec.execute_mechanism_modifications()
+        # print("\nExecuting agent actions...")
+        # exec.execute_code_actions()
+        # exec.consume()
+        
+        print("\nGenerating mechanism modifications...")
+        for i in range(len(exec.current_members)):
+            exec.agent_mechanism_proposal(i)
+        
+        print("\nExecuting mechanism modifications...")
+        exec.execute_mechanism_modifications()
         
         print("\nPerformance Report:")
         exec.print_agent_performance()
