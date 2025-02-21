@@ -389,6 +389,18 @@ class IslandExecution(Island):
         received_messages = self.messages.pop(member_id, [])
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
 
+        # Get current game mechanisms and modification attempts
+        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
+        current_round = len(self.execution_history['rounds'])
+        start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
+        # Use a list comprehension since modification_attempts is a list
+        modification_attempts = [
+            mod for mod in self.execution_history['modification_attempts']
+            if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
+        ]
+
+        report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
+
         return {
             'member': member,
             'relations': relations,
@@ -397,7 +409,10 @@ class IslandExecution(Island):
             'analysis_memory': analysis_memory,
             'past_performance': past_performance,
             'error_context': error_context,
-            'message_context': message_context
+            'message_context': message_context,
+            'current_mechanisms': current_mechanisms,
+            'modification_attempts': modification_attempts,
+            'report': report
         }
 
     # -- NEW METHOD TO REQUEST PYTHON CODE FROM GPT --
@@ -417,17 +432,9 @@ class IslandExecution(Island):
         error_context = data['error_context']
         message_context = data['message_context']
 
-        # New: Get current game mechanisms and modification attempts
-        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
-        current_round = len(self.execution_history['rounds'])
-        start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
-        # Use a list comprehension since modification_attempts is a list
-        modification_attempts = [
-            mod for mod in self.execution_history['modification_attempts']
-            if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
-        ]
-
-        report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
+        current_mechanisms = data['current_mechanisms']
+        modification_attempts = data['modification_attempts']
+        report = data['report']
         
         try:
             # Define iterative prompt parts with specific constraints
@@ -951,17 +958,9 @@ class IslandExecution(Island):
         error_context = data['error_context']
         message_context = data['message_context']
         
-        # NEW: Get current game mechanisms and modification attempts from recent rounds
-        current_mechanisms = self.execution_history['ratified_mods']  # Placeholder for actual current mechanisms
-        current_round = len(self.execution_history['rounds'])
-        start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
-        # Use a list comprehension since modification_attempts is a list
-        modification_attempts = [
-            mod for mod in self.execution_history['modification_attempts']
-            if mod.get('round', 0) >= start_round and mod.get('member_id') == member_id
-        ]
-        
-        report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
+        current_mechanisms = data['current_mechanisms']
+        modification_attempts = data['modification_attempts']
+        report = data['report']
         
         part0 = f"""
             [Previous code execution context]
