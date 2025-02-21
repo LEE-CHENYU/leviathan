@@ -313,24 +313,6 @@ class IslandExecution(Island):
             ]
             modification_attempts.extend(member_attempts)
 
-        # Save modification attempts to txt file
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        attempts_filename = f'modification_attempts_{member_id}_{timestamp}.txt'
-        attempts_path = os.path.join(self.mechanism_code_path, attempts_filename)
-        
-        try:
-            with open(attempts_path, 'w') as f:
-                f.write(f"Modification Attempts for Member {member_id}\n")
-                f.write(f"Generated at: {timestamp}\n\n")
-                for attempt in modification_attempts:
-                    f.write(f"Round {attempt.get('round', 'Unknown')}\n")
-                    f.write(f"Code:\n{attempt.get('code', '')}\n")
-                    f.write("-" * 80 + "\n\n")
-            print(f"Saved modification attempts to {attempts_path}")
-        except Exception as e:
-            print(f"Error saving modification attempts: {e}")
-            print(traceback.format_exc())
-
         report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
 
         return {
@@ -729,9 +711,15 @@ def main():
     from PyQt5.QtWidgets import QApplication
 
     rng = np.random.default_rng()
-    path = save.datetime_dir("../data")
+    path = save.datetime_dir("data")
     exec = IslandExecution(4, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
+
+    # Import and launch dashboard
+    from MetaIsland.ui.dashboard import launch_dashboard
+    
+    # Start the dashboard with the execution engine
+    launch_dashboard(exec)
 
     action_prob = 0.5
     round_num = 10

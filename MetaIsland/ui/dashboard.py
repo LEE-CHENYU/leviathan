@@ -142,7 +142,10 @@ class IslandDashboard(QMainWindow):
             )
 
 def launch_dashboard(execution_engine):
+    print("Launching dashboard...")
     app = QApplication(sys.argv)
     dashboard = IslandDashboard(execution_engine)
+    print("Dashboard created, showing window...")
     dashboard.show()
+    print("Starting Qt event loop...")
     return app.exec_() 

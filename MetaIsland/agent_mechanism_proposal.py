@@ -165,21 +165,48 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         return relationships
 
     [Implementation Patterns]
-    1. Check existence first: if not hasattr(obj, 'feature')
-    2. Add attributes directly: obj.new_feature = ...
-    3. Use simple data structures: dicts, lists, numpy arrays
-    4. Include version metadata in new systems
-    5. Add cleanup methods for complex systems:
-
-    class TemporarySystem:
-        def __init__(self):
-            self.active = True
+    1. Extend IslandExecution's propose_modification:
+    def propose_modification(self, member_id):
+        # Call parent class method first
+        super().propose_modification(member_id)
         
-        def cleanup(self):
-            self.active = False
+        # Add your custom modification code here
+        if not hasattr(self, 'new_feature'):
+            self.new_feature = {{}}
+            
+    2. Use self instead of execution_engine:
+        - Access members through self.current_members
+        - Use self.relationship_dict for relationships
+        - Call methods directly: self.attack(), self.offer(), etc.
+    
+    3. Include version metadata in new systems
+    4. Add cleanup methods for complex systems
 
-    if not hasattr(island, 'temp_system'):
-        island.temp_system = TemporarySystem()
+    [Example Mechanism Extensions]
+    def propose_modification(self, member_id):
+        # Call parent implementation first
+        super().propose_modification(member_id)
+        
+        # Add judicial system
+        if not hasattr(self, 'court'):
+            class CourtSystem:
+                MECHANISM_META = {{
+                    'type': 'Governance',
+                    'rules': 'Handles conflict resolution through jury trials',
+                    'version': 1.0
+                }}
+                def __init__(self):
+                    self.cases = []
+                    
+                def submit_case(self, plaintiff, defendant, charge):
+                    self.cases.append({{
+                        'plaintiff': plaintiff,
+                        'defendant': defendant,
+                        'charge': charge,
+                        'status': 'pending'
+                    }})
+        
+        self.court = CourtSystem()
 
     [Error Prevention]
     - Use try-except when accessing new features
