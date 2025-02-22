@@ -28,7 +28,8 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     base_code = self.base_class_code
     
     part0 = f"""
-        [Previous code execution context]
+        [Previous code execution errors context]
+        Here are the errors that occurred in the previous code execution, you can use them as reference to avoid repeating them:
     {error_context}
     
     [Current Task]
@@ -50,6 +51,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     - Check if index exists: if index < len(execution_engine.current_members)
     
     [Base Code]
+    Here is the base code for the Island and Member classes that you should reference when making modifications. Pay careful attention to the available attributes and methods to ensure your code interacts with them correctly:
     {base_code}
         
     IMPORTANT: Here are the attributes and methods actually available:
@@ -82,10 +84,12 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     Analysis of the game state:
     {report}
     
-    Current status (features of all members):
+    Current status:
+    Here are the basic information of all members, you should make your own decisions based on them:
     {features}
 
     Relationship summary (parsed from relationship_dict):
+    Here are the relationships between members:
     {relations}
 
     Code Memory and Previous Performance:
@@ -200,12 +204,30 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     {constrainsAndExamples}
 
     [Active Game Mechanisms]
+    The following mechanisms have been added by agents and can be referenced when making your own modifications. Review them carefully to:
+    1. Understand existing functionality and avoid conflicts
+    2. Build upon successful patterns and improvements
+    3. Identify opportunities for optimization or extension
+    4. Remove or deprecate mechanisms that are detrimental to your survival
+    
+    When proposing changes, ensure they:
+    - Align with your agent's goals and survival strategy
+    - Maintain compatibility with other active mechanisms
+    - Include proper versioning and rollback procedures
+    - Follow best practices for stability and performance
     {current_mechanisms}
     
     [Modification Attempt History]
+    [Previous Modification History]
+    Review your past modification attempts below to inform future proposals:
+    - Learn from successful patterns and approaches
+    - Avoid repeating failed strategies
+    - Build upon and extend working mechanisms
+    - Identify opportunities for optimization
     {modification_attempts}
     
     [Message Context]
+    Here are the messages sent by other agents, you can use them as reference to make your own decisions:
     {message_context}
     
     [Modification Proposal Guide]

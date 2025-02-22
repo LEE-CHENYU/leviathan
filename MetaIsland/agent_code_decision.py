@@ -26,7 +26,8 @@ def _agent_code_decision(self, member_id) -> None:
         try:
             # Define iterative prompt parts with specific constraints
             part0 = f"""
-            [Previous code execution context]
+            [Previous code execution errors context]
+            Here are the errors that occurred in the previous code execution, you can use them as reference to avoid repeating them:
         {error_context}
 
         [Current task]
@@ -48,6 +49,7 @@ def _agent_code_decision(self, member_id) -> None:
         - Check if index exists: if index < len(execution_engine.current_members)
         
         [Base Code]
+        Here is the base code for the Island and Member classes that you should reference when making modifications. Pay careful attention to the available attributes and methods to ensure your code interacts with them correctly:
         {base_code}
         
         IMPORTANT: Here are the attributes and methods actually available:
@@ -85,10 +87,12 @@ def _agent_code_decision(self, member_id) -> None:
         Analysis of the game state:
         {report}
 
-        Current status (features of all members):
+        Current status:
+        Here are the basic information of all members, you should make your own decisions based on them.
         {features}
 
         Relationship summary (parsed from relationship_dict):
+        Here are the relationships between members:
         {relations}
 
         Code Memory and Previous Performance:
@@ -100,7 +104,7 @@ def _agent_code_decision(self, member_id) -> None:
         Performance history:
         {past_performance}
 
-        Based on the previous code performance, adapt and improve the strategy.
+         Based on the previous code performance, adapt and improve the strategy.
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
         
@@ -115,6 +119,12 @@ def _agent_code_decision(self, member_id) -> None:
             {part0}
             
             [Current Game Mechanisms]
+            The following mechanisms have been added by other agents and are available for your use:
+            - Review them carefully to understand their functionality and constraints
+            - Leverage compatible mechanisms that align with your goals
+            - Be mindful of version requirements and dependencies
+            - Consider how they can be combined strategically
+            - Test interactions before relying on them critically
             {current_mechanisms}
             
         Consider these social strategies:
@@ -140,12 +150,19 @@ def _agent_code_decision(self, member_id) -> None:
               execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
 
         [Received Messages]
+        Here are the messages sent by other agents, you can use them as reference to make your own decisions:
         {message_context}
             """
             part3 = f"""
             {part0}
             
             [Current Game Mechanisms]
+            The following mechanisms have been added by other agents and are available for your use:
+            - Review them carefully to understand their functionality and constraints
+            - Leverage compatible mechanisms that align with your goals
+            - Be mindful of version requirements and dependencies
+            - Consider how they can be combined strategically
+            - Test interactions before relying on them critically
             {current_mechanisms}
             
              [Survival-Centric Adaptation]
