@@ -706,65 +706,54 @@ def main():
     [Island Ideology]
     
     Island is a disasterous place, periodic tsunamis and volcanic eruptions
-    agents should modify island to reflect these disasters
-    agents should also modify island to be more habitable
+    agents should modify island to simulate these disasters
     agents themselves should work towards survival and prosperity
     agents should debate on the authoritarian and democratic nature of the island
     """
     
     for round_i in range(round_num):
         # Create log file for this round
-        round_log_path = os.path.join(path, f'round_{round_i+1}_log.txt')
-        with open(round_log_path, 'w') as log_file:
-            def log_and_print(message):
-                print(message)
-                log_file.write(message + '\n')
-                log_file.flush()  # Force write to disk
-
-            header = f"\n{'='*50}\n=== Round {round_i + 1} ===\n{'='*50}"
-            log_and_print(header)
+        header = f"\n{'='*50}\n=== Round {round_i + 1} ===\n{'='*50}"
+        print(header)
+        
+        exec.new_round()
+        exec.get_neighbors()
+        exec.produce()
+        
+        print("\nGenerating mechanism modifications...")
+        
+        for i in range(len(exec.current_members)):
+            print(f"Member {i} is deciding...")
+            exec.agent_mechanism_proposal(i)
             
-            exec.new_round()
-            exec.get_neighbors()
-            exec.produce()
+        print("\nExecuting mechanism modifications...")
+        exec.execute_mechanism_modifications()
+        
+        print("\nGenerating agent decisions...")
+        
+        for i in range(len(exec.current_members)):
+            print(f"Member {i} is deciding...")
+            exec.agent_code_decision(i)
             
-            log_and_print("\nGenerating mechanism modifications...")
-            
-            for i in range(len(exec.current_members)):
-                log_and_print(f"Member {i} is deciding...")
-                exec.agent_mechanism_proposal(i)
-                
-            log_and_print("\nExecuting mechanism modifications...")
-            exec.execute_mechanism_modifications()
-            
-            log_and_print("\nGenerating agent decisions...")
-            
-            for i in range(len(exec.current_members)):
-                log_and_print(f"Member {i} is deciding...")
-                exec.agent_code_decision(i)
-                
-            log_and_print("\nExecuting agent actions...")
-            exec.execute_code_actions()
-            exec.consume()
-            
-            log_and_print("\nPerformance Report:")
-            
-            # Capture performance output
-            exec.print_agent_performance()
-            exec.print_agent_messages()
-            
-            # Log status with output capture
-            status_output = []
-            exec.log_status(action=True, log_instead_of_print=False, custom_logger=status_output.append)
-            for line in status_output:
-                log_and_print(line)
-            
-            log_and_print(f"\nSurviving members at end of round: {len(exec.current_members)}")
-            
-            for member in exec.current_members:
-                survival_chance = exec.compute_survival_chance(member)
-                status = f"Member {member.id}: Vitality={member.vitality:.2f}, Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}"
-                log_and_print(status)
+        print("\nExecuting agent actions...")
+        exec.execute_code_actions()
+        exec.consume()
+        
+        print("\nPerformance Report:")
+        
+        # Capture performance output
+        exec.print_agent_performance()
+        exec.print_agent_messages()
+        
+        # Print status
+        exec.log_status(action=True, log_instead_of_print=False)
+        
+        print(f"\nSurviving members at end of round: {len(exec.current_members)}")
+        
+        for member in exec.current_members:
+            survival_chance = exec.compute_survival_chance(member)
+            status = f"Member {member.id}: Vitality={member.vitality:.2f}, Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}"
+            print(status)
 
 if __name__ == "__main__":
     main()
