@@ -33,6 +33,9 @@ def _agent_code_decision(self, member_id) -> None:
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) 
         that implements your vision of social organization while ensuring your survival.
+        
+        [Island Ideology]
+        {self.island_ideology}
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -74,7 +77,7 @@ def _agent_code_decision(self, member_id) -> None:
             • execution_engine.offer(member1, member2) - Offers resources
             • execution_engine.offer_land(member1, member2) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
-            • execution_engine.expand(member1, member2) - Expands territory
+            • execution_engine.expand(member1) - Expands territory
         5) The members are accessed by execution_engine.current_members[id].
             For example, execution_engine.current_members[2] for the member with ID=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.

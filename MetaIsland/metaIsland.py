@@ -75,6 +75,8 @@ class IslandExecution(Island):
         # Initialize analysis reports
         self.analysis_reports = {}
 
+        self.island_ideology = ""
+
     def new_round(self):
         """
         Initialize a new round in the execution history with a structured record.
@@ -700,6 +702,14 @@ def main():
 
     round_num = 10
     
+    exec.island_ideology = """
+    [Island Ideology]
+    
+    Island needs a ruler, ruler must be only one person
+    Ruler will be chosen by the people, but people will only choose from among the strongest
+    Ruler will have absolute power, including the power to make and enforce rules, and to punish those who break them
+    """
+    
     for round_i in range(round_num):
         print(f"\n{'='*50}")
         print(f"=== Round {round_i + 1} ===")
@@ -710,24 +720,24 @@ def main():
         exec.produce()
         
         print("\nGenerating agent decisions...")
-        # for i in range(len(exec.current_members)):
-        #     print(f"Member {i} is deciding...")
-        #     exec.analyze(i)
-        #     exec.agent_code_decision(i)
+        for i in range(len(exec.current_members)):
+            print(f"Member {i} is deciding...")
+            # exec.analyze(i)
+            exec.agent_code_decision(i)
         
-        exec.analyze(0)
-        exec.agent_code_decision(0)
+        # exec.analyze(0)
+        # exec.agent_code_decision(0)
             
         print("\nExecuting agent actions...")
         exec.execute_code_actions()
         exec.consume()
         
         print("\nGenerating mechanism modifications...")
-        # for i in range(len(exec.current_members)):
-        #     print(f"Member {i} is deciding...")
-        #     exec.agent_mechanism_proposal(i)
+        for i in range(len(exec.current_members)):
+            print(f"Member {i} is deciding...")
+            exec.agent_mechanism_proposal(i)
             
-        exec.agent_mechanism_proposal(0)
+        # exec.agent_mechanism_proposal(0)
         
         print("\nExecuting mechanism modifications...")
         exec.execute_mechanism_modifications()

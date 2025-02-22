@@ -24,6 +24,9 @@ def _analyze(self, member_id):
     Write a Python function named analyze_game_state(execution_engine, member_id)
     to analyze the game state and propose strategic actions.]
     
+    [Island Ideology]
+    {self.island_ideology}
+    
     [Data-Driven Survival Framework]
     Collect and analyze ALL available game variables:
     
@@ -60,15 +63,15 @@ def _analyze(self, member_id):
     - Parameter drift: [getattr(m, '_parameter_drift', 0.0) for m in execution_engine.current_members]
     - Color inheritance: [getattr(m, '_current_color', None) for m in execution_engine.current_members]
 
+    Example Implementation:
+    IMPORTANT: Do not simply copy the example implementation. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
+    
     [Analysis Protocol]
     1. Calculate resource inequality using Gini coefficient on cargo+land
     2. Perform network analysis on benefit relationships to identify power brokers
     3. Compute territory clustering coefficients
     4. Track parameter evolution vs survival outcomes
     5. Model vitality-cargo-land survival probability surface
-    
-    Example Implementation:
-    IMPORTANT: Do not simply copy the example implementation. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
     
     def analyze_game_state(execution_engine, member_id):
         me = execution_engine.current_members[member_id]

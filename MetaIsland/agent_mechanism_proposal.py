@@ -36,6 +36,9 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     Write a Python function named propose_modification(execution_engine, member_id) 
     that implements your vision of social organization while ensuring your survival.
     
+    [Island Ideology]
+    {self.island_ideology}
+    
     [Critical constraints]
     - Carefully analyze previous errors shown above and inspect._void repeating them
     - Never target yourself (member_{member.id}) in any action
