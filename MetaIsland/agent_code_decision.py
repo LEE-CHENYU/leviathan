@@ -49,7 +49,11 @@ def _agent_code_decision(self, member_id) -> None:
         - Check if index exists: if index < len(execution_engine.current_members)
         
         [Base Code]
-        Here is the base code for the Island and Member classes that you should reference when making modifications. Pay careful attention to the available attributes and methods to ensure your code interacts with them correctly:
+        Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+        - Valid attribute access patterns
+        - Method parameters and return values 
+        - Constraints and preconditions for actions
+        - Data structure formats and valid operations
         {base_code}
         
         IMPORTANT: Here are the attributes and methods actually available:

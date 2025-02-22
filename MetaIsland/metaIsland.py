@@ -716,71 +716,55 @@ def main():
         # Create log file for this round
         round_log_path = os.path.join(path, f'round_{round_i+1}_log.txt')
         with open(round_log_path, 'w') as log_file:
+            def log_and_print(message):
+                print(message)
+                log_file.write(message + '\n')
+                log_file.flush()  # Force write to disk
+
             header = f"\n{'='*50}\n=== Round {round_i + 1} ===\n{'='*50}"
-            print(header)
-            log_file.write(header + '\n')
+            log_and_print(header)
             
             exec.new_round()
             exec.get_neighbors()
             exec.produce()
             
-            agent_decisions = "\nGenerating agent decisions..."
-            print(agent_decisions)
-            log_file.write(agent_decisions + '\n')
+            log_and_print("\nGenerating mechanism modifications...")
             
             for i in range(len(exec.current_members)):
-                member_deciding = f"Member {i} is deciding..."
-                print(member_deciding)
-                log_file.write(member_deciding + '\n')
-                # exec.analyze(i)
-                exec.agent_code_decision(i)
-            
-            # exec.analyze(0)
-            # exec.agent_code_decision(0)
+                log_and_print(f"Member {i} is deciding...")
+                exec.agent_mechanism_proposal(i)
                 
-            executing = "\nExecuting agent actions..."
-            print(executing)
-            log_file.write(executing + '\n')
+            log_and_print("\nExecuting mechanism modifications...")
+            exec.execute_mechanism_modifications()
             
+            log_and_print("\nGenerating agent decisions...")
+            
+            for i in range(len(exec.current_members)):
+                log_and_print(f"Member {i} is deciding...")
+                exec.agent_code_decision(i)
+                
+            log_and_print("\nExecuting agent actions...")
             exec.execute_code_actions()
             exec.consume()
             
-            mechanism_mods = "\nGenerating mechanism modifications..."
-            print(mechanism_mods)
-            log_file.write(mechanism_mods + '\n')
+            log_and_print("\nPerformance Report:")
             
-            for i in range(len(exec.current_members)):
-                member_deciding = f"Member {i} is deciding..."
-                print(member_deciding)
-                log_file.write(member_deciding + '\n')
-                exec.agent_mechanism_proposal(i)
-                
-            # exec.agent_mechanism_proposal(0)
-            
-            executing_mods = "\nExecuting mechanism modifications..."
-            print(executing_mods)
-            log_file.write(executing_mods + '\n')
-            
-            exec.execute_mechanism_modifications()
-            
-            perf_report = "\nPerformance Report:"
-            print(perf_report)
-            log_file.write(perf_report + '\n')
-            
+            # Capture performance output
             exec.print_agent_performance()
             exec.print_agent_messages()
             
-            exec.log_status(action=True, log_instead_of_print=False)
+            # Log status with output capture
+            status_output = []
+            exec.log_status(action=True, log_instead_of_print=False, custom_logger=status_output.append)
+            for line in status_output:
+                log_and_print(line)
             
-            survivors = f"\nSurviving members at end of round: {len(exec.current_members)}"
-            print(survivors)
-            log_file.write(survivors + '\n')
+            log_and_print(f"\nSurviving members at end of round: {len(exec.current_members)}")
             
             for member in exec.current_members:
                 survival_chance = exec.compute_survival_chance(member)
                 status = f"Member {member.id}: Vitality={member.vitality:.2f}, Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}"
-                print(status)
-                log_file.write(status + '\n')
+                log_and_print(status)
 
 if __name__ == "__main__":
     main()
