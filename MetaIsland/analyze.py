@@ -9,6 +9,20 @@ def _analyze(self, member_id):
     
     member = self.current_members[member_id]
     
+    data = self.prepare_agent_data(member_id)
+    member = data['member']
+    relations = data['relations']
+    features = data['features']
+    code_memory = data['code_memory']
+    analysis_memory = data['analysis_memory']
+    past_performance = data['past_performance']
+    error_context = data['error_context']
+    message_context = data['message_context']
+
+    current_mechanisms = data['current_mechanisms']
+    modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
+    report = data['report']
+    
     base_code = self.base_class_code
     
     """Analyze member data for strategic insights"""
@@ -16,16 +30,34 @@ def _analyze(self, member_id):
     analysis_prompt = f"""
     {previous_errors}
     
+    [Current task]
+    You are member_{member.id} in a society that you can help shape. Use plain text to describe your situation and propose strategies. All your words should be based on concrete facts and data. Strategies should be practical and effective, if you can't find any effective strategies, just say so. If your analysis and strategies are not fact-oriented, you will not be competitive and you will die.
+    
     [Base Code]
     {base_code}
+
+    Current status:
+    Here are the basic information of all members, you should make your own decisions based on them.
+    {features}
+
+    Relationship summary (parsed from relationship_dict):
+    Here are the relationships between members:
+    {relations}
+
+    Code Memory and Previous Performance:
+    {code_memory}
     
-    [Current task]
-    [You are member_{member.id} in a society that you can help shape.
-    Write a Python function named analyze_game_state(execution_engine, member_id)
-    to analyze the game state and propose strategic actions.]
+    Analysis Memory:
+    {analysis_memory}
+
+    Performance history:
+    {past_performance}
     
-    [Island Ideology]
-    {self.island_ideology}
+    [Current Mechanisms]
+    {current_mechanisms}
+    
+    Previous Analysis of the game state:
+    {report} 
     
     [Data-Driven Survival Framework]
     Collect and analyze ALL available game variables:
@@ -61,8 +93,12 @@ def _analyze(self, member_id):
     [Evolutionary Trends]
     - Birth/death rates: float(len(execution_engine.record_born))/max(len(execution_engine.record_death), 1)
     - Parameter drift: [getattr(m, '_parameter_drift', 0.0) for m in execution_engine.current_members]
-    - Color inheritance: [getattr(m, '_current_color', None) for m in execution_engine.current_members]
-
+    """
+    
+    implementation_prompt = """
+    
+    Write a Python function named analyze_game_state(execution_engine, member_id) to analyze the game state and propose strategic actions.]
+    
     Example Implementation:
     IMPORTANT: Do not simply copy the example implementation. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
     
@@ -125,44 +161,44 @@ def _analyze(self, member_id):
     Consider novel combinations of different approaches rather than following this exact pattern.
         """
         
-    # Iteratively build the final prompt from the parts
-    final_prompt = ""
-    update_message = (
-        f"Current prompt:\n{analysis_prompt}\n"
-        f"Ensuring all previous constraints are preserved and adding these new constraints.\n\n"
-        f"Return the updated full prompt, emphasizing that agents should implement solutions "
-        f"according to their individual needs, beliefs, and circumstances.\n\n"
-        f"Additionally, analyze the game mechanics to understand:\n"
-        f"1. The core objective - Is it pure survival, domination, or cooperation?\n" 
-        f"2. Key success metrics - What truly determines 'winning'?\n"
-        f"3. Potential improvements - What mechanics could be added/modified?\n\n"
-        f"Challenge your implementation:\n"
-        f"1. What assumptions are you making? Are they valid?\n"
-        f"2. What alternative strategies have you not considered?\n"
-        f"3. How would your strategy perform in edge cases?\n"
-        f"4. Are there more efficient ways to achieve your goals?\n"
-        f"5. What are the weaknesses in your current approach?\n"
-        f"6. Have you considered unconventional solutions?\n"
-        f"7. Could a completely different paradigm work better?\n"
-        f"8. What would happen if other agents adopted your strategy?\n"
-        f"9. Are you balancing short-term and long-term objectives optimally?\n"
-        f"10. How could your strategy be countered, and how would you adapt?"
-    )
-    completion = openai.chat.completions.create(
-        model="o3-mini", 
-        messages=[{"role": "user", "content": update_message}]
-    )
-    final_prompt = completion.choices[0].message.content.strip()
+    # # Iteratively build the final prompt from the parts
+    # final_prompt = ""
+    # update_message = (
+    #     f"Current prompt:\n{analysis_prompt}\n"
+    #     f"Ensuring all previous constraints are preserved and adding these new constraints.\n\n"
+    #     f"Return the updated full prompt, emphasizing that agents should implement solutions "
+    #     f"according to their individual needs, beliefs, and circumstances.\n\n"
+    #     f"Additionally, analyze the game mechanics to understand:\n"
+    #     f"1. The core objective - Is it pure survival, domination, or cooperation?\n" 
+    #     f"2. Key success metrics - What truly determines 'winning'?\n"
+    #     f"3. Potential improvements - What mechanics could be added/modified?\n\n"
+    #     f"Challenge your implementation:\n"
+    #     f"1. What assumptions are you making? Are they valid?\n"
+    #     f"2. What alternative strategies have you not considered?\n"
+    #     f"3. How would your strategy perform in edge cases?\n"
+    #     f"4. Are there more efficient ways to achieve your goals?\n"
+    #     f"5. What are the weaknesses in your current approach?\n"
+    #     f"6. Have you considered unconventional solutions?\n"
+    #     f"7. Could a completely different paradigm work better?\n"
+    #     f"8. What would happen if other agents adopted your strategy?\n"
+    #     f"9. Are you balancing short-term and long-term objectives optimally?\n"
+    #     f"10. How could your strategy be countered, and how would you adapt?"
+    # )
+    # completion = openai.chat.completions.create(
+    #     model="o3-mini", 
+    #     messages=[{"role": "user", "content": update_message}]
+    # )
+    # final_prompt = completion.choices[0].message.content.strip()
     
-    # Append a final instruction to generate the code function
-    final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+    # # Append a final instruction to generate the code function
+    # final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
     completion = openai.chat.completions.create(
                 model="o3-mini", 
                 messages=[{"role": "user", "content": analysis_prompt}]
             )
-    analysis_code = completion.choices[0].message.content.strip()
-    analysis_code = self.clean_code_string(analysis_code)
+    result = completion.choices[0].message.content.strip()
+    # analysis_code = self.clean_code_string(analysis_code)
     
     # print(f"\nStrategic Analysis Code:\n{analysis_code}")
     
@@ -172,34 +208,41 @@ def _analyze(self, member_id):
     exec_env['member_id'] = member_id
     exec_env['me'] = self.current_members[member_id]
     exec_env['np'] = np  # Make numpy available in the environment
-    
-    try:
-        # First execute the code to define the functions
-        exec(analysis_code, exec_env)
-        
-        # Then call the analysis function
-        result = exec_env['analyze_game_state'](self, member_id)
-        
-        if result:
-            print(f"Analysis result: {result}")
-            if member_id not in self.analysis_reports:
-                self.analysis_reports[member_id] = []
-            self.analysis_reports[member_id].append(result)
-        else:
-            print("No analysis result returned")
-            return None
-        
-    except Exception as e:
-        print(f"Error executing analysis code: {e}")
-        print(f"Traceback:\n{traceback.format_exc()}")
-        print(f"Analysis code that failed:\n{analysis_code}")
-        print(f"Member ID: {member_id}")
-        print(f"Current round: {len(self.execution_history['rounds'])}")
-        self.execution_history['rounds'][-1]['errors']['analyze_code_errors'][member_id] = {
-            'round': len(self.execution_history['rounds']),
-            'member_id': member_id,
-            'type': 'analyze_game_state',
-            'error': str(e),
-            'code': analysis_code
-        }
+
+    if member_id not in self.analysis_reports:
+        self.analysis_reports[member_id] = []
+        self.analysis_reports[member_id].append(result)
+    else:
+        print("No analysis result returned")
         return None
+    
+    # try:
+    #     # First execute the code to define the functions
+    #     exec(analysis_code, exec_env)
+        
+    #     # Then call the analysis function
+    #     result = exec_env['analyze_game_state'](self, member_id)
+        
+    #     if result:
+    #         print(f"Analysis result: {result}")
+    #         if member_id not in self.analysis_reports:
+    #             self.analysis_reports[member_id] = []
+    #         self.analysis_reports[member_id].append(result)
+    #     else:
+    #         print("No analysis result returned")
+    #         return None
+        
+    # except Exception as e:
+    #     print(f"Error executing analysis code: {e}")
+    #     print(f"Traceback:\n{traceback.format_exc()}")
+    #     print(f"Analysis code that failed:\n{analysis_code}")
+    #     print(f"Member ID: {member_id}")
+    #     print(f"Current round: {len(self.execution_history['rounds'])}")
+    #     self.execution_history['rounds'][-1]['errors']['analyze_code_errors'][member_id] = {
+    #         'round': len(self.execution_history['rounds']),
+    #         'member_id': member_id,
+    #         'type': 'analyze_game_state',
+    #         'error': str(e),
+    #         'code': analysis_code
+    #     }
+    #     return None

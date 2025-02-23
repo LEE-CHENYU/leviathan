@@ -7,6 +7,7 @@ import traceback
 import os
 from collections import defaultdict
 import inspect
+import openai
 
 from MetaIsland.base_island import Island
 
@@ -582,114 +583,165 @@ class IslandExecution(Island):
                     for recipient, msg in comm['sent']:
                         print(f"    -> Member {recipient}: {msg}")
 
-    def process_voting_mechanism(self):
-        """Handle voting process for modification proposals"""
-        current_round = len(self.execution_history['rounds'])
+    # def process_voting_mechanism(self):
+    #     """Handle voting process for modification proposals"""
+    #     current_round = len(self.execution_history['rounds'])
         
-        # Check each member's votes in their voting box
-        for member_id, vote_data in self.voting_box.items():
-            if not vote_data['yes_votes']:
-                continue
+    #     # Check each member's votes in their voting box
+    #     for member_id, vote_data in self.voting_box.items():
+    #         if not vote_data['yes_votes']:
+    #             continue
                 
-            # Add votes to the corresponding modifications
-            for mod_index in vote_data['yes_votes']:
-                if mod_index >= len(self.execution_history['rounds'][-1]['modification_attempts']):
-                    continue
+    #         # Add votes to the corresponding modifications
+    #         for mod_index in vote_data['yes_votes']:
+    #             if mod_index >= len(self.execution_history['rounds'][-1]['modification_attempts']):
+    #                 continue
                     
-                mod = self.execution_history['rounds'][-1]['modification_attempts'][mod_index]
+    #             mod = self.execution_history['rounds'][-1]['modification_attempts'][mod_index]
                 
-                if mod['ratified'] or 'ratification_condition' not in mod:
-                    continue
+    #             if mod['ratified'] or 'ratification_condition' not in mod:
+    #                 continue
 
-                # Check if this modification requires voting
-                vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
-                                  if c['type'] == 'vote']
+    #             # Check if this modification requires voting
+    #             vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
+    #                               if c['type'] == 'vote']
                 
-                # Initialize votes dict if needed
-                if 'votes' not in mod:
-                    mod['votes'] = {'yes': 0}
+    #             # Initialize votes dict if needed
+    #             if 'votes' not in mod:
+    #                 mod['votes'] = {'yes': 0}
                 
-                # Add this member's vote
-                mod['votes']['yes'] += 1
+    #             # Add this member's vote
+    #             mod['votes']['yes'] += 1
                 
-                # Check if threshold met
-                for condition in vote_conditions:
-                    total_voters = len(self.current_members)
-                    yes_votes = mod['votes']['yes']
+    #             # Check if threshold met
+    #             for condition in vote_conditions:
+    #                 total_voters = len(self.current_members)
+    #                 yes_votes = mod['votes']['yes']
                     
-                    if yes_votes / total_voters >= condition['threshold']:
-                        mod['ratified'] = True
-                        mod['ratified_round'] = current_round
-                        print(f"Modification from member {mod['member_id']} ratified by vote")
+    #                 if yes_votes / total_voters >= condition['threshold']:
+    #                     mod['ratified'] = True
+    #                     mod['ratified_round'] = current_round
+    #                     print(f"Modification from member {mod['member_id']} ratified by vote")
                         
-                # Add who voted for what
-                if 'voter_records' not in mod:
-                    mod['voter_records'] = []
-                mod['voter_records'].append({
-                    'member_id': member_id,
-                    'vote': 'yes',
-                    'timestamp': datetime.now().isoformat()
-                })
+    #             # Add who voted for what
+    #             if 'voter_records' not in mod:
+    #                 mod['voter_records'] = []
+    #             mod['voter_records'].append({
+    #                 'member_id': member_id,
+    #                 'vote': 'yes',
+    #                 'timestamp': datetime.now().isoformat()
+    #             })
         
-        self.voting_box = {}
+    #     self.voting_box = {}
                     
     def execute_mechanism_modifications(self):
         """Execute ratified modifications"""
         current_round = len(self.execution_history['rounds'])
            
         # Process voting first
-        self.process_voting_mechanism()
+        # self.process_voting_mechanism()
 
         # Check remaining ratification conditions
-        for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-            if not mod.get('ratified'):
-                conditions = mod.get('ratification_condition', {}).get('conditions', [])
-                all_conditions_met = True
+        # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
+        #     if not mod.get('ratified'):
+        #         conditions = mod.get('ratification_condition', {}).get('conditions', [])
+        #         all_conditions_met = True
                 
-                for condition in conditions:
-                    if condition['type'] != 'vote':  # Skip vote conditions handled earlier
-                        # Add condition checking logic here
-                        all_conditions_met = False
-                        break
+        #         for condition in conditions:
+        #             if condition['type'] != 'vote':  # Skip vote conditions handled earlier
+        #                 # Add condition checking logic here
+        #                 all_conditions_met = False
+        #                 break
                         
-                if all_conditions_met:
-                    mod['ratified'] = True
-                    mod['ratified_round'] = current_round
-                    self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
+        #         if all_conditions_met:
+        #             mod['ratified'] = True
+        #             mod['ratified_round'] = current_round
+        #             self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
 
         # Execute ratified modifications
         exec_env = {'execution_engine': self}
         
-        for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-            if not mod.get('ratified'):
-                continue
+        # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
+        #     # if not mod.get('ratified'):
+        #     #     continue
+        
+        mods = self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']
+        
+        base_code = self.base_class_code
+        
+        # Get aggregated mechanism modification from O1 API
+        base_code_prompt = f"""
+            [Base Code]
+            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+            - Valid attribute access patterns
+            - Method parameters and return values 
+            - Constraints and preconditions for actions
+            - Data structure formats and valid operations
+            {base_code}
+            """
+        try:
+            prompt = f"""
+            [Base Mechanism Code]
+            {base_code_prompt}
+            
+            You are an AI tasked with aggregating multiple mechanism modification proposals into a single coherent modification.
+            
+            Here are the individual proposals to aggregate:
+            {[mod['code'] for mod in mods]}
+            
+            Please analyze these proposals and generate a single aggregated mechanism modification that:
+            1. Preserves the key functionality from each proposal
+            2. Resolves any conflicts between proposals
+            3. Maintains consistency with the game mechanics
+            4. Results in a single propose_modification() function
+            
+            Return only the aggregated code.
+            """
+            
+            completion = openai.chat.completions.create(
+                model="o1-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            aggregated_code = completion.choices[0].message.content.strip()
+            code_result = self.clean_code_string(aggregated_code)
+            mod = {
+                'member_id': 'aggregated',
+                'code': code_result,
+                'round': len(self.execution_history['rounds'])
+            }
+            
+        except Exception as e:
+            print(f"Error getting aggregated modification from O1: {e}")
+            # Fall back to first modification if aggregation fails
+            mod = mods[0] if mods else None
                 
-            try:
-                print(f"\nExecuting modification code for Member {mod['member_id']}:")
-                # print(mod['code'])
+        try:
+            print(f"\nExecuting modification code for Member {mod['member_id']}:")
+            # print(mod['code'])
 
-                # Execute modification code
-                exec(mod['code'], exec_env)
-                exec_env['propose_modification'](self, mod['member_id'])
-                print(f"Modification code executed successfully for Member {mod['member_id']}")
-                
-                # Track successful modification
-                mod['executed_round'] = current_round
-                self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
-                
-            except Exception as e:
-                error_info = {
-                    'round': current_round,
-                    'type': 'execute_mechanism_modifications', 
-                    'error': str(e),
-                    'traceback': traceback.format_exc(),
-                    'code': mod['code'],
-                    'member_id': mod['member_id']
-                }
-                self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
-                print(f"Error executing code for member {mod['member_id']}:")
-                print(traceback.format_exc())
-                self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
+            # Execute modification code
+            exec(mod['code'], exec_env)
+            exec_env['propose_modification'](self, mod['member_id'])
+            print(f"Modification code executed successfully for Member {mod['member_id']}")
+            
+            # Track successful modification
+            mod['executed_round'] = current_round
+            self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
+            
+        except Exception as e:
+            error_info = {
+                'round': current_round,
+                'type': 'execute_mechanism_modifications', 
+                'error': str(e),
+                'traceback': traceback.format_exc(),
+                'code': mod['code'],
+                'member_id': mod['member_id']
+            }
+            self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
+            print(f"Error executing code for member {mod['member_id']}:")
+            print(traceback.format_exc())
+            self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
 
     def save_generated_code(self, code: str, member_id: int, code_type: str) -> None:
         """
@@ -738,7 +790,7 @@ def main():
     [Island Ideology]
     
     Island is a place of abundant oil. 
-    Agents should modify the mechanism to allow them to extract the oil.
+    Agents should modify the mechanism to allow them to extract the oil and add it as a property of the member.
     Agents need to the territory to extract oil.
     Agents should build a market place to exchange oil for cargo.
     Agents can choose the quantity and price of oil to sell.
@@ -758,13 +810,15 @@ def main():
     
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
-            exec.agent_mechanism_proposal(i)
+            # exec.agent_mechanism_proposal(i)
         
         print("\nGenerating agent decisions...")
         
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
-            exec.agent_code_decision(i)
+            
+            exec.analyze(i)
+            # exec.agent_code_decision(i)
             
         print("\nExecuting agent actions...")
         exec.execute_code_actions()

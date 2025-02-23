@@ -1,3 +1,5 @@
+from turtle import filling
+from altair import Align
 import openai
 import traceback
 
@@ -25,6 +27,15 @@ def _agent_code_decision(self, member_id) -> None:
         
         try:
             # Define iterative prompt parts with specific constraints
+            base_code = f"""
+            [Base Code]
+            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+            - Valid attribute access patterns
+            - Method parameters and return values 
+            - Constraints and preconditions for actions
+            - Data structure formats and valid operations
+            {base_code}
+            """
             part0 = f"""
             [Previous code execution errors context]
             Here are the errors that occurred in the previous code execution, you can use them as reference to avoid repeating them:
@@ -48,14 +59,6 @@ def _agent_code_decision(self, member_id) -> None:
         - current_members is a LIST accessed by index, not a dictionary
         - Access members using execution_engine.current_members[index]
         - Check if index exists: if index < len(execution_engine.current_members)
-        
-        [Base Code]
-        Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
-        - Valid attribute access patterns
-        - Method parameters and return values 
-        - Constraints and preconditions for actions
-        - Data structure formats and valid operations
-        {base_code}
         
         IMPORTANT: Here are the attributes and methods actually available:
 
@@ -117,7 +120,11 @@ def _agent_code_decision(self, member_id) -> None:
         
         Your code should include the following agent_action(). Do not include propose_modification() from the Game Mechanism Proposal.
         def agent_action(execution_engine, member_id):
-            "Write your own implementation here"
+            \"""
+            Include clear reasoning for each modification to help other agents
+            understand tee intended benefits and evaluate the proposal.
+            \"""
+            <Write your own implementation here>
         
         While the example above shows one possible approach,
         you should create your own unique implementation drawing from the wide range of available methods and strategies.
@@ -135,20 +142,6 @@ def _agent_code_decision(self, member_id) -> None:
             - Consider how they can be combined strategically
             - Test interactions before relying on them critically
             {current_mechanisms}
-        
-        [Voting Mechanism]
-        
-        Vote for the modfication submitted by you and other agents by adding your vote as an element in voting_box Dict.
-        {modification_attempts}
-        
-        self.voting_box[member_id] = {{
-            'reason': string,  
-            'yes_votes': List[int] 
-        }}
-        
-        'member_id': ID of the member who is voting
-        'reason': Reason for voting
-        'yes_votes': Index of mechanism want to support in the mechanism list
 
         [Communication]
         You can communicate with multiple members in a single round using:
@@ -169,13 +162,28 @@ def _agent_code_decision(self, member_id) -> None:
         Here are the messages sent by other agents, you can use them as reference to make your own decisions:
         {message_context}
             """
+            part2 = f"""
+                    [Voting Mechanism]
+        
+        Vote for the modfication submitted by you and other agents by adding your vote as an element in voting_box Dict.
+        {modification_attempts}
+        
+        self.voting_box[member_id] = {{
+            'reason': string,  
+            'yes_votes': List[int] 
+        }}
+            
+            'member_id': ID of the member who is voting
+            'reason': Reason for voting
+            'yes_votes': Index of mechanism want to support in the mechanism list
+            """
             part3 = f"""
             {part0}
             
-            [Current Game Mechanisms]
+            [Curfilling Mechanisms]
             The following mechanisms have been added by other agents and are available for your use:
             - Review them carefully to understand their functionality and constraints
-            - Leverage compatible mechanisms that align with your goals
+            - Leverage compatible mechanisms that Align with your goals
             - Be mindful of version requirements and dependencies
             - Consider how they can be combined strategically
             - Test interactions before relying on them critically

@@ -1,3 +1,4 @@
+from itertools import tee
 import openai
 import traceback
 import ast
@@ -30,6 +31,15 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     
     base_code = self.base_class_code
     
+    base_code = f"""
+            [Base Code]
+            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+            - Valid attribute access patterns
+            - Method parameters and return values 
+            - Constraints and preconditions for actions
+            - Data structure formats and valid operations
+            {base_code}
+            """
     part0 = f"""
         [Previous code execution errors context]
         Here are the errors that occurred in the previous code execution, you can use them as reference to avoid repeating them:
@@ -52,14 +62,6 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     - current_members is a LIST accessed by index, not a dictionary
     - Access members using execution_engine.current_members[index]
     - Check if index exists: if index < len(execution_engine.current_members)
-    
-    [Base Code]
-    Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
-        - Valid attribute access patterns
-        - Method parameters and return values 
-        - Constraints and preconditions for actions
-        - Data structure formats and valid operations
-    {base_code}
         
     IMPORTANT: Here are the attributes and methods actually available:
 
@@ -237,6 +239,10 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     2. PROPOSAL PHASE:
     # This method will be added to the IslandExecution class
     def propose_modification(self, member_id):
+        \"""
+        Include clear reasoning for each modification to help other agents
+        understand tee intended benefits and evaluate the proposal.
+        \"""
         # Example modification:
         if not hasattr(self, 'mechanism'):
             class Mechanism:
