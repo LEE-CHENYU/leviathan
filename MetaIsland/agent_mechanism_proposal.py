@@ -46,9 +46,9 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     {error_context}
     
     [Current Task]
-    You are member in a society that you can help shape.
-    Write a Python function named propose_modification(execution_engine) 
-    that implements your vision of social organization while ensuring your survival.
+    Island is a mechanical environment that every agent would interact with and get impacted.
+    As an agent, you can propose modifications to the game mechanics to improve your survival chance.
+    Write a Python function named propose_modification(execution_engine) that implements your proposal of modifications to the game mechanics.
     
     [Island Ideology]
     {self.island_ideology}
