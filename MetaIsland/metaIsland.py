@@ -39,6 +39,7 @@ class IslandExecution(Island):
         os.makedirs(self.agent_code_path, exist_ok=True)
         os.makedirs(self.mechanism_code_path, exist_ok=True)
         os.makedirs(self.analysis_code_path, exist_ok=True)
+        os.makedirs(self.execution_history_path, exist_ok=True)
         
         # Add version tracking
         self._VERSION = "2.1"
@@ -482,7 +483,6 @@ class IslandExecution(Island):
     def save_execution_history(self):
         """Save the execution history to a JSON file"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        os.makedirs(self.execution_history_path, exist_ok=True)
         filename = os.path.join(self.execution_history_path, f'execution_history_{timestamp}.json')
         
         try:
@@ -804,6 +804,7 @@ def main():
     import os
 
     rng = np.random.default_rng()
+    os.makedirs("../MetaIsland/data", exist_ok=True)
     path = save.datetime_dir("../MetaIsland/data")
     exec = IslandExecution(2, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
