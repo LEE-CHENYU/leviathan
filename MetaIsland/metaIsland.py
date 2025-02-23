@@ -34,8 +34,10 @@ class IslandExecution(Island):
         # Create subdirectories for different types of code
         self.agent_code_path = os.path.join(self.code_save_path, 'agent_actions')
         self.mechanism_code_path = os.path.join(self.code_save_path, 'mechanisms')
+        self.analysis_code_path = os.path.join(self.code_save_path, 'analysis')
         os.makedirs(self.agent_code_path, exist_ok=True)
         os.makedirs(self.mechanism_code_path, exist_ok=True)
+        os.makedirs(self.analysis_code_path, exist_ok=True)
         
         # Add version tracking
         self._VERSION = "2.1"
