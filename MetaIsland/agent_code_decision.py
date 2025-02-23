@@ -144,18 +144,15 @@ def _agent_code_decision(self, member_id) -> None:
         - The vote should be the index of the mechanism in the mechanism list
         
         self.voting_box[member_id] = {
-            'proposal': '',  
-            'yes_votes': [] # Index of mechanism want to support in the mechanism list
+            'reason': '',  
+            'yes_votes': [] 
         }
-            
-        Consider these social strategies:
-        - Design systems for resource distribution and allocation
-        - Build alliances and cooperative networks 
-        - Create mechanisms for collective decision making
-        - Establish norms and rules for interaction
-        - Develop methods for conflict resolution
+        
+        'member_id': ID of the member who is voting
+        'reason': Reason for voting
+        'yes_votes': Index of mechanism want to support in the mechanism list
 
-        [Communication Strategy]
+        [Communication]
         You can communicate with multiple members in a single round using:
         execution_engine.send_message(your_id, recipient_id, "message")
         Example usage:
@@ -186,49 +183,29 @@ def _agent_code_decision(self, member_id) -> None:
             - Test interactions before relying on them critically
             {current_mechanisms}
             
-             [Survival-Centric Adaptation]
-        Implement systems focused on:
-        1. Personal resource optimization
-        2. Threat assessment and neutralization
-        3. Vitality preservation techniques
-        4. Adaptive hoarding strategies
-        5. Predictive danger modeling
+             [Data Collection and Learning Mechanism]
+        Implement sophisticated systems focused on:
+        1. Resource optimization and allocation
+        2. Multi-factor threat assessment and response
+        3. Dynamic vitality management
+        4. Strategic resource accumulation
+        5. Predictive modeling and adaptation
+        6. Social network analysis
+        7. Coalition formation tracking
+        8. Environmental state monitoring
 
-        Survival-First Examples:
-        def agent_action(execution_engine, member_id):
-            me = execution_engine.current_members[member_id]
-            
-            # Emergency resource reserve
-            if me.cargo < me.vitality * 0.5:
-                for other in execution_engine.current_members:
-                    if other.id != me.id and other.cargo > me.cargo:
-                        execution_engine.attack(me, other)
-            
-            # Adaptive territory defense
-            if me.land_num > 2 and me.vitality < 50:
-                for loc in me.owned_land[1:]:
-                    execution_engine._discard_land(me, loc)
-            
-            # Survival Q-learning
-            if not hasattr(me, 'survival_q'):
-                me.survival_q = defaultdict(float)
-                
-            state = (me.vitality//20, me.cargo//20)
-            action = max(['attack','hide','steal'], 
-                        key=lambda a: me.survival_q.get((state,a),0))
-            
-            # Execute and update based on survival outcome
-            if action == 'attack':
-                # Implementation logic
-                me.survival_q[(state,action)] += me.vitality * 0.1
-
-        [Survival Metrics]
-        Evaluate strategies by:
-        - Personal vitality delta
-        - Resource acquisition rate
-        - Threat neutralization count
-        - Survival probability increase
-        - Attack success:fail ratio
+        [ Survival Metrics]
+        Evaluate strategies comprehensively by:
+        - Vitality efficiency
+        - Resource accumulation rate
+        - Threat neutralization effectiveness
+        - Territory control metrics
+        - Alliance strength indicators
+        - Adaptation speed to changes
+        - Long-term survival probability
+        - Action success ratios
+        - Resource conversion efficiency
+        - Social influence measures
 
         [Implementation Priorities]
         1. Create personal health monitoring systems
@@ -236,14 +213,6 @@ def _agent_code_decision(self, member_id) -> None:
         3. Optimize actions for caloric ROI
         4. Implement fail-deadly safeguards
         5. Build predictive self-preservation models
-
-        def calculate_survival_roi(action_history):
-            roi = {{}}
-            for action, outcome in action_history:
-                vitality_gain = outcome['vitality']
-                cost = outcome['vitality_cost']
-                roi[action] = vitality_gain / cost if cost > 0 else 0
-            return max(roi, key=roi.get)
             """
             
             prompt_parts = [part1, part3]

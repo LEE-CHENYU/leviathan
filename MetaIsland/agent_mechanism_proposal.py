@@ -185,16 +185,6 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     4. Include version metadata in new systems
     5. Add cleanup methods for complex systems:
 
-    class TemporarySystem:
-        def __init__(self):
-            self.active = True
-        
-        def cleanup(self):
-            self.active = False
-
-    if not hasattr(island, 'temp_system'):
-        island.temp_system = TemporarySystem()
-
     [Error Prevention]
     - Use try-except when accessing new features
     - Check attribute existence before use
@@ -242,32 +232,26 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     
     1. ANALYSIS PHASE:
         - Identify limitation in current systems
-        - Check mechanism compatibility using get_game_mechanisms_and_mods()
         - Review past modification attempts for patterns
     
     2. PROPOSAL PHASE:
     # This method will be added to the IslandExecution class
     def propose_modification(self, member_id):
-        # Example valid modification:
-        if not hasattr(self, 'court'):
-            class CourtSystem:
-                    MECHANISM_META = {{
-                    'type': 'Governance',
-                    'rules': 'Handles conflict resolution through jury trials',
+        # Example modification:
+        if not hasattr(self, 'mechanism'):
+            class Mechanism:
+                MECHANISM_META = {{
+                    'type': 'Basic',
+                    'rules': 'Generic mechanism template',
                     'version': 1.0
                 }}
                 def __init__(self):
-                    self.cases = []
+                    self.data = []
                     
-                def submit_case(self, plaintiff, defendant, charge):
-                    self.cases.append({{
-                        'plaintiff': plaintiff,
-                        'defendant': defendant,
-                        'charge': charge,
-                        'status': 'pending'
-                    }})
+                def add_data(self, data):
+                    self.data.append(data)
         
-        self.court = CourtSystem()
+        self.mechanism = Mechanism()
     
     [Common Errors to Avoid]
     1. Namespace Conflicts: Check existing mechanisms with dir(execution_engine)

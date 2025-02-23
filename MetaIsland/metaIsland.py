@@ -117,18 +117,18 @@ class IslandExecution(Island):
             base_code['base_island'] = f"Error loading Island code: {str(e)}"
             
         # Get the source code for Land
-        try:
-            from MetaIsland.base_land import Land
-            base_code['base_land'] = inspect.getsource(Land)
-        except Exception as e:
-            base_code['base_land'] = f"Error loading Land code: {str(e)}"
+        # try:
+        #     from MetaIsland.base_land import Land
+        #     base_code['base_land'] = inspect.getsource(Land)
+        # except Exception as e:
+        #     base_code['base_land'] = f"Error loading Land code: {str(e)}"
             
-        # Get the source code for Member
-        try:
-            from MetaIsland.base_member import Member
-            base_code['base_member'] = inspect.getsource(Member)
-        except Exception as e:
-            base_code['base_member'] = f"Error loading Member code: {str(e)}"
+        # # Get the source code for Member
+        # try:
+        #     from MetaIsland.base_member import Member
+        #     base_code['base_member'] = inspect.getsource(Member)
+        # except Exception as e:
+        #     base_code['base_member'] = f"Error loading Member code: {str(e)}"
             
         self.base_code = base_code
 
