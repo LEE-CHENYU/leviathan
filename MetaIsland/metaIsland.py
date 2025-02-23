@@ -333,7 +333,9 @@ class IslandExecution(Island):
     
     def analyze(self, member_id):
         """Analyze the game state and propose strategic actions."""
-        return _analyze(self, member_id)
+        result = _analyze(self, member_id)
+        self.save_generated_code(result, member_id, 'analysis')
+        return result
     
     def agent_code_decision(self, member_id) -> None:
         """Modified to save generated code"""
