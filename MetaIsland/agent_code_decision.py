@@ -114,6 +114,9 @@ def _agent_code_decision(self, member_id) -> None:
         
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
+        def agent_action(execution_engine, member_id):
+            "Write your own implementation here"
+        
         While the example above shows one possible approach,
         you should create your own unique implementation drawing from the wide range of available methods and strategies.
         
@@ -143,10 +146,10 @@ def _agent_code_decision(self, member_id) -> None:
         - Test interactions before relying on them critically
         - The vote should be the index of the mechanism in the mechanism list
         
-        self.voting_box[member_id] = {
-            'reason': '',  
-            'yes_votes': [] 
-        }
+        self.voting_box[member_id] = {{
+            'reason': string,  
+            'yes_votes': List[int] 
+        }}
         
         'member_id': ID of the member who is voting
         'reason': Reason for voting

@@ -755,7 +755,7 @@ def main():
         exec.produce()
         
         print("\nGenerating mechanism modifications...")
-        
+    
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
             exec.agent_mechanism_proposal(i)
