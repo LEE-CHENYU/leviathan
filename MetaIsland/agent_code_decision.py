@@ -44,8 +44,17 @@ def _agent_code_decision(self, member_id) -> None:
         [Current task]
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.
-        You can use methods defined in propose_modification(execution_engine) to make your actions in agent_action(execution_engine, member_id), but DO NOT include propose_modification(execution_engine) itself in your code.
+        You should use methods defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
 
+        [Active Mechanisms Modifications]
+        You should use following mechanisms have been added by other agents in your code:
+        - Review them carefully to understand their functionality and constraints
+        - Leverage compatible mechanisms that align with your goals
+        - Be mindful of version requirements and dependencies
+        - Consider how they can be combined strategically
+        - Test interactions before relying on them critically
+        {current_mechanisms}
+        
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
         - Never target yourself (member_{member.id}) in any action
@@ -101,15 +110,6 @@ def _agent_code_decision(self, member_id) -> None:
         Relationship summary (parsed from relationship_dict):
         Here are the relationships between members:
         {relations}
-
-        [Active Mechanisms Modifications]
-        You should use following mechanisms have been added by other agents:
-        - Review them carefully to understand their functionality and constraints
-        - Leverage compatible mechanisms that align with your goals
-        - Be mindful of version requirements and dependencies
-        - Consider how they can be combined strategically
-        - Test interactions before relying on them critically
-        {current_mechanisms}
             
         Code Memory and Previous Performance:
         {code_memory}
@@ -126,11 +126,13 @@ def _agent_code_decision(self, member_id) -> None:
         
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
-        Your code should include the following agent_action(). Do not include propose_modification() from the Game Mechanism Proposal.
+        Your code should include agent_action() function. Do not define another propose_modification() from the [Active Mechanisms Modifications] section instead use the methods defined in the [Active Mechanisms Modifications] section.
         def agent_action(execution_engine, member_id):
             \"""
             Include clear reasoning for each modification to help other agents
             understand tee intended benefits and evaluate the proposal.
+            You should use methods defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
+            State if you used any of the mechanisms defined in [Active Mechanisms Modifications] in your code.
             \"""
             <Write your own implementation here>
         

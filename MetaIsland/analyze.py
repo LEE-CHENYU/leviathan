@@ -30,8 +30,17 @@ def _analyze(self, member_id):
     analysis_prompt = f"""
     {previous_errors}
     
+    [Active Mechanisms Modifications]
+    You should use following mechanisms have been added by other agents in your code:
+    - Review them carefully to understand their functionality and constraints
+    - Leverage compatible mechanisms that align with your goals
+    - Be mindful of version requirements and dependencies
+    - Consider how they can be combined strategically
+    - Test interactions before relying on them critically
+    {current_mechanisms}
+    
     [Current task]
-    You are member_{member.id} in a society that you can help shape. Use plain text to describe your situation and propose strategies. All your words should be based on concrete facts and data. Strategies should be practical and effective, if you can't find any effective strategies, just say so. If your analysis and strategies are not fact-oriented, you will not be competitive and you will die.
+    You are member_{member.id} in a society that you can help shape. Use plain text to describe your situation and propose strategies. All your words should be based on concrete facts and data below. You should also think about how to use the mechanisms defined in [Active Mechanisms Modifications] to make your strategies more effective. Strategies should be practical and effective, if you can't find any effective strategies, just say so. If your analysis and strategies are not fact-oriented, you will not be competitive and you will die.
     
     [Base Code]
     {base_code}
@@ -52,9 +61,6 @@ def _analyze(self, member_id):
 
     Performance history:
     {past_performance}
-    
-    [Current Mechanisms]
-    {current_mechanisms}
     
     Previous Analysis of the game state:
     {report} 
