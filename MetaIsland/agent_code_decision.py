@@ -44,7 +44,7 @@ def _agent_code_decision(self, member_id) -> None:
         [Current task]
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.
-        You can make use methods defined in propose_modification(execution_engine) to make your actions, but DO NOT include propose_modification(execution_engine) in your code.
+        You can use methods defined in propose_modification(execution_engine) to make your actions in agent_action(execution_engine, member_id), but DO NOT include propose_modification(execution_engine) itself in your code.
         
         [Island Ideology]
         {self.island_ideology}
