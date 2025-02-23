@@ -803,7 +803,7 @@ def main():
     import os
 
     rng = np.random.default_rng()
-    path = save.datetime_dir("./data")
+    path = save.datetime_dir("./MetaIsland/data")
     exec = IslandExecution(2, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
