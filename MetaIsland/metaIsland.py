@@ -851,7 +851,7 @@ def main():
         exec.print_agent_messages()
         
         # Print status
-        exec.log_status(action=True, log_instead_of_print=False)
+        exec.log_status(action=True, log_instead_of_print=True)
         
         print(f"\nSurviving members at end of round: {len(exec.current_members)}")
         
