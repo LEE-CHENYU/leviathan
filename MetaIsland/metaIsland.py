@@ -695,6 +695,12 @@ class IslandExecution(Island):
             3. Maintains consistency with the game mechanics
             4. Results in a single propose_modification() function
             
+            def propose_modification(self):
+            \"""
+            Include clear reasoning for each modification to help other agents
+            understand tee intended benefits and evaluate the proposal.
+            \"""
+        
             Return only the aggregated code.
             """
             
@@ -705,6 +711,9 @@ class IslandExecution(Island):
             
             aggregated_code = completion.choices[0].message.content.strip()
             code_result = self.clean_code_string(aggregated_code)
+            
+            print(f"Summarized Mechanism Code: {code_result}")
+            
             mod = {
                 'member_id': 'aggregated',
                 'code': code_result,
@@ -810,22 +819,21 @@ def main():
     
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
-            # exec.agent_mechanism_proposal(i)
+            exec.analyze(i)
+            exec.agent_mechanism_proposal(i)
+            
+        print("\nExecuting mechanism modifications...")
+        exec.execute_mechanism_modifications()
         
         print("\nGenerating agent decisions...")
         
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
-            
-            exec.analyze(i)
-            # exec.agent_code_decision(i)
+            exec.agent_code_decision(i)
             
         print("\nExecuting agent actions...")
         exec.execute_code_actions()
         exec.consume()
-        
-        print("\nExecuting mechanism modifications...")
-        exec.execute_mechanism_modifications()
         
         print("\nPerformance Report:")
         

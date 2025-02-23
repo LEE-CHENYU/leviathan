@@ -6,7 +6,7 @@ import ast
 def _agent_mechanism_proposal(self, member_id) -> None:
     """ 
     Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
-    The code will define a function propose_modification(execution_engine, member_id), 
+    The code will define a function propose_modification(execution_engine), 
     which references attributes that actually exist.
     """
     # Prepare data for the proposal
@@ -46,8 +46,8 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     {error_context}
     
     [Current Task]
-    You are member_{member.id} in a society that you can help shape.
-    Write a Python function named propose_modification(execution_engine, member_id) 
+    You are member in a society that you can help shape.
+    Write a Python function named propose_modification(execution_engine) 
     that implements your vision of social organization while ensuring your survival.
     
     [Island Ideology]
@@ -238,7 +238,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     
     2. PROPOSAL PHASE:
     # This method will be added to the IslandExecution class
-    def propose_modification(self, member_id):
+    def propose_modification(self):
         \"""
         Include clear reasoning for each modification to help other agents
         understand tee intended benefits and evaluate the proposal.

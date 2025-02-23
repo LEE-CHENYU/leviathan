@@ -29,7 +29,7 @@ def _agent_code_decision(self, member_id) -> None:
             # Define iterative prompt parts with specific constraints
             base_code = f"""
             [Base Code]
-            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+            Here is the base code for the Island and Member classes that you should reference when making your actions. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
             - Valid attribute access patterns
             - Method parameters and return values 
             - Constraints and preconditions for actions
@@ -43,9 +43,8 @@ def _agent_code_decision(self, member_id) -> None:
 
         [Current task]
         You are member_{member.id} in a society that you can help shape.
-        Write a Python function named agent_action(execution_engine, member_id) 
-        Do not include propose_modification(execution_engine, member_id).
-        that implements your vision of social organization while ensuring your survival.
+        Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.
+        You can make use methods defined in propose_modification(execution_engine) to make your actions, but DO NOT include propose_modification(execution_engine) in your code.
         
         [Island Ideology]
         {self.island_ideology}
@@ -135,7 +134,7 @@ def _agent_code_decision(self, member_id) -> None:
             {part0}
             
             [Current Game Mechanisms]
-            The following mechanisms have been added by other agents and are available for your use:
+            You should use following mechanisms have been added by other agents:
             - Review them carefully to understand their functionality and constraints
             - Leverage compatible mechanisms that align with your goals
             - Be mindful of version requirements and dependencies

@@ -209,6 +209,7 @@ def _analyze(self, member_id):
     exec_env['me'] = self.current_members[member_id]
     exec_env['np'] = np  # Make numpy available in the environment
 
+    print(f"Analysis result: {result}")
     if member_id not in self.analysis_reports:
         self.analysis_reports[member_id] = []
         self.analysis_reports[member_id].append(result)
