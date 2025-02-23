@@ -33,7 +33,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     
     base_code = f"""
             [Base Code]
-            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
+            Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods and objects defined in [Active Mechanisms Modifications]. Pay special attention to:
             - Valid attribute access patterns
             - Method parameters and return values 
             - Constraints and preconditions for actions
@@ -72,7 +72,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         • member.overall_productivity (float) range: [0, ]
         • member.age (float) range: [0, 100]
         • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
-        • Other attributes defined in [Active Mechanisms Modifications]
+        • Other attributes or attributes of objects defined in [Active Mechanisms Modifications]
     2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
         Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
         The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -93,7 +93,7 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         • execution_engine.offer_land(member1, member2) - Offers land
         • execution_engine.bear(member1, member2) - Bears offspring
         • execution_engine.expand(member1) - Expands territory
-        • Other methods defined in [Active Mechanisms Modifications]
+        • Other methods and methods of objects defined in [Active Mechanisms Modifications]
     5) The members are accessed by execution_engine.current_members[id].
         For example, execution_engine.current_members[2] for the member with ID=2.
     6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.

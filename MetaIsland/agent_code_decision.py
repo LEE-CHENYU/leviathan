@@ -44,7 +44,7 @@ def _agent_code_decision(self, member_id) -> None:
         [Current task]
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.
-        You should use methods defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
+        You should use methods and methods of objects defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
 
         [Active Mechanisms Modifications]
         You should use following mechanisms have been added by other agents in your code:
@@ -74,7 +74,7 @@ def _agent_code_decision(self, member_id) -> None:
             • member.overall_productivity (float) range: [0, ]
             • member.age (float) range: [0, 100]
             • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
-            • Other attributes defined in [Active Mechanisms Modifications]
+            • Other attributes or attributes of objects defined in [Active Mechanisms Modifications]
         2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
             Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
             The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -95,7 +95,7 @@ def _agent_code_decision(self, member_id) -> None:
             • execution_engine.offer_land(member1, member2) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
             • execution_engine.expand(member1) - Expands territory
-            • Other methods defined in [Active Mechanisms Modifications]
+            • Other methods and methods of objects defined in [Active Mechanisms Modifications]
         5) The members are accessed by execution_engine.current_members[id].
             For example, execution_engine.current_members[2] for the member with ID=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
@@ -126,12 +126,12 @@ def _agent_code_decision(self, member_id) -> None:
         
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
-        Your code should include agent_action() function. Do not define another propose_modification() from the [Active Mechanisms Modifications] section instead use the methods defined in the [Active Mechanisms Modifications] section.
+        Your code should include agent_action() function. Do not define another propose_modification() from the [Active Mechanisms Modifications] section instead use the methods and methods of objects defined in the [Active Mechanisms Modifications] section.
         def agent_action(execution_engine, member_id):
             \"""
             Include clear reasoning for each modification to help other agents
             understand tee intended benefits and evaluate the proposal.
-            You should use methods defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
+            You should use methods and methods of objects defined in in [Active Mechanisms Modifications] section to make your actions in agent_action(execution_engine, member_id), but DO NOT define another propose_modification(execution_engine) itself in your code.
             State if you used any of the mechanisms defined in [Active Mechanisms Modifications] in your code.
             \"""
             <Write your own implementation here>
