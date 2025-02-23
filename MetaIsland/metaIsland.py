@@ -76,6 +76,8 @@ class IslandExecution(Island):
         self.analysis_reports = {}
 
         self.island_ideology = ""
+        
+        self.voting_box = {}
 
     def new_round(self):
         """
@@ -301,10 +303,9 @@ class IslandExecution(Island):
             
         # Get modification attempts from recent rounds for this member
         modification_attempts = []
-        for round_data in self.execution_history['rounds'][start_round:]:
+        for round_data in self.execution_history['rounds'][-5:]:
             member_attempts = [
                 attempt for attempt in round_data['mechanism_modifications']['attempts']
-                if attempt.get('member_id') == member_id
             ]
             modification_attempts.extend(member_attempts)
 
@@ -584,53 +585,83 @@ class IslandExecution(Island):
         """Handle voting process for modification proposals"""
         current_round = len(self.execution_history['rounds'])
         
-        for mod in self.execution_history['rounds'][-1]['modification_attempts']:
-            if mod['ratified'] or 'ratification_condition' not in mod:
+        # Check each member's votes in their voting box
+        for member_id, vote_data in self.voting_box.items():
+            if not vote_data['yes_votes']:
                 continue
-
-            # Check if this modification requires voting
-            vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
-                              if c['type'] == 'vote']
-            
-            for condition in vote_conditions:
-                total_voters = len(self.current_members)
-                yes_votes = mod.get('votes', {}).get('yes', 0)
                 
-                if yes_votes / total_voters >= condition['threshold']:
-                    mod['ratified'] = True
-                    mod['ratified_round'] = current_round
-                    print(f"Modification from member {mod['member_id']} ratified by vote")
+            # Add votes to the corresponding modifications
+            for mod_index in vote_data['yes_votes']:
+                if mod_index >= len(self.execution_history['rounds'][-1]['modification_attempts']):
+                    continue
+                    
+                mod = self.execution_history['rounds'][-1]['modification_attempts'][mod_index]
+                
+                if mod['ratified'] or 'ratification_condition' not in mod:
+                    continue
+
+                # Check if this modification requires voting
+                vote_conditions = [c for c in mod['ratification_condition'].get('conditions', []) 
+                                  if c['type'] == 'vote']
+                
+                # Initialize votes dict if needed
+                if 'votes' not in mod:
+                    mod['votes'] = {'yes': 0}
+                
+                # Add this member's vote
+                mod['votes']['yes'] += 1
+                
+                # Check if threshold met
+                for condition in vote_conditions:
+                    total_voters = len(self.current_members)
+                    yes_votes = mod['votes']['yes']
+                    
+                    if yes_votes / total_voters >= condition['threshold']:
+                        mod['ratified'] = True
+                        mod['ratified_round'] = current_round
+                        print(f"Modification from member {mod['member_id']} ratified by vote")
+                        
+                # Add who voted for what
+                if 'voter_records' not in mod:
+                    mod['voter_records'] = []
+                mod['voter_records'].append({
+                    'member_id': member_id,
+                    'vote': 'yes',
+                    'timestamp': datetime.now().isoformat()
+                })
+        
+        self.voting_box = {}
                     
     def execute_mechanism_modifications(self):
         """Execute ratified modifications"""
         current_round = len(self.execution_history['rounds'])
            
         # Process voting first
-        # self.process_voting_mechanism()
+        self.process_voting_mechanism()
 
         # Check remaining ratification conditions
-        # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-        #     if not mod.get('ratified'):
-        #         conditions = mod.get('ratification_condition', {}).get('conditions', [])
-        #         all_conditions_met = True
+        for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
+            if not mod.get('ratified'):
+                conditions = mod.get('ratification_condition', {}).get('conditions', [])
+                all_conditions_met = True
                 
-        #         for condition in conditions:
-        #             if condition['type'] != 'vote':  # Skip vote conditions handled earlier
-        #                 # Add condition checking logic here
-        #                 all_conditions_met = False
-        #                 break
+                for condition in conditions:
+                    if condition['type'] != 'vote':  # Skip vote conditions handled earlier
+                        # Add condition checking logic here
+                        all_conditions_met = False
+                        break
                         
-        #         if all_conditions_met:
-        #             mod['ratified'] = True
-        #             mod['ratified_round'] = current_round
-        #             self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
+                if all_conditions_met:
+                    mod['ratified'] = True
+                    mod['ratified_round'] = current_round
+                    self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
 
         # Execute ratified modifications
         exec_env = {'execution_engine': self}
         
         for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-            # if not mod.get('ratified'):
-            #     continue
+            if not mod.get('ratified'):
+                continue
                 
             try:
                 print(f"\nExecuting modification code for Member {mod['member_id']}:")
@@ -705,10 +736,12 @@ def main():
     exec.island_ideology = """
     [Island Ideology]
     
-    Island is a disasterous place, periodic tsunamis and volcanic eruptions
-    agents should modify island to simulate these disasters
-    agents themselves should work towards survival and prosperity
-    agents should debate on the authoritarian and democratic nature of the island
+    Island is a place of abundant oil. 
+    Agents should modify the mechanism to allow them to extract the oil.
+    Agents need to the territory to extract oil.
+    Agents should build a market place to exchange oil for cargo.
+    Agents can choose the quantity and price of oil to sell.
+    Agents need to buy oil to expand their territory.
     """
     
     for round_i in range(round_num):

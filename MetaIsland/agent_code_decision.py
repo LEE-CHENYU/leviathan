@@ -18,7 +18,7 @@ def _agent_code_decision(self, member_id) -> None:
         message_context = data['message_context']
 
         current_mechanisms = data['current_mechanisms']
-        modification_attempts = data['modification_attempts']
+        modification_attempts = data['modification_attempts'][-1]
         report = data['report']
         
         base_code = self.base_class_code
@@ -130,6 +130,23 @@ def _agent_code_decision(self, member_id) -> None:
             - Consider how they can be combined strategically
             - Test interactions before relying on them critically
             {current_mechanisms}
+        
+        [Voting Mechanism]
+        The following mechanisms have been added by other agents and are available for your use:
+        
+        {modification_attempts}
+        
+        - Review them carefully to understand their functionality and constraints
+        - Leverage compatible mechanisms that align with your goals
+        - Be mindful of version requirements and dependencies
+        - Consider how they can be combined strategically
+        - Test interactions before relying on them critically
+        - The vote should be the index of the mechanism in the mechanism list
+        
+        self.voting_box[member_id] = {
+            'proposal': '',  
+            'yes_votes': [] # Index of mechanism want to support in the mechanism list
+        }
             
         Consider these social strategies:
         - Design systems for resource distribution and allocation
