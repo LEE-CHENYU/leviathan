@@ -712,6 +712,7 @@ class IslandExecution(Island):
             aggregated_code = completion.choices[0].message.content.strip()
             code_result = self.clean_code_string(aggregated_code)
             
+            self.save_generated_code(code_result, '-1', 'aggregated_mechanism')
             print(f"Summarized Mechanism Code: {code_result}")
             
             mod = {
@@ -767,6 +768,9 @@ class IslandExecution(Island):
         if code_type == 'agent_action':
             save_dir = self.agent_code_path
             filename = f'agent_{member_id}_round_{round_num}_{timestamp}.py'
+        elif code_type == 'aggregated_mechanism':
+            save_dir = self.mechanism_code_path
+            filename = f'aggregated_mechanism_{member_id}_round_{round_num}_{timestamp}.py'
         else:  # mechanism
             save_dir = self.mechanism_code_path
             filename = f'mechanism_{member_id}_round_{round_num}_{timestamp}.py'
