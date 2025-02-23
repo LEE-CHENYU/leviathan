@@ -108,12 +108,13 @@ def _agent_code_decision(self, member_id) -> None:
         Performance history:
         {past_performance}
 
-         Based on the previous code performance, adapt and improve the strategy.
+        Based on the previous code performance, adapt and improve the strategy.
         If a previous strategy worked well (high performance), consider building upon it.
         If it failed, try a different approach.
         
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
+        Your code should include the following agent_action(). Do not include propose_modification from the Game Mechanism Proposal.
         def agent_action(execution_engine, member_id):
             "Write your own implementation here"
         
@@ -252,7 +253,7 @@ def _agent_code_decision(self, member_id) -> None:
                 final_prompt = completion.choices[0].message.content.strip()
             
             # Append a final instruction to generate the code function
-            final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+            final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique agent_action() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
             completion = openai.chat.completions.create(
                 model="o3-mini",
