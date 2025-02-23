@@ -759,9 +759,6 @@ def main():
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
             exec.agent_mechanism_proposal(i)
-            
-        print("\nExecuting mechanism modifications...")
-        exec.execute_mechanism_modifications()
         
         print("\nGenerating agent decisions...")
         
@@ -772,6 +769,9 @@ def main():
         print("\nExecuting agent actions...")
         exec.execute_code_actions()
         exec.consume()
+        
+        print("\nExecuting mechanism modifications...")
+        exec.execute_mechanism_modifications()
         
         print("\nPerformance Report:")
         

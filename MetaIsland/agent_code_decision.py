@@ -33,6 +33,7 @@ def _agent_code_decision(self, member_id) -> None:
         [Current task]
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) 
+        Do not include propose_modification(execution_engine, member_id).
         that implements your vision of social organization while ensuring your survival.
         
         [Island Ideology]
@@ -114,7 +115,7 @@ def _agent_code_decision(self, member_id) -> None:
         
         IMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.
         
-        Your code should include the following agent_action(). Do not include propose_modification from the Game Mechanism Proposal.
+        Your code should include the following agent_action(). Do not include propose_modification() from the Game Mechanism Proposal.
         def agent_action(execution_engine, member_id):
             "Write your own implementation here"
         
@@ -136,16 +137,9 @@ def _agent_code_decision(self, member_id) -> None:
             {current_mechanisms}
         
         [Voting Mechanism]
-        The following mechanisms have been added by other agents and are available for your use:
         
+        Vote for the modfication submitted by you and other agents by adding your vote as an element in voting_box Dict.
         {modification_attempts}
-        
-        - Review them carefully to understand their functionality and constraints
-        - Leverage compatible mechanisms that align with your goals
-        - Be mindful of version requirements and dependencies
-        - Consider how they can be combined strategically
-        - Test interactions before relying on them critically
-        - The vote should be the index of the mechanism in the mechanism list
         
         self.voting_box[member_id] = {{
             'reason': string,  
