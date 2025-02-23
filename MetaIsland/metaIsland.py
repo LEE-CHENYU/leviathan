@@ -788,7 +788,10 @@ class IslandExecution(Island):
             with open(file_path, 'w') as f:
                 f.write(f"# Generated code for Member {member_id} in Round {round_num}\n")
                 f.write(f"# Generated at: {timestamp}\n\n")
-                f.write(self.clean_code_string(code))
+                if code_type != 'analysis':
+                    f.write(self.clean_code_string(code))
+                else:
+                    f.write(code)
             print(f"Saved generated code to {file_path}")
         except Exception as e:
             print(f"Error saving generated code: {e}")
