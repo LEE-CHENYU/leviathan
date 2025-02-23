@@ -20,6 +20,7 @@ def _agent_code_decision(self, member_id) -> None:
         message_context = data['message_context']
 
         current_mechanisms = data['current_mechanisms']
+        print(f"Current mechanisms: {current_mechanisms}")
         modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
         report = data['report']
         
@@ -45,9 +46,6 @@ def _agent_code_decision(self, member_id) -> None:
         You are member_{member.id} in a society that you can help shape.
         Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.
         You can use methods defined in propose_modification(execution_engine) to make your actions in agent_action(execution_engine, member_id), but DO NOT include propose_modification(execution_engine) itself in your code.
-        
-        [Island Ideology]
-        {self.island_ideology}
 
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
@@ -102,14 +100,23 @@ def _agent_code_decision(self, member_id) -> None:
         Here are the relationships between members:
         {relations}
 
+        [Current Game Mechanisms]
+        You should use following mechanisms have been added by other agents:
+        - Review them carefully to understand their functionality and constraints
+        - Leverage compatible mechanisms that align with your goals
+        - Be mindful of version requirements and dependencies
+        - Consider how they can be combined strategically
+        - Test interactions before relying on them critically
+        {current_mechanisms}
+            
         Code Memory and Previous Performance:
         {code_memory}
         
-        Analysis Memory:
-        {analysis_memory}
-
         Performance history:
         {past_performance}
+        
+        Analysis Memory:
+        {analysis_memory}
 
         Based on the previous code performance, adapt and improve the strategy.
         If a previous strategy worked well (high performance), consider building upon it.
@@ -132,16 +139,6 @@ def _agent_code_decision(self, member_id) -> None:
         """
             part1 = f"""
             {part0}
-            
-            [Current Game Mechanisms]
-            You should use following mechanisms have been added by other agents:
-            - Review them carefully to understand their functionality and constraints
-            - Leverage compatible mechanisms that align with your goals
-            - Be mindful of version requirements and dependencies
-            - Consider how they can be combined strategically
-            - Test interactions before relying on them critically
-            {current_mechanisms}
-
         [Communication]
         You can communicate with multiple members in a single round using:
         execution_engine.send_message(your_id, recipient_id, "message")

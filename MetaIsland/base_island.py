@@ -65,7 +65,6 @@ class Island():
 
         # 初始人物列表，全体人物列表，当前人物列表
         self.init_members = [Member(self._NAME_LIST[i], id=i, surviver_id=i, rng=self._rng) for i in range(self.init_member_num)]
-        print(f"Init members: {self.init_members[3].surviver_id}")
         self.all_members = self._backup_member_list(self.init_members)
         self.current_members = self._backup_member_list(self.init_members)
 

@@ -118,18 +118,18 @@ class IslandExecution(Island):
             base_code['base_island'] = f"Error loading Island code: {str(e)}"
             
         # Get the source code for Land
-        # try:
-        #     from MetaIsland.base_land import Land
-        #     base_code['base_land'] = inspect.getsource(Land)
-        # except Exception as e:
-        #     base_code['base_land'] = f"Error loading Land code: {str(e)}"
+        try:
+            from MetaIsland.base_land import Land
+            base_code['base_land'] = inspect.getsource(Land)
+        except Exception as e:
+            base_code['base_land'] = f"Error loading Land code: {str(e)}"
             
-        # # Get the source code for Member
-        # try:
-        #     from MetaIsland.base_member import Member
-        #     base_code['base_member'] = inspect.getsource(Member)
-        # except Exception as e:
-        #     base_code['base_member'] = f"Error loading Member code: {str(e)}"
+        # Get the source code for Member
+        try:
+            from MetaIsland.base_member import Member
+            base_code['base_member'] = inspect.getsource(Member)
+        except Exception as e:
+            base_code['base_member'] = f"Error loading Member code: {str(e)}"
             
         self.base_code = base_code
 
@@ -713,7 +713,7 @@ class IslandExecution(Island):
             code_result = self.clean_code_string(aggregated_code)
             
             self.save_generated_code(code_result, '-1', 'aggregated_mechanism')
-            print(f"Summarized Mechanism Code: {code_result}")
+            # print(f"Aggregated Mechanism Code: {code_result}")
             
             mod = {
                 'member_id': 'aggregated',
@@ -732,8 +732,8 @@ class IslandExecution(Island):
 
             # Execute modification code
             exec(mod['code'], exec_env)
-            exec_env['propose_modification'](self, mod['member_id'])
-            print(f"Modification code executed successfully for Member {mod['member_id']}")
+            exec_env['propose_modification'](self)
+            print(f"Aggregated Mechanism Modification code executed successfully.")
             
             # Track successful modification
             mod['executed_round'] = current_round
@@ -794,7 +794,7 @@ def main():
 
     rng = np.random.default_rng()
     path = save.datetime_dir("../data")
-    exec = IslandExecution(4, (5, 5), path, 2023)
+    exec = IslandExecution(2, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
     round_num = 10
