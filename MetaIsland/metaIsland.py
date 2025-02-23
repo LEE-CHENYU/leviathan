@@ -791,6 +791,7 @@ class IslandExecution(Island):
                 if code_type != 'analysis':
                     f.write(self.clean_code_string(code))
                 else:
+                    print(code)
                     f.write(code)
             print(f"Saved generated code to {file_path}")
         except Exception as e:

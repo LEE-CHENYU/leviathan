@@ -219,6 +219,7 @@ def _analyze(self, member_id):
     if member_id not in self.analysis_reports:
         self.analysis_reports[member_id] = []
         self.analysis_reports[member_id].append(result)
+        return result
     else:
         print("No analysis result returned")
         return None
