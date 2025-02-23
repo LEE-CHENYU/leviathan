@@ -55,6 +55,9 @@ def _agent_code_decision(self, member_id) -> None:
         - Test interactions before relying on them critically
         {current_mechanisms}
         
+        [Island Ideology]
+        {self.island_ideology}
+        
         [Critical constraints]
         - Carefully analyze previous errors shown above and avoid repeating them
         - Never target yourself (member_{member.id}) in any action
