@@ -768,6 +768,9 @@ class IslandExecution(Island):
         if code_type == 'agent_action':
             save_dir = self.agent_code_path
             filename = f'agent_{member_id}_round_{round_num}_{timestamp}.py'
+        elif code_type == 'analysis':
+            save_dir = self.analysis_code_path
+            filename = f'analysis_{member_id}_round_{round_num}_{timestamp}.txt'
         elif code_type == 'aggregated_mechanism':
             save_dir = self.mechanism_code_path
             filename = f'aggregated_mechanism_{member_id}_round_{round_num}_{timestamp}.py'
