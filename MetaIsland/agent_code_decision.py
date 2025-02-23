@@ -20,7 +20,6 @@ def _agent_code_decision(self, member_id) -> None:
         message_context = data['message_context']
 
         current_mechanisms = data['current_mechanisms']
-        print(f"Current mechanisms: {current_mechanisms}")
         modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
         report = data['report']
         
@@ -61,11 +60,12 @@ def _agent_code_decision(self, member_id) -> None:
 
         1) Each member object has:
             • member.id (int): The unique ID for the member
-            • member.vitality (float)
-            • member.cargo (float)
-            • member.overall_productivity (float)
-            • member.age (float)
+            • member.vitality (float) range: [0, 100]
+            • member.cargo (float) range: [0, ]
+            • member.overall_productivity (float) range: [0, ]
+            • member.age (float) range: [0, 100]
             • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
+            • Other attributes defined in [Active Mechanisms Modifications]
         2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
             Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
             The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -77,6 +77,7 @@ def _agent_code_decision(self, member_id) -> None:
                 benefit_matrix = execution_engine.relationship_dict['benefit']
                 # benefit_matrix[i,j] indicates how much resources member_i received from member_j (if > 0)
                 # A higher value means member_j has helped member_i more generously or frequently
+            Find also other matrixes defined in [Active Mechanisms Modifications]
         3) The parse_relationship_matrix method is used to produce a summary of relationships as a list of strings.
             For example, 'member_2 was attacked by member_1 (value=3.00)'.
         4) You can use these methods on execution_engine:
@@ -85,6 +86,7 @@ def _agent_code_decision(self, member_id) -> None:
             • execution_engine.offer_land(member1, member2) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
             • execution_engine.expand(member1) - Expands territory
+            • Other methods defined in [Active Mechanisms Modifications]
         5) The members are accessed by execution_engine.current_members[id].
             For example, execution_engine.current_members[2] for the member with ID=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
@@ -100,7 +102,7 @@ def _agent_code_decision(self, member_id) -> None:
         Here are the relationships between members:
         {relations}
 
-        [Current Game Mechanisms]
+        [Active Mechanisms Modifications]
         You should use following mechanisms have been added by other agents:
         - Review them carefully to understand their functionality and constraints
         - Leverage compatible mechanisms that align with your goals
