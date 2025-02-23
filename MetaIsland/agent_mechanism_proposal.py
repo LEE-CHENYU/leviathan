@@ -22,10 +22,10 @@ def _agent_mechanism_proposal(self, member_id) -> None:
     message_context = data['message_context']
     
     current_mechanisms = data['current_mechanisms']
-    if len(data['modification_attempts']) > 0:
-        modification_attempts = data['modification_attempts'][member_id]
-    else:
-        modification_attempts = []
+    modification_attempts = []
+    for round_num in data['modification_attempts'].keys():
+        round_attempts = [attempt for attempt in data['modification_attempts'][round_num] if attempt.get('member_id') == member_id]
+        modification_attempts.extend(round_attempts)
     report = data['report']
     
     base_code = self.base_class_code

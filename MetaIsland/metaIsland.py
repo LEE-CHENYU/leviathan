@@ -302,12 +302,13 @@ class IslandExecution(Island):
             current_mechanisms.extend(round_data['mechanism_modifications']['executed'])
             
         # Get modification attempts from recent rounds for this member
-        modification_attempts = []
+        modification_attempts = {}
         for round_data in self.execution_history['rounds'][-5:]:
+            round_num = round_data['round_number']
             member_attempts = [
                 attempt for attempt in round_data['mechanism_modifications']['attempts']
             ]
-            modification_attempts.extend(member_attempts)
+            modification_attempts[round_num] = member_attempts
 
         report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
 

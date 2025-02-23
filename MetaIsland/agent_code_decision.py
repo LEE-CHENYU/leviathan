@@ -18,7 +18,7 @@ def _agent_code_decision(self, member_id) -> None:
         message_context = data['message_context']
 
         current_mechanisms = data['current_mechanisms']
-        modification_attempts = data['modification_attempts'][-1]
+        modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
         report = data['report']
         
         base_code = self.base_class_code
