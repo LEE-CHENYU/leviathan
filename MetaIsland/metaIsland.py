@@ -35,6 +35,7 @@ class IslandExecution(Island):
         self.agent_code_path = os.path.join(self.code_save_path, 'agent_actions')
         self.mechanism_code_path = os.path.join(self.code_save_path, 'mechanisms')
         self.analysis_code_path = os.path.join(self.code_save_path, 'analysis')
+        self.execution_history_path = os.path.join(self.code_save_path, 'execution_histories')
         os.makedirs(self.agent_code_path, exist_ok=True)
         os.makedirs(self.mechanism_code_path, exist_ok=True)
         os.makedirs(self.analysis_code_path, exist_ok=True)
@@ -481,8 +482,8 @@ class IslandExecution(Island):
     def save_execution_history(self):
         """Save the execution history to a JSON file"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        os.makedirs('execution_histories', exist_ok=True)
-        filename = os.path.join('execution_histories', f'execution_history_{timestamp}.json')
+        os.makedirs(self.execution_history_path, exist_ok=True)
+        filename = os.path.join(self.execution_history_path, f'execution_history_{timestamp}.json')
         
         try:
             # Convert any non-serializable objects to strings
@@ -803,7 +804,7 @@ def main():
     import os
 
     rng = np.random.default_rng()
-    path = save.datetime_dir("./MetaIsland/data")
+    path = save.datetime_dir("../MetaIsland/data")
     exec = IslandExecution(2, (5, 5), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
