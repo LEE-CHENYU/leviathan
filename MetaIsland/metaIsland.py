@@ -76,9 +76,6 @@ class IslandExecution(Island):
 
         # Initialize code storage
         self.agent_code_by_member = {}
-        
-        # Initialize analysis reports
-        self.analysis_reports = {}
 
         self.island_ideology = ""
         
@@ -95,6 +92,7 @@ class IslandExecution(Island):
         round_record = {
             "round_number": len(self.execution_history['rounds']) + 1,
             "timestamp": datetime.now().isoformat(),
+            "analysis": {},
             "agent_actions": [],      # List of agent code execution details
             "agent_messages": {},     # Dictionary keyed by member_id
             "mechanism_modifications": {
@@ -237,7 +235,7 @@ class IslandExecution(Island):
         # Sort memories by performance
         sorted_memories = sorted(memory, key=lambda x: x['performance'], reverse=True)
         
-        for i, mem in enumerate(sorted_memories[-5:]):  # Show last 5 memories
+        for i, mem in enumerate(sorted_memories[-3:]):  # Show last 3 memories
             summary.append(f"\nStrategy {i+1} (Performance: {mem['performance']:.2f}):")
             summary.append(f"Context: {mem['context']}")
             summary.append("Code:")
@@ -263,8 +261,12 @@ class IslandExecution(Island):
 
         # Analysis Memory
         analysis_memory = "No previous analysis"
-        if member_id in self.analysis_reports and self.analysis_reports[member_id]:
-            analysis_list = self.analysis_reports[member_id]
+        # Get analysis from execution history
+        analysis_list = []
+        for round_data in self.execution_history['rounds'][-3:]:  # Get last 3 rounds
+            if 'analysis' in round_data and member_id in round_data['analysis']:
+                analysis_list.append(round_data['analysis'][member_id])
+        if analysis_list:
             analysis_memory = f"Previous analysis reports: {analysis_list}"
         
         # Performance Memory
@@ -299,7 +301,7 @@ class IslandExecution(Island):
 
         # Get current game mechanisms and modification attempts
         current_round = len(self.execution_history['rounds'])
-        start_round = max(0, current_round - 5)  # Get last 5 rounds or all if less
+        start_round = max(0, current_round - 3)  # Get last 3 rounds or all if less
         
         # Get executed modifications from recent rounds
         current_mechanisms = []
@@ -308,14 +310,18 @@ class IslandExecution(Island):
             
         # Get modification attempts from recent rounds for this member
         modification_attempts = {}
-        for round_data in self.execution_history['rounds'][-5:]:
+        for round_data in self.execution_history['rounds'][-3:]:
             round_num = round_data['round_number']
             member_attempts = [
                 attempt for attempt in round_data['mechanism_modifications']['attempts']
             ]
             modification_attempts[round_num] = member_attempts
 
-        report = self.analysis_reports[member_id] if member_id in self.analysis_reports else None
+        report = None
+        if (self.execution_history['rounds'] and 
+            'analysis' in self.execution_history['rounds'][-1] and
+            member_id in self.execution_history['rounds'][-1]['analysis']):
+            report = self.execution_history['rounds'][-1]['analysis'][member_id]
 
         return {
             'member': member,

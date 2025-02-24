@@ -216,13 +216,9 @@ def _analyze(self, member_id):
     exec_env['np'] = np  # Make numpy available in the environment
 
     # print(f"Analysis result: {result}")
-    if member_id not in self.analysis_reports:
-        self.analysis_reports[member_id] = []
-        self.analysis_reports[member_id].append(result)
-        return result
-    else:
-        print("No analysis result returned")
-        return None
+    # Store analysis in execution history
+    self.execution_history['rounds'][-1]['analysis'][member_id] = result
+    return result
     
     # try:
     #     # First execute the code to define the functions
@@ -233,9 +229,10 @@ def _analyze(self, member_id):
         
     #     if result:
     #         print(f"Analysis result: {result}")
-    #         if member_id not in self.analysis_reports:
-    #             self.analysis_reports[member_id] = []
-    #         self.analysis_reports[member_id].append(result)
+            # # Store analysis in execution history
+            # if member_id not in self.execution_history['rounds'][-1]['analysis']:
+            #     self.execution_history['rounds'][-1]['analysis'][member_id] = []
+            # self.execution_history['rounds'][-1]['analysis'][member_id].append(result)
     #     else:
     #         print("No analysis result returned")
     #         return None
