@@ -18,6 +18,13 @@ from MetaIsland.analyze import _analyze
 from dotenv import load_dotenv
 load_dotenv()
 
+import aisuite as ai
+
+client = ai.Client()
+
+from MetaIsland.model_router import model_router
+
+provider, model_id = model_router("deepseek")
 class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
@@ -715,8 +722,8 @@ class IslandExecution(Island):
             Return only the aggregated code.
             """
             
-            completion = openai.chat.completions.create(
-                model="o1-mini",
+            completion = client.chat.completions.create(
+                model=f'{provider}:{model_id}',
                 messages=[{"role": "user", "content": prompt}]
             )
             

@@ -2,6 +2,16 @@ from itertools import tee
 import openai
 import traceback
 import ast
+from dotenv import load_dotenv
+import aisuite as ai
+
+from MetaIsland.model_router import model_router
+
+load_dotenv()
+
+client = ai.Client()
+
+provider, model_id = model_router("deepseek")
 
 def _agent_mechanism_proposal(self, member_id) -> None:
     """ 
@@ -316,8 +326,8 @@ def _agent_mechanism_proposal(self, member_id) -> None:
                 f"9. Are you balancing short-term and long-term objectives optimally?\n"
                 f"10. How could your strategy be countered, and how would you adapt?"
             )
-            completion = openai.chat.completions.create(
-                model="o3-mini", 
+            completion = client.chat.completions.create(
+                model=f'{provider}:{model_id}', 
                 messages=[{"role": "user", "content": update_message}]
             )
             final_prompt = completion.choices[0].message.content.strip()
@@ -325,8 +335,8 @@ def _agent_mechanism_proposal(self, member_id) -> None:
         # Append a final instruction to generate the code function
         final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique propose_modification() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated methods to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively allow other symmetric agents interact with each other to achieve both individual and collective goals. Return only the code."
         
-        completion = openai.chat.completions.create(
-            model="o3-mini",
+        completion = client.chat.completions.create(
+            model=f'{provider}:{model_id}',
             messages=[{"role": "user", "content": final_prompt_command}]
         )
         code_result = completion.choices[0].message.content.strip()

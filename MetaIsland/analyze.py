@@ -2,6 +2,17 @@ import numpy as np
 import openai
 import traceback
 
+from dotenv import load_dotenv
+import aisuite as ai
+
+from MetaIsland.model_router import model_router
+
+load_dotenv()
+
+client = ai.Client()
+
+provider, model_id = model_router("deepseek")
+
 def _analyze(self, member_id):
     """
     Analyze member data for strategic insights
@@ -199,8 +210,8 @@ def _analyze(self, member_id):
     # # Append a final instruction to generate the code function
     # final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
-    completion = openai.chat.completions.create(
-                model="o3-mini", 
+    completion = client.chat.completions.create(
+                model=f'{provider}:{model_id}', 
                 messages=[{"role": "user", "content": analysis_prompt}]
             )
     result = completion.choices[0].message.content.strip()
