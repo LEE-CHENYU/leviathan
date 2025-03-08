@@ -251,6 +251,34 @@ class IslandExecution(Island):
                 summary.append(f"Error encountered: {mem['error']}")
                 
         return "\n".join(summary)
+    
+    def get_execution_class_attributes(self, member_id):
+        """Returns a dictionary of the execution class attributes for inspection."""
+        # Get attributes using different methods
+        class_attrs = dir(self.__class__)
+        instance_attrs = dir(self)
+        
+        class_dict = self.__class__.__dict__
+        instance_dict = self.__dict__
+        
+        class_vars = vars(self.__class__)
+        instance_vars = vars(self)
+        
+        # Get members using inspect
+        import inspect
+        all_members = inspect.getmembers(self.__class__)
+        function_members = inspect.getmembers(self.__class__, predicate=inspect.isfunction)
+        
+        return {
+            "class_attrs": class_attrs,
+            "instance_attrs": instance_attrs,
+            "class_dict": class_dict,
+            "instance_dict": instance_dict,
+            "class_vars": class_vars,
+            "instance_vars": instance_vars,
+            "all_members": all_members,
+            "function_members": function_members
+        }
 
     def prepare_agent_data(self, member_id):
         """Prepares and returns all necessary data for agent mechanism proposal."""
@@ -687,7 +715,7 @@ class IslandExecution(Island):
         
         base_code = self.base_class_code
         
-        # Get aggregated mechanism modification from O1 API
+        # Get aggregated mechanism modification
         base_code_prompt = f"""
             [Base Code]
             Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
@@ -752,6 +780,10 @@ class IslandExecution(Island):
             exec(mod['code'], exec_env)
             exec_env['propose_modification'](self)
             print(f"Aggregated Mechanism Modification code executed successfully.")
+            
+            # Get execution class attributes
+            class_attrs = self.get_execution_class_attributes(mod['member_id'])
+            print(f"Execution Class Attributes: {class_attrs}")
             
             # Track successful modification
             mod['executed_round'] = current_round
