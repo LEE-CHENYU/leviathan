@@ -14,7 +14,7 @@ client = ai.Client()
 
 provider, model_id = model_router("deepseek")
     
-def _agent_code_decision(self, member_id) -> None:
+async def _agent_code_decision(self, member_id) -> None:
     """
     Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
     The code will define a function agent_action(execution_engine, member_id), 

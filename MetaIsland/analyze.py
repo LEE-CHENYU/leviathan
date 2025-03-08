@@ -13,7 +13,7 @@ client = ai.Client()
 
 provider, model_id = model_router("deepseek")
 
-def _analyze(self, member_id):
+async def _analyze(self, member_id):
     """
     Analyze member data for strategic insights
     """

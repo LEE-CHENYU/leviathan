@@ -8,6 +8,7 @@ import os
 from collections import defaultdict
 import inspect
 import openai
+import asyncio
 
 from MetaIsland.base_island import Island
 
@@ -374,22 +375,22 @@ class IslandExecution(Island):
 
     ## Prompting Agents
     
-    def analyze(self, member_id):
+    async def analyze(self, member_id):
         """Analyze the game state and propose strategic actions."""
-        result = _analyze(self, member_id)
+        result = await _analyze(self, member_id)
         self.save_generated_code(result, member_id, 'analysis')
         return result
     
-    def agent_code_decision(self, member_id) -> None:
+    async def agent_code_decision(self, member_id) -> None:
         """Modified to save generated code"""
-        agent_code_decision_result = _agent_code_decision(self, member_id)
+        agent_code_decision_result = await _agent_code_decision(self, member_id)
         if agent_code_decision_result:
             self.save_generated_code(agent_code_decision_result, member_id, 'agent_action')
         return agent_code_decision_result
     
-    def agent_mechanism_proposal(self, member_id) -> None:
+    async def agent_mechanism_proposal(self, member_id) -> None:
         """Modified to save generated code"""
-        agent_mechanism_proposal_result = _agent_mechanism_proposal(self, member_id)
+        agent_mechanism_proposal_result = await _agent_mechanism_proposal(self, member_id)
         if agent_mechanism_proposal_result:
             self.save_generated_code(agent_mechanism_proposal_result, member_id, 'mechanism')
         return agent_mechanism_proposal_result
@@ -843,7 +844,7 @@ class IslandExecution(Island):
             print(f"Error saving generated code: {e}")
             print(traceback.format_exc())
 
-def main():
+async def main():
     from time import time
     from utils import save
     import os
@@ -877,20 +878,30 @@ def main():
         exec.produce()
         
         print("\nGenerating mechanism modifications...")
-    
+
+        # Create all tasks upfront
+        member_tasks = []
         for i in range(len(exec.current_members)):
-            print(f"Member {i} is deciding...")
-            exec.analyze(i)
-            exec.agent_mechanism_proposal(i)
+            print(f"Member {i} starts analyzing...")
+            analysis_task = exec.analyze(i)
+            print(f"Member {i} starts proposing mechanism...")
+            mechanism_task = exec.agent_mechanism_proposal(i)
+            member_tasks.extend([analysis_task, mechanism_task])
+
+        # Run all tasks concurrently
+        await asyncio.gather(*member_tasks)
             
         print("\nExecuting mechanism modifications...")
         exec.execute_mechanism_modifications()
         
         print("\nGenerating agent decisions...")
         
+        # Convert the second loop to async
+        decision_tasks = []
         for i in range(len(exec.current_members)):
             print(f"Member {i} is deciding...")
-            exec.agent_code_decision(i)
+            decision_tasks.append(exec.agent_code_decision(i))
+        await asyncio.gather(*decision_tasks)
             
         print("\nExecuting agent actions...")
         exec.execute_code_actions()
@@ -913,4 +924,4 @@ def main():
             print(status)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
