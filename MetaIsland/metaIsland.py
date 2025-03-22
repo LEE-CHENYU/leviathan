@@ -784,7 +784,27 @@ class IslandExecution(Island):
             
             # Get execution class attributes
             class_attrs = self.get_execution_class_attributes(mod['member_id'])
-            print(f"Execution Class Attributes: {class_attrs}")
+            # Define a function to save mechanism execution data to JSON
+            def save_mechanism_execution_to_json(mechanism_data, json_path):
+                with open(json_path, 'w') as f:
+                    json.dump(mechanism_data, f, indent=4)
+            
+            # Prepare the mechanism execution data
+            mechanism_data = {
+                'member_id': mod['member_id'],
+                'round': current_round,
+                'code': mod['code'],
+                'execution_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'class_attributes': class_attrs
+            }
+            
+            # Create a filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            json_filename = f'mechanism_execution_{mod["member_id"]}_round_{current_round}_{timestamp}.json'
+            json_path = os.path.join(self.mechanism_code_path, json_filename)
+            
+            # Save the data to JSON file
+            save_mechanism_execution_to_json(mechanism_data, json_path)
             
             # Track successful modification
             mod['executed_round'] = current_round

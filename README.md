@@ -1,8 +1,194 @@
-# leviathan
-Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan. 
+# Leviathan
+
+Investigating if individual decisions and simple relationships can converge to form a complex system in the manner of Hobbesian Leviathan.
 
 试图通过模型中分布式的简单个体选择模拟类似社会秩序的复杂系统。
 
+## 项目概述 (Project Overview)
+
+Leviathan 是一个基于智能体的社会演化模拟框架，探索简单个体决策如何收敛形成复杂社会系统。该框架通过模拟智能体间的互动、资源分配和关系网络，研究社会结构的自发形成过程。
+
+Leviathan is an agent-based social evolution simulation framework that explores how simple individual decisions converge to form complex social systems. The framework studies the spontaneous formation of social structures through simulating interactions between agents, resource allocation, and relationship networks.
+
+## 核心功能 (Core Functionality)
+
+- **智能体决策系统**：基于内置决策算法或大型语言模型的智能体行为决策
+- **地形与资源系统**：模拟土地分配、资源生产与消耗
+- **关系网络**：追踪智能体间的各种关系（敌对、互惠等）
+- **人口动态**：模拟人口增长、衰退与世代更替
+- **数据收集与分析**：记录模拟过程并提供分析工具
+
+- **Agent Decision System**: Agent behavior decisions based on built-in algorithms or large language models
+- **Terrain and Resource System**: Simulation of land allocation, resource production, and consumption
+- **Relationship Network**: Tracking various relationships between agents (hostility, reciprocity, etc.)
+- **Population Dynamics**: Simulation of population growth, decline, and generational changes
+- **Data Collection and Analysis**: Recording simulation processes and providing analysis tools
+
+## 主要接口 (Main Interfaces)
+
+### Island 类 (Island Class)
+
+核心模拟环境类，管理智能体、土地和各种交互：
+
+```python
+Island(
+    init_member_number: int,     # 初始成员数量
+    land_shape: Tuple[int, int], # 土地形状 (行, 列)
+    save_path: str,              # 保存路径
+    random_seed: Optional[int] = None, # 随机种子
+)
+```
+
+### Member 类 (Member Class)
+
+代表单个智能体的类，包含属性、决策逻辑和行为：
+
+```python
+Member(
+    name: str,                   # 智能体名称
+    id: int,                     # 唯一ID
+    surviver_id: int,            # 存活者ID
+    rng: np.random.Generator     # 随机数生成器
+)
+```
+
+### Land 类 (Land Class)
+
+管理土地所有权和地形特性：
+
+```python
+Land(
+    shape: Tuple[int, int],      # 地形形状 (行, 列)
+)
+```
+
+### IslandExecution 类 (IslandExecution Class)
+
+扩展 Island 类以支持控制和执行智能体行动：
+
+```python
+IslandExecution(
+    init_member_number: int,     # 初始成员数量
+    land_shape: Tuple[int, int], # 土地形状 (行, 列)
+    save_path: str,              # 保存路径
+    random_seed: Optional[int] = None, # 随机种子
+    action_board: List[List[Tuple[str, int, int]]] = None # 行动面板
+)
+```
+
+## 使用方法 (Usage Methods)
+
+### 基本使用流程 (Basic Usage Flow)
+
+```python
+from Leviathan.Island import Island
+
+# 创建基础模拟
+island = Island(
+    init_member_number=10,
+    land_shape=(20, 20),
+    save_path="./simulation_results",
+    random_seed=42
+)
+
+# 运行多轮模拟
+for i in range(100):
+    island.new_round()
+    island.produce()       # 资源生产
+    island.fight(0.3)      # 战斗（0.3概率）
+    island.trade(0.5)      # 交易（0.5概率）
+    island.reproduce(0.2)  # 繁殖（0.2概率）
+    island.consume()       # 资源消耗
+```
+
+### 使用 IslandExecution 控制行动 (Using IslandExecution)
+
+```python
+from Leviathan.islandExecution import IslandExecution
+
+# 预设行动序列
+action_board = [
+    [('attack', 1, 2), ('offer', 3, 4)],  # 第一轮行动
+    [('reproduce', 1, 5), ('attack', 2, 3)]  # 第二轮行动
+]
+
+# 创建可执行模拟
+island_exec = IslandExecution(
+    init_member_number=10,
+    land_shape=(20, 20),
+    save_path="./simulation_results",
+    random_seed=42,
+    action_board=action_board
+)
+
+# 执行预设行动
+island_exec.execute()
+```
+
+### 使用 MetaIsland 增强功能 (Using MetaIsland Enhanced Features)
+
+MetaIsland 扩展了基础 Leviathan 功能，增加了 LLM 驱动的智能体决策和机制修改能力：
+
+```python
+import asyncio
+from MetaIsland.metaIsland import IslandExecution
+
+async def main():
+    # 创建 IslandExecution 实例
+    island = IslandExecution(
+        init_member_number=10,
+        land_shape=(20, 20),
+        save_path="./simulation_results"
+    )
+    
+    # 执行多轮模拟
+    for _ in range(5):
+        island.new_round()
+        
+        # 执行智能体决策和行动
+        for member in island.current_members:
+            await island.agent_code_decision(member.id)
+            await island.agent_mechanism_proposal(member.id)
+            await island.analyze(member.id)
+        
+        # 执行所有决策和机制修改
+        island.execute_code_actions()
+        island.execute_mechanism_modifications()
+
+# 运行模拟
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## 设计理念 (Design Philosophy)
+
+本项目探索通过以下机制形成社会秩序：
+
+- **交易与思想传播**：智能体间交换资源和学习彼此决策模式
+- **遗传与变异**：通过繁殖传递和变异决策参数
+- **关系网络形成**：智能体互动形成复杂关系网络
+- **自发秩序**：无需中央控制，通过个体决策形成社会秩序
+- **资源约束与竞争**：有限资源引发竞争和合作行为
+
+This project explores the formation of social order through mechanisms including:
+
+- **Trade and Idea Propagation**: Agents exchange resources and learn from each other's decision patterns
+- **Inheritance and Mutation**: Decision parameters transmitted and mutated through reproduction
+- **Relationship Network Formation**: Complex relationship networks formed through agent interactions
+- **Spontaneous Order**: Social order emerges from individual decisions without central control
+- **Resource Constraints and Competition**: Limited resources drive competitive and cooperative behaviors
+
+## 环境要求 (Environment Requirements)
+
+- Python 3.7+
+- 依赖库: numpy, pandas, matplotlib
+- 高级功能依赖: openai, aisuite
+
+## 详细文档 (Detailed Documentation)
+
+更详细的文档可查看以下目录：
+- [Leviathan 基础框架文档](/Leviathan/README.md)
+- [MetaIsland 增强功能文档](/MetaIsland/README.md)
 
 # 构想
 
