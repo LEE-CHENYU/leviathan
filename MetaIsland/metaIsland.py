@@ -912,11 +912,11 @@ class IslandExecution(Island):
         # Connect nodes to define execution flow
         connections = [
             ('new_round', 'analyze'),
-            ('analyze', 'propose_mech'),
-            ('propose_mech', 'judge_mech'),
-            ('judge_mech', 'execute_mech'),
-            ('execute_mech', 'agent_decide'),
-            ('agent_decide', 'execute_actions'),
+            ('analyze', 'propose_mechanisms'),
+            ('propose_mechanisms', 'judge'),
+            ('judge', 'execute_mechanisms'),
+            ('execute_mechanisms', 'agent_decisions'),
+            ('agent_decisions', 'execute_actions'),
             ('execute_actions', 'contracts'),
             ('contracts', 'produce'),
             ('produce', 'consume'),

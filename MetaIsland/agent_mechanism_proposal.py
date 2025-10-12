@@ -221,9 +221,9 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
             execution_engine.contract_templates = {{}}
 
         # Define trade contract template
-        trade_contract_template = '''
+        trade_contract_template = \'\'\'
 def execute_contract(execution_engine, context):
-    """Execute a simple resource trade between two parties"""
+    # Execute a simple resource trade between two parties
     contract = context.get('contract', {{}})
     party_a = contract['parties'][0]
     party_b = contract['parties'][1]
@@ -251,7 +251,7 @@ def execute_contract(execution_engine, context):
             return {{"status": "success", "trade": "completed"}}
 
     return {{"status": "failed", "reason": "insufficient_resources"}}
-'''
+\'\'\'
 
         execution_engine.contract_templates['trade'] = trade_contract_template
 

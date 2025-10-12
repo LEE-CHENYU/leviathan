@@ -1,6 +1,3 @@
-from turtle import filling
-from altair import Align
-import openai
 import traceback
 
 from dotenv import load_dotenv
@@ -345,9 +342,9 @@ def execute_contract(execution_engine, context):
         else:
             # Create a new business
             if hasattr(execution_engine, 'contracts'):
-                partnership_contract = '''
+                partnership_contract = \'\'\'
 def execute_contract(execution_engine, context):
-    """Create a manufacturing partnership"""
+    # Create a manufacturing partnership
     contract = context.get('contract', {{}})
     partners = contract['parties']
 
@@ -363,7 +360,7 @@ def execute_contract(execution_engine, context):
     )
 
     return {{"status": "success", "business_id": business_id}}
-'''
+\'\'\'
 
                 # Propose to potential partners
                 for other_id in range(len(execution_engine.current_members)):
@@ -453,9 +450,9 @@ def execute_contract(execution_engine, context):
                 # They have materials
                 if supplier_inv.get('materials', 0) > 20:
                     # Propose ongoing supply contract
-                    supply_contract = '''
+                    supply_contract = \'\'\'
 def execute_contract(execution_engine, context):
-    """Ongoing materials supply"""
+    # Ongoing materials supply
     contract = context.get('contract', {{}})
     supplier = contract['parties'][0]
     buyer = contract['parties'][1]
@@ -475,7 +472,7 @@ def execute_contract(execution_engine, context):
 
             return {{"status": "success", "delivered": 5}}
     return {{"status": "failed"}}
-'''
+\'\'\'
 
                     execution_engine.contracts.propose_contract(
                         code=supply_contract,
