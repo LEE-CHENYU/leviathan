@@ -16,6 +16,17 @@ from MetaIsland.agent_code_decision import _agent_code_decision
 from MetaIsland.agent_mechanism_proposal import _agent_mechanism_proposal
 from MetaIsland.analyze import _analyze
 
+# Import new systems
+from MetaIsland.graph_engine import ExecutionGraph
+from MetaIsland.contracts import ContractEngine
+from MetaIsland.physics import PhysicsEngine
+from MetaIsland.judge import Judge
+from MetaIsland.nodes import (
+    NewRoundNode, ProduceNode, ConsumeNode, LogStatusNode,
+    AnalyzeNode, ProposeMechanismNode, AgentDecisionNode, ExecuteActionsNode,
+    JudgeNode, ExecuteMechanismsNode, ContractNode, EnvironmentNode
+)
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -86,8 +97,20 @@ class IslandExecution(Island):
         self.agent_code_by_member = {}
 
         self.island_ideology = ""
-        
+
         self.voting_box = {}
+
+        # Initialize new systems
+        self.graph = ExecutionGraph()
+        self.contracts = ContractEngine()
+        self.physics = PhysicsEngine()
+        self.judge = Judge(model_name="gpt-4")
+
+        # Setup default execution graph
+        self._setup_default_graph()
+
+        # Track round number for graph context
+        self.round_number = 0
 
     def new_round(self):
         """
@@ -864,7 +887,82 @@ class IslandExecution(Island):
             print(f"Error saving generated code: {e}")
             print(traceback.format_exc())
 
-async def main():
+    def _setup_default_graph(self):
+        """Setup the default execution graph with all nodes"""
+        # Create nodes
+        nodes = {
+            'new_round': NewRoundNode(),
+            'analyze': AnalyzeNode(),
+            'propose_mech': ProposeMechanismNode(),
+            'judge_mech': JudgeNode(),
+            'execute_mech': ExecuteMechanismsNode(),
+            'agent_decide': AgentDecisionNode(),
+            'execute_actions': ExecuteActionsNode(),
+            'contracts': ContractNode(),
+            'produce': ProduceNode(),
+            'consume': ConsumeNode(),
+            'environment': EnvironmentNode(),
+            'log_status': LogStatusNode()
+        }
+
+        # Add all nodes to graph
+        for node in nodes.values():
+            self.graph.add_node(node)
+
+        # Connect nodes to define execution flow
+        connections = [
+            ('new_round', 'analyze'),
+            ('analyze', 'propose_mech'),
+            ('propose_mech', 'judge_mech'),
+            ('judge_mech', 'execute_mech'),
+            ('execute_mech', 'agent_decide'),
+            ('agent_decide', 'execute_actions'),
+            ('execute_actions', 'contracts'),
+            ('contracts', 'produce'),
+            ('produce', 'consume'),
+            ('consume', 'environment'),
+            ('environment', 'log_status')
+        ]
+
+        for from_name, to_name in connections:
+            self.graph.connect(from_name, to_name)
+
+        print(f"\n[Graph] Initialized with {len(nodes)} nodes")
+        print(self.graph.visualize())
+
+    async def run_round_with_graph(self):
+        """Run one complete round using the graph execution engine"""
+        self.round_number += 1
+        self.graph.context = {
+            'execution': self,
+            'round': self.round_number
+        }
+
+        print(f"\n{'='*60}")
+        print(f"=== Round {self.round_number} (Graph Execution) ===")
+        print(f"{'='*60}")
+
+        await self.graph.execute_round()
+
+        print(f"\n[Graph] Round {self.round_number} complete")
+
+    def enable_graph_node(self, node_name: str):
+        """Enable a graph node"""
+        self.graph.enable_node(node_name)
+        print(f"[Graph] Enabled node: {node_name}")
+
+    def disable_graph_node(self, node_name: str):
+        """Disable a graph node"""
+        self.graph.disable_node(node_name)
+        print(f"[Graph] Disabled node: {node_name}")
+
+async def main(use_graph=True):
+    """
+    Main execution function
+
+    Args:
+        use_graph: If True, use new graph-based execution. If False, use old execution.
+    """
     from time import time
     from utils import save
     import os
@@ -875,72 +973,103 @@ async def main():
     exec = IslandExecution(5, (10, 10), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
-    round_num = 30
-    
+    round_num = 5  # Start with fewer rounds for testing
+
     exec.island_ideology = """
     [Island Ideology]
-    
-    Island is a place of abundant food. Food is a key resource for survival and growth.
-    Agents should develop mechanisms to efficiently gather, store, and utilize food.
-    Food can be traded in the marketplace for other resources such as cargo or oil.
-    Agents may set the quantity and price of food they wish to sell or buy.
-    Access to food may influence an agent's ability to expand territory or perform actions.
+
+    Island is a place of abundant resources and opportunity. Agents can:
+    - Extract resources from land based on land quality
+    - Build businesses to transform resources into products
+    - Create contracts with other agents for trade and services
+    - Propose physical constraints and economic mechanisms
+    - Form supply chains through interconnected contracts
+
+    The economy is entirely agent-driven. Agents write code to:
+    - Define what resources exist and how they're extracted
+    - Create markets and pricing mechanisms
+    - Build production chains and businesses
+    - Establish labor markets and specialization
+
+    Success depends on creating realistic, mutually beneficial economic systems.
     """
-    
-    for round_i in range(round_num):
-        # Create log file for this round
-        header = f"\n{'='*50}\n=== Round {round_i + 1} ===\n{'='*50}"
-        print(header)
-        
-        exec.new_round()
-        exec.get_neighbors()
-        exec.produce()
-        
-        print("\nGenerating mechanism modifications...")
 
-        # Create all tasks upfront
-        member_tasks = []
-        for i in range(len(exec.current_members)):
-            print(f"Member {i} starts analyzing...")
-            analysis_task = exec.analyze(i)
-            print(f"Member {i} starts proposing mechanism...")
-            mechanism_task = exec.agent_mechanism_proposal(i)
-            member_tasks.extend([analysis_task, mechanism_task])
+    if use_graph:
+        print("\n" + "="*60)
+        print("USING NEW GRAPH-BASED EXECUTION")
+        print("="*60)
 
-        # Run all tasks concurrently
-        await asyncio.gather(*member_tasks)
-            
-        print("\nExecuting mechanism modifications...")
-        exec.execute_mechanism_modifications()
-        
-        print("\nGenerating agent decisions...")
-        
-        # Convert the second loop to async
-        decision_tasks = []
-        for i in range(len(exec.current_members)):
-            print(f"Member {i} is deciding...")
-            decision_tasks.append(exec.agent_code_decision(i))
-        await asyncio.gather(*decision_tasks)
-            
-        print("\nExecuting agent actions...")
-        exec.execute_code_actions()
-        exec.consume()
-        
-        print("\nPerformance Report:")
-        
-        # Capture performance output
-        exec.print_agent_performance()
-        exec.print_agent_messages()
-        
-        # Print status
-        exec.log_status(action=True, log_instead_of_print=True)
-        
-        print(f"\nSurviving members at end of round: {len(exec.current_members)}")
-        
-        for member in exec.current_members:
-            survival_chance = exec.compute_survival_chance(member)
-            status = f"Member {member.id}: Vitality={member.vitality:.2f}, Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}"
-            print(status)
+        # Optionally disable some nodes for testing
+        # exec.disable_graph_node('judge_mech')  # Uncomment to skip judging
+
+        for round_i in range(round_num):
+            await exec.run_round_with_graph()
+
+            # Print final statistics
+            print(f"\n=== Round {round_i + 1} Statistics ===")
+            print(f"Surviving members: {len(exec.current_members)}")
+            print(f"Contracts: {exec.contracts.get_statistics()}")
+            print(f"Physics: {exec.physics.get_statistics()}")
+            print(f"Judge: {exec.judge.get_statistics()}")
+    else:
+        print("\n" + "="*60)
+        print("USING OLD EXECUTION (LEGACY MODE)")
+        print("="*60)
+
+        for round_i in range(round_num):
+            # Create log file for this round
+            header = f"\n{'='*50}\n=== Round {round_i + 1} ===\n{'='*50}"
+            print(header)
+
+            exec.new_round()
+            exec.get_neighbors()
+            exec.produce()
+
+            print("\nGenerating mechanism modifications...")
+
+            # Create all tasks upfront
+            member_tasks = []
+            for i in range(len(exec.current_members)):
+                print(f"Member {i} starts analyzing...")
+                analysis_task = exec.analyze(i)
+                print(f"Member {i} starts proposing mechanism...")
+                mechanism_task = exec.agent_mechanism_proposal(i)
+                member_tasks.extend([analysis_task, mechanism_task])
+
+            # Run all tasks concurrently
+            await asyncio.gather(*member_tasks)
+
+            print("\nExecuting mechanism modifications...")
+            exec.execute_mechanism_modifications()
+
+            print("\nGenerating agent decisions...")
+
+            # Convert the second loop to async
+            decision_tasks = []
+            for i in range(len(exec.current_members)):
+                print(f"Member {i} is deciding...")
+                decision_tasks.append(exec.agent_code_decision(i))
+            await asyncio.gather(*decision_tasks)
+
+            print("\nExecuting agent actions...")
+            exec.execute_code_actions()
+            exec.consume()
+
+            print("\nPerformance Report:")
+
+            # Capture performance output
+            exec.print_agent_performance()
+            exec.print_agent_messages()
+
+            # Print status
+            exec.log_status(action=True, log_instead_of_print=True)
+
+            print(f"\nSurviving members at end of round: {len(exec.current_members)}")
+
+            for member in exec.current_members:
+                survival_chance = exec.compute_survival_chance(member)
+                status = f"Member {member.id}: Vitality={member.vitality:.2f}, Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}"
+                print(status)
 
 if __name__ == "__main__":
     asyncio.run(main())
