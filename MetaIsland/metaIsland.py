@@ -25,7 +25,7 @@ client = ai.Client()
 
 from MetaIsland.model_router import model_router
 
-provider, model_id = model_router("deepseek")
+provider, model_id = model_router("gpt-5")
 class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
@@ -872,20 +872,19 @@ async def main():
     rng = np.random.default_rng()
     os.makedirs("../MetaIsland/data", exist_ok=True)
     path = save.datetime_dir("../MetaIsland/data")
-    exec = IslandExecution(2, (5, 5), path, 2023)
+    exec = IslandExecution(5, (10, 10), path, 2023)
     IslandExecution._RECORD_PERIOD = 1
 
-    round_num = 10
+    round_num = 30
     
     exec.island_ideology = """
     [Island Ideology]
     
-    Island is a place of abundant oil. 
-    Agents should modify the mechanism to allow them to extract the oil and add it as a property of the member.
-    Agents need to the territory to extract oil.
-    Agents should build a market place to exchange oil for cargo.
-    Agents can choose the quantity and price of oil to sell.
-    Agents need to buy oil to expand their territory.
+    Island is a place of abundant food. Food is a key resource for survival and growth.
+    Agents should develop mechanisms to efficiently gather, store, and utilize food.
+    Food can be traded in the marketplace for other resources such as cargo or oil.
+    Agents may set the quantity and price of food they wish to sell or buy.
+    Access to food may influence an agent's ability to expand territory or perform actions.
     """
     
     for round_i in range(round_num):

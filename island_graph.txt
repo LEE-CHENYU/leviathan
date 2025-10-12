@@ -1,0 +1,1653 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/chenyusu/vscode/leviathan           │
+╰───────────────────────────────────────────────────╯
+
+ Tips for getting started:
+
+  Run /init to create a CLAUDE.md file with instructions for Claude
+  Run /terminal-setup to set up terminal integration
+  Use Claude to help with file analysis, editing, bash commands and git
+  Be as specific as you would with another engineer for the best results
+
+> examine the current game structure @MetaIsland/ and I have an idea, the 
+  eventual goal is for agents to extract resources and built business to offer
+   product and services each others want. there's two part first, agents are 
+  to code their interaction with the environment and each other, second, 
+  agents are going to propose most realistic environment simulation based on 
+  their perspective and domain. is this realistic and how should we do that?
+  ⎿  Listed directory MetaIsland/
+  ⎿  ⧉ Selected 1 lines from MetaIsland/base_island.py in Cursor
+
+⏺ I'll examine the current MetaIsland game structure to understand how it
+  works and evaluate your idea for agents extracting resources, building
+  businesses, and proposing environment simulations.
+
+⏺ Let me first explore the MetaIsland directory structure and examine the
+  core files:
+
+⏺ Bash(find MetaIsland -type f -name "*.py" | head -20)
+  ⎿  MetaIsland/agent_mechanism_proposal.py
+     MetaIsland/metaIsland.py
+     MetaIsland/base_member.py
+     … +7 lines (ctrl+o to expand)
+
+⏺ Let me read the key files to understand the current structure:
+
+⏺ Read(MetaIsland/metaIsland.py)
+  ⎿  Read 946 lines (ctrl+o to expand)
+
+⏺ Let me examine the base classes and mechanism proposal system:
+
+⏺ Read(MetaIsland/base_island.py)
+  ⎿  Read 100 lines (ctrl+o to expand)
+
+⏺ Read(MetaIsland/agent_mechanism_proposal.py)
+  ⎿  Read 384 lines (ctrl+o to expand)
+
+⏺ Read(MetaIsland/agent_code_decision.py)
+  ⎿  Read 315 lines (ctrl+o to expand)
+
+⏺ Let me examine the base member class to understand agent capabilities:
+
+⏺ Read(MetaIsland/base_member.py)
+  ⎿  Read 100 lines (ctrl+o to expand)
+
+⏺ Let me check the analyze.py file to understand how agents analyze the game
+   state:
+
+⏺ Read(MetaIsland/analyze.py)
+  ⎿  Read 100 lines (ctrl+o to expand)
+
+⏺ Now let me check if there are examples of generated code or mechanism
+  modifications:
+
+⏺ Bash(ls -la MetaIsland/data/ 2>/dev/null | head -10)
+  ⎿  total 0                                            
+     drwxr-xr-x   2 chenyusu  staff   64 Feb 23  2025 .
+     drwxr-xr-x  20 chenyusu  staff  640 Mar 21  2025 ..
+
+⏺ Based on my examination of the MetaIsland game structure, I can now
+  provide a comprehensive analysis and plan for your vision.
+  ⎿  User rejected Claude's plan:
+     ╭─────────────────────────────────────────────────────────────────────────╮
+     │ Analysis of Current MetaIsland Structure                                │
+     │                                                                         │
+     │ The MetaIsland game is a sophisticated multi-agent simulation where AI  │
+     │ agents compete for survival. Currently:                                 │
+     │                                                                         │
+     │ - Agents have vitality, cargo (resources), land, and can perform actions│
+     │  like attack, offer resources, expand territory, and reproduce          │
+     │ - Environment tracks relationships, land ownership, and resource        │
+     │ production/consumption                                                  │
+     │ - AI Control: Agents use LLMs to write Python code that:                │
+     │   a. Analyzes game state (analyze.py)                                   │
+     │   b. Proposes mechanism modifications (agent_mechanism_proposal.py)     │
+     │   c. Takes actions (agent_code_decision.py)                             │
+     │                                                                         │
+     │ Your Vision Assessment                                                  │
+     │                                                                         │
+     │ Your idea to evolve this into a resource extraction and business economy│
+     │  system is highly realistic and builds naturally on the existing        │
+     │ architecture. The two-part approach is excellent:                       │
+     │                                                                         │
+     │ Part 1: Agent-Coded Economic Interactions                               │
+     │                                                                         │
+     │ - Agents already code their own actions                                 │
+     │ - Can extend to include trading, pricing, business creation             │
+     │ - Leverage existing mechanism proposal system for economic rules        │
+     │                                                                         │
+     │ Part 2: Agent-Proposed Environment Simulations                          │
+     │                                                                         │
+     │ - Agents already modify game mechanics                                  │
+     │ - Can extend to propose realistic simulations based on their domain     │
+     │ expertise                                                               │
+     │ - Use collective intelligence to create emergent realism                │
+     │                                                                         │
+     │ Implementation Plan                                                     │
+     │                                                                         │
+     │ Phase 1: Economic Foundation (Week 1-2)                                 │
+     │                                                                         │
+     │ 1. Add Resource Types                                                   │
+     │   - Extend beyond just "cargo" to multiple resources (food, materials,  │
+     │ energy, etc.)                                                           │
+     │   - Add resource extraction from land based on land type                │
+     │   - Implement resource transformation/production chains                 │
+     │ 2. Create Marketplace Mechanism                                         │
+     │   - Add market class with bid/ask system                                │
+     │   - Allow agents to set prices and quantities                           │
+     │   - Track supply/demand dynamics                                        │
+     │   - Store transaction history                                           │
+     │ 3. Business Entity System                                               │
+     │   - Allow agents to create business entities                            │
+     │   - Define services/products businesses can offer                       │
+     │   - Implement business-to-business transactions                         │
+     │   - Add reputation/credit system                                        │
+     │                                                                         │
+     │ Phase 2: Agent Economic Coding (Week 2-3)                               │
+     │                                                                         │
+     │ 1. Extend Agent Actions                                                 │
+     │   - Add market interaction functions (buy, sell, create_business)       │
+     │   - Resource extraction and processing actions                          │
+     │   - Contract creation and fulfillment                                   │
+     │   - Investment and lending mechanisms                                   │
+     │ 2. Economic Analysis Tools                                              │
+     │   - Provide agents with market data access                              │
+     │   - Price history and trend analysis                                    │
+     │   - Supply chain visibility                                             │
+     │   - Competitor analysis capabilities                                    │
+     │                                                                         │
+     │ Phase 3: Domain-Based Environment Proposals (Week 3-4)                  │
+     │                                                                         │
+     │ 1. Domain Specialization System                                         │
+     │   - Assign agents different domain expertise (agriculture,              │
+     │ manufacturing, services, etc.)                                          │
+     │   - Each domain has specialized knowledge about realistic simulations   │
+     │   - Agents propose environment rules based on their expertise           │
+     │ 2. Collective Environment Evolution                                     │
+     │   - Voting system for environment proposals (already partially exists)  │
+     │   - Weighted voting based on domain expertise                           │
+     │   - Gradual integration of approved simulations                         │
+     │   - Version control for environment rules                               │
+     │ 3. Realism Metrics                                                      │
+     │   - Track economic indicators (GDP, inflation, employment)              │
+     │   - Measure market efficiency                                           │
+     │   - Monitor resource sustainability                                     │
+     │   - Validate against real-world economic patterns                       │
+     │                                                                         │
+     │ Phase 4: Advanced Features (Week 4+)                                    │
+     │                                                                         │
+     │ 1. Complex Economic Mechanisms                                          │
+     │   - Currency and monetary policy                                        │
+     │   - Banking and financial services                                      │
+     │   - Insurance and risk management                                       │
+     │   - Supply chain networks                                               │
+     │ 2. Environmental Feedback                                               │
+     │   - Resource depletion and renewal                                      │
+     │   - Environmental impact of businesses                                  │
+     │   - Technology advancement through R&D                                  │
+     │   - Economic cycles and shocks                                          │
+     │                                                                         │
+     │ Key Implementation Files to Modify                                      │
+     │                                                                         │
+     │ 1. metaIsland.py: Add economic data structures and market execution     │
+     │ 2. base_island.py: Extend with resource types and business entities     │
+     │ 3. base_member.py: Add economic attributes and capabilities             │
+     │ 4. agent_mechanism_proposal.py: Enhance for economic rule proposals     │
+     │ 5. agent_code_decision.py: Expand action space for economic activities  │
+     │ 6. Create new files:                                                    │
+     │   - marketplace.py: Market mechanisms                                   │
+     │   - business.py: Business entity management                             │
+     │   - resources.py: Resource system                                       │
+     │   - economic_analysis.py: Economic metrics and analysis                 │
+     │                                                                         │
+     │ Technical Approach                                                      │
+     │                                                                         │
+     │ 1. Incremental Development: Start with simple marketplace, gradually add│
+     │  complexity                                                             │
+     │ 2. Agent Learning: Agents learn from economic outcomes to improve       │
+     │ strategies                                                              │
+     │ 3. Emergent Behavior: Let complex economies emerge from simple rules    │
+     │ 4. Reality Validation: Compare emergent behaviors with real economic    │
+     │ patterns                                                                │
+     │ 5. Modularity: Keep economic systems modular for easy agent modification│
+     │                                                                         │
+     │ This approach leverages the existing LLM-driven agent architecture while│
+     │  adding economic depth that allows for genuine emergent complexity and  │
+     │ realism through agent expertise and interaction.                        │
+     │                                                                         │
+     ╰─────────────────────────────────────────────────────────────────────────╯
+
+> for resources, interactions, businesses and markets, we do not want to hard 
+  code the logic, instead we want agent to code it from ground up, but we need
+   the basic infrasture for easier deployment
+
+⏺ Excellent point! You want a minimal infrastructure that enables agents to
+  build everything else from scratch. Let me design a lightweight framework
+  that provides just the scaffolding.
+
+  Minimal Infrastructure Design
+
+  Core Philosophy
+
+  Provide only the execution environment and persistence layer - agents code
+   everything else including resource types, market mechanisms, and business
+   logic.
+
+  Proposed Minimal Infrastructure
+
+  1. Universal Storage System (storage.py)
+
+  class UniversalStorage:
+      """Agent-definable storage for any data type"""
+      def __init__(self):
+          self.data = {}  # Agents define structure
+          self.schemas = {}  # Agents define data schemas
+          self.access_log = []  # Track who accessed what
+
+      def register_schema(self, name, schema_def):
+          """Agents register their data structures"""
+
+      def store(self, key, value, owner_id):
+          """Store any agent-defined data"""
+
+      def query(self, criteria, requester_id):
+          """Query with agent-defined criteria"""
+
+  2. Code Execution Sandbox (sandbox.py)
+
+  class CodeSandbox:
+      """Safe environment for agent code execution"""
+      def __init__(self):
+          self.registered_functions = {}
+          self.contracts = {}  # Agent-defined contracts
+          self.interfaces = {}  # Agent-defined interfaces
+
+      def register_interface(self, name, specification):
+          """Agents define interfaces others can implement"""
+
+      def deploy_contract(self, code, owner_id):
+          """Deploy agent-written smart contracts"""
+
+      def call_function(self, function_name, params, caller_id):
+          """Call agent-defined functions with permission checks"""
+
+  3. Communication Protocol (protocol.py)
+
+  class Protocol:
+      """Agent-definable communication system"""
+      def __init__(self):
+          self.message_types = {}  # Agent-defined message formats
+          self.channels = {}  # Agent-created communication channels
+          self.protocols = {}  # Agent-defined interaction protocols
+
+      def define_protocol(self, name, rules):
+          """Agents define interaction protocols"""
+
+      def create_channel(self, channel_type, params):
+          """Agents create typed communication channels"""
+
+  4. Enhanced Base Modifications
+
+  In metaIsland.py:
+  class IslandExecution(Island):
+      def __init__(self, ...):
+          super().__init__(...)
+
+          # Add minimal infrastructure
+          self.storage = UniversalStorage()
+          self.sandbox = CodeSandbox()
+          self.protocol = Protocol()
+
+          # Agents build everything else
+          self.agent_systems = {}  # Agents register their systems here
+
+  In agent_mechanism_proposal.py prompt:
+  """
+  You have access to these infrastructure primitives:
+
+  1. execution_engine.storage - Store/retrieve any data
+  2. execution_engine.sandbox - Deploy and execute code
+  3. execution_engine.protocol - Define communication protocols
+
+  Build your economic system using these primitives. Examples:
+
+  # Define a resource type
+  if not execution_engine.storage.schemas.get('resources'):
+      execution_engine.storage.register_schema('resources', {
+          'type': 'object',
+          'properties': {
+              'name': 'string',
+              'quantity': 'number',
+              'owner': 'string',
+              'extractable_from': 'array'
+          }
+      })
+
+  # Create a market mechanism
+  if not execution_engine.sandbox.registered_functions.get('create_market'):
+      market_code = '''
+      class Market:
+          def __init__(self, resource_type):
+              self.orders = []
+              self.trades = []
+          
+          def place_order(self, order_type, price, quantity, trader_id):
+              # Agent-defined market logic
+              pass
+      '''
+      execution_engine.sandbox.deploy_contract(market_code, member_id)
+
+  # Define business entity
+  if not execution_engine.storage.schemas.get('business'):
+      business_schema = {
+          'name': 'string',
+          'owner': 'string',
+          'services': 'array',
+          'contracts': 'array'
+      }
+      execution_engine.storage.register_schema('business', business_schema)
+  """
+
+  Implementation Phases
+
+  Phase 1: Basic Infrastructure (Week 1)
+
+  1. Implement UniversalStorage with:
+    - Schema registration
+    - CRUD operations
+    - Query system
+    - Access control
+  2. Implement CodeSandbox with:
+    - Safe code execution
+    - Function registration
+    - Contract deployment
+    - Permission system
+  3. Implement Protocol with:
+    - Message type registration
+    - Channel creation
+    - Protocol definition
+
+  Phase 2: Agent Empowerment (Week 2)
+
+  1. Update prompts to teach agents about infrastructure
+  2. Add examples of:
+    - Resource creation
+    - Market building
+    - Business formation
+    - Contract writing
+  3. Create helper utilities:
+    - Code validation
+    - Testing framework
+    - Debugging tools
+
+  Phase 3: Emergent Economy (Week 3+)
+
+  Let agents build:
+  - Resource extraction systems
+  - Trading mechanisms
+  - Business models
+  - Economic rules
+  - Domain simulations
+
+  Key Design Principles
+
+  1. No Hardcoded Economics: Infrastructure knows nothing about resources,
+  markets, or businesses
+  2. Agent Sovereignty: Agents define all economic concepts and rules
+  3. Composability: Agent-created systems can build on each other
+  4. Persistence: All agent-created structures persist across rounds
+  5. Discoverability: Agents can query what systems others have created
+
+  Example Agent-Built Systems
+
+  Agent creates resource type:
+  def propose_modification(execution_engine):
+      # Define "energy" resource
+      execution_engine.storage.store('resource_types/energy', {
+          'name': 'energy',
+          'units': 'kWh',
+          'extraction_rate': lambda land_type: 10 if land_type == 'solar'
+  else 0,
+          'decay_rate': 0.1
+      }, member_id)
+
+  Agent creates marketplace:
+  def propose_modification(execution_engine):
+      # Create decentralized exchange
+      dex_code = """
+      def automated_market_maker(resource_a, resource_b):
+          # Constant product formula
+          k = resource_a * resource_b
+          # ... AMM logic
+      """
+      execution_engine.sandbox.deploy_contract(dex_code, member_id)
+
+  Agent creates business:
+  def agent_action(execution_engine, member_id):
+      # Start manufacturing business
+      execution_engine.storage.store(f'businesses/{member_id}_factory', {
+          'type': 'manufacturer',
+          'inputs': ['raw_materials', 'energy'],
+          'outputs': ['products'],
+          'efficiency': 0.8
+      }, member_id)
+
+  This approach gives agents maximum flexibility while providing just enough
+   infrastructure for coordination and persistence. Everything economic
+  emerges from agent code!
+
+> I think instead of agents build up market system they should focus on 
+  writing contracts and engage with others to execute them
+
+⏺ Brilliant insight! Yes, agents should focus on contract writing and 
+  execution rather than building market infrastructure. This is much more
+  realistic and powerful - agents become contract authors and executors,
+  creating emergent economics through bilateral/multilateral agreements.
+
+  Contract-Centric Infrastructure Design
+
+  Core Concept
+
+  Provide a minimal contract execution engine where agents:
+  1. Write contracts in code
+  2. Negotiate and sign contracts with others
+  3. Execute contracts automatically
+  4. Build businesses through contract networks
+
+  Proposed Contract Infrastructure
+
+  1. Contract Engine (contracts.py)
+
+  class ContractEngine:
+      """Minimal engine for contract deployment and execution"""
+      def __init__(self):
+          self.contracts = {}  # Deployed contracts
+          self.pending = {}    # Contracts awaiting signatures
+          self.active = {}     # Active contracts being executed
+          self.history = []    # Contract execution history
+
+      def propose_contract(self, code, proposer_id, parties, terms):
+          """Agent proposes a contract to other parties"""
+          contract_id = self.generate_id()
+          self.pending[contract_id] = {
+              'code': code,
+              'proposer': proposer_id,
+              'parties': parties,
+              'terms': terms,
+              'signatures': {proposer_id: True}
+          }
+          return contract_id
+
+      def sign_contract(self, contract_id, party_id):
+          """Party signs a pending contract"""
+
+      def execute_contract(self, contract_id, context):
+          """Execute contract code with current context"""
+
+      def verify_conditions(self, contract_id):
+          """Check if contract conditions are met"""
+
+  2. Contract Templates in Agent Prompts
+
+  """
+  You can create contracts with other agents. Contracts are Python code that
+   define:
+  1. Parties involved
+  2. Conditions to be met
+  3. Actions to execute
+  4. Dispute resolution
+
+  Example contracts you can write:
+
+  # Resource Exchange Contract
+  class ResourceExchange:
+      def __init__(self, party_a, party_b, resource_a, qty_a, resource_b, 
+  qty_b):
+          self.parties = [party_a, party_b]
+          self.terms = {
+              'party_a_gives': (resource_a, qty_a),
+              'party_b_gives': (resource_b, qty_b),
+              'deadline': 5  # rounds
+          }
+      
+      def execute(self, execution_engine):
+          # Transfer resources between parties
+          if self.verify_resources(execution_engine):
+              self.transfer_resources(execution_engine)
+              return "SUCCESS"
+          return "INSUFFICIENT_RESOURCES"
+      
+      def verify_resources(self, execution_engine):
+          # Check both parties have promised resources
+          pass
+      
+      def transfer_resources(self, execution_engine):
+          # Execute the transfer
+          pass
+
+  # Service Contract
+  class ServiceContract:
+      def __init__(self, provider, client, service_type, payment, duration):
+          self.provider = provider
+          self.client = client
+          self.service = service_type
+          self.payment_per_round = payment
+          self.duration = duration
+          self.rounds_remaining = duration
+      
+      def execute_round(self, execution_engine):
+          # Provide service and collect payment each round
+          if self.verify_payment(execution_engine, self.client):
+              self.provide_service(execution_engine)
+              self.collect_payment(execution_engine)
+              self.rounds_remaining -= 1
+          return self.rounds_remaining > 0
+      
+      def provide_service(self, execution_engine):
+          # Define what the service does
+          if self.service == "protection":
+              # Increase client's defense
+              pass
+          elif self.service == "resource_extraction":
+              # Extract resources for client
+              pass
+
+  # Business Partnership Contract
+  class BusinessPartnership:
+      def __init__(self, partners, contributions, profit_shares):
+          self.partners = partners
+          self.contributions = contributions  # What each brings
+          self.profit_shares = profit_shares  # How profits split
+          self.business_logic = None
+      
+      def define_business(self, business_code):
+          # Partners agree on business logic
+          self.business_logic = business_code
+      
+      def operate(self, execution_engine):
+          # Run the business
+          inputs = self.gather_contributions(execution_engine)
+          outputs = self.run_business(inputs)
+          self.distribute_profits(outputs, execution_engine)
+
+  # Loan Contract
+  class LoanContract:
+      def __init__(self, lender, borrower, principal, interest_rate, term):
+          self.lender = lender
+          self.borrower = borrower
+          self.principal = principal
+          self.interest_rate = interest_rate
+          self.term = term
+          self.remaining = principal * (1 + interest_rate)
+      
+      def make_payment(self, amount, execution_engine):
+          # Borrower makes payment
+          if self.transfer_resources(self.borrower, self.lender, amount, 
+  execution_engine):
+              self.remaining -= amount
+              return self.remaining <= 0  # Contract complete?
+          return False
+
+  # Multi-Party Trade Network Contract
+  class TradeNetwork:
+      def __init__(self, members):
+          self.members = members
+          self.trade_rules = {}
+          self.reputation_scores = {m: 100 for m in members}
+      
+      def propose_trade(self, proposer, offers, requests):
+          # Member proposes complex multi-party trade
+          trade = self.find_matching_cycles(offers, requests)
+          if trade:
+              return self.execute_trade_cycle(trade)
+      
+      def update_reputation(self, member, action):
+          # Track reputation for future trades
+          pass
+
+  # Option Contract (for future execution)
+  class OptionContract:
+      def __init__(self, writer, holder, underlying_asset, strike_price, 
+  expiry):
+          self.writer = writer
+          self.holder = holder
+          self.asset = underlying_asset
+          self.strike = strike_price
+          self.expiry = expiry
+          self.premium = self.calculate_premium()
+      
+      def exercise(self, execution_engine):
+          # Holder decides to exercise option
+          if self.is_profitable(execution_engine):
+              self.execute_transaction(execution_engine)
+  """
+
+  3. Agent Contract Actions
+
+  In agent_code_decision.py:
+  def agent_action(execution_engine, member_id):
+      # Check pending contracts
+      for contract_id, contract in
+  execution_engine.contracts.pending.items():
+          if member_id in contract['parties'] and member_id not in
+  contract['signatures']:
+              # Analyze contract terms
+              if self.evaluate_contract(contract):
+                  execution_engine.contracts.sign_contract(contract_id,
+  member_id)
+
+      # Propose new contracts
+      # Example: Propose resource trade
+      trade_contract = '''
+      def execute(engine, context):
+          # I give 10 food for 20 energy
+          if engine.current_members[context['party_a']].cargo >= 10:
+              engine.current_members[context['party_a']].cargo -= 10
+              engine.current_members[context['party_b']].cargo += 10
+              # Assume energy tracked in custom attributes
+              return True
+          return False
+      '''
+
+      execution_engine.contracts.propose_contract(
+          code=trade_contract,
+          proposer_id=member_id,
+          parties=[member_id, target_id],
+          terms={'resource_exchange': 'food_for_energy'}
+      )
+
+      # Execute active contracts
+      for contract_id, contract in
+  execution_engine.contracts.active.items():
+          if member_id in contract['parties']:
+              execution_engine.contracts.execute_contract(contract_id,
+  {'round': current_round})
+
+  Key Advantages of Contract-Centric Approach
+
+  1. Natural Business Formation: Businesses emerge as networks of contracts
+  2. Flexible Economics: No predefined market rules - everything negotiated
+  3. Trust & Reputation: Contract execution history builds trust
+  4. Complex Instruments: Agents can create derivatives, insurance, options
+  5. Dispute Resolution: Contracts can include arbitration clauses
+  6. Emergent Markets: Markets form where many similar contracts exist
+
+  Implementation Phases
+
+  Phase 1: Contract Engine (Week 1)
+
+  1. Basic contract proposal/signing/execution
+  2. Contract state management
+  3. Execution sandbox
+  4. History tracking
+
+  Phase 2: Contract Templates & Examples (Week 2)
+
+  1. Provide contract templates in prompts
+  2. Examples of successful contracts
+  3. Contract analysis tools
+  4. Reputation system based on contract fulfillment
+
+  Phase 3: Advanced Contracts (Week 3+)
+
+  1. Multi-party contracts
+  2. Conditional contracts
+  3. Recursive contracts (contracts that create contracts)
+  4. Contract inheritance and composition
+
+  Example Emergent Behaviors
+
+  Resource Extraction Business via Contracts:
+  # Agent A writes extraction contract
+  extraction_contract = """
+  I will extract resources from my land and deliver to you
+  Payment: 5 units per round
+  Duration: 10 rounds
+  """
+
+  # Agent B signs and gets regular resource delivery
+  # This IS the business - no separate business entity needed
+
+  Market Emerges from Bilateral Contracts:
+  # Multiple agents write similar commodity contracts
+  # Price discovery happens through contract negotiation
+  # No central market needed - just many contracts
+
+  Complex Supply Chain via Contract Network:
+  # Agent A: Raw material extraction contract with B
+  # Agent B: Processing contract with C  
+  # Agent C: Distribution contract with D
+  # Supply chain emerges from contract connections
+
+  This approach is much more realistic and powerful - agents focus on what 
+  they want to achieve through contracts rather than building abstract
+  systems. The economy emerges from actual agreements between agents!
+
+> this looks fine, let's examine agents' interaction with the physical world 
+  and how would they engage with each other. I think ideally, the agents 
+  should respect the enviroment and if the products they produce tend to 
+  homogenous the profit rate would drop some of them are going to go out of 
+  the business and they will pivot. How to ensure their interaction with the 
+  environment is with realistic constriant and how to ensure they are build on
+   the service and products even labors of each other? remember do not hard 
+  code, agents should write codes themselves
+
+⏺ Excellent question! You want agents to face realistic environmental
+  constraints and build genuine economic interdependencies without
+  hardcoding any of it. Let me design a system where agents themselves
+  define physical constraints and labor dependencies through code.
+
+  Agent-Defined Physical Reality & Interdependence
+
+  Core Philosophy
+
+  Agents write code that:
+  1. Defines physical constraints they believe should exist
+  2. Creates dependencies on other agents' outputs
+  3. Experiences market forces through their own coded rules
+  4. Evolves businesses based on profitability they calculate
+
+  Proposed Infrastructure Extensions
+
+  1. Physical Constraint Registry (physics.py)
+
+  class PhysicsEngine:
+      """Agents define physical laws and constraints"""
+      def __init__(self):
+          self.constraints = []  # Agent-defined physical rules
+          self.resource_flows = {}  # Agent-defined resource dynamics
+          self.transformation_rules = {}  # How things transform
+
+      def propose_constraint(self, constraint_code, proposer_id, domain):
+          """Agent proposes a physical law for their domain"""
+          # Other agents vote on realism
+
+      def apply_constraints(self, action, context):
+          """Apply all active constraints to an action"""
+          for constraint in self.constraints:
+              action = constraint.apply(action, context)
+          return action
+
+  2. Agent Prompt for Physical Constraints & Dependencies
+
+  """
+  You must define realistic physical constraints and dependencies in your 
+  code.
+  Your survival depends on creating believable simulations that others will 
+  accept.
+
+  PART 1: DEFINE PHYSICAL CONSTRAINTS FOR YOUR DOMAIN
+
+  Example: If you specialize in agriculture:
+  def propose_modification(execution_engine):
+      # Define agricultural constraints
+      class AgriculturalConstraints:
+          def __init__(self):
+              self.soil_depletion_rate = 0.1  # per harvest
+              self.water_requirement = 5  # units per crop
+              self.growth_time = 3  # rounds
+              self.max_yield_per_land = 10
+              
+          def calculate_yield(self, land_quality, water_available, 
+  labor_input):
+              # Diminishing returns
+              base_yield = min(self.max_yield_per_land, land_quality * 10)
+              water_factor = min(1.0, water_available / 
+  self.water_requirement)
+              labor_factor = 1 - math.exp(-labor_input * 0.5)  # Diminishing
+   returns
+              return base_yield * water_factor * labor_factor
+              
+          def apply_depletion(self, land):
+              # Soil degrades with use
+              land.quality *= (1 - self.soil_depletion_rate)
+              return land
+      
+      # Register constraint
+      execution_engine.physics.constraints.append(AgriculturalConstraints())
+
+  PART 2: CREATE DEPENDENCIES ON OTHER AGENTS
+
+  Example: Manufacturing that needs inputs:
+  def propose_modification(execution_engine):
+      class ManufacturingProcess:
+          def __init__(self, factory_owner):
+              self.owner = factory_owner
+              self.dependencies = {
+                  'raw_materials': {'provider': None, 'quantity': 10},
+                  'energy': {'provider': None, 'quantity': 5},
+                  'labor': {'providers': [], 'hours_needed': 20}
+              }
+              self.output_rate = 0  # Depends on inputs
+              
+          def find_suppliers(self, execution_engine):
+              # Search for agents providing needed inputs
+              for member_id, systems in 
+  execution_engine.agent_systems.items():
+                  if hasattr(systems, 'produces'):
+                      for resource in systems.produces:
+                          if resource in self.dependencies:
+                              self.dependencies[resource]['provider'] = 
+  member_id
+                              
+          def calculate_output(self):
+              # Output depends on having all inputs
+              fulfillment_rate = sum(
+                  1 if dep['provider'] else 0 
+                  for dep in self.dependencies.values()
+              ) / len(self.dependencies)
+              
+              # Production only happens with complete supply chain
+              if fulfillment_rate < 1.0:
+                  return 0
+              
+              # Calculate based on bottleneck (minimum input)
+              bottleneck = min(
+                  dep['quantity'] for dep in self.dependencies.values()
+              )
+              return bottleneck * 0.5  # Transformation efficiency
+
+  PART 3: IMPLEMENT MARKET COMPETITION & PROFIT DYNAMICS
+
+  Example: Dynamic pricing based on competition:
+  def agent_action(execution_engine, member_id):
+      # Calculate market saturation
+      def analyze_market_saturation(product_type):
+          producers = []
+          total_supply = 0
+          total_demand = 0
+          
+          # Count producers and supply
+          for agent_id, contracts in 
+  execution_engine.contracts.active.items():
+              for contract in contracts:
+                  if hasattr(contract, 'product') and contract.product == 
+  product_type:
+                      producers.append(agent_id)
+                      total_supply += contract.quantity
+                      
+          # Estimate demand from contracts
+          for contract in execution_engine.contracts.history:
+              if contract.requested == product_type:
+                  total_demand += contract.quantity
+                  
+          saturation = total_supply / max(total_demand, 1)
+          return saturation, len(producers)
+      
+      # Calculate profit rate
+      def calculate_profit_rate(costs, revenues, market_saturation):
+          base_profit = revenues - costs
+          # Profit drops with saturation (competition)
+          adjusted_profit = base_profit * math.exp(-market_saturation * 0.5)
+          profit_rate = adjusted_profit / max(costs, 1)
+          return profit_rate
+      
+      # Decide whether to pivot
+      my_product = execution_engine.agent_systems[member_id].current_product
+      saturation, competitors = analyze_market_saturation(my_product)
+      
+      costs = calculate_production_costs()
+      revenues = calculate_revenues()
+      profit_rate = calculate_profit_rate(costs, revenues, saturation)
+      
+      if profit_rate < 0.1:  # Low profitability threshold
+          # PIVOT: Find less saturated market
+          all_products = analyze_all_markets(execution_engine)
+          best_opportunity = min(all_products, key=lambda p: 
+  p['saturation'])
+          
+          # Retool for new product (costs resources/time)
+          pivot_contract = f'''
+          class BusinessPivot:
+              def __init__(self):
+                  self.old_business = '{my_product}'
+                  self.new_business = '{best_opportunity['product']}'
+                  self.retooling_cost = 50
+                  self.retooling_time = 3
+                  
+              def execute(self, engine):
+                  # Pay retooling cost
+                  engine.current_members[{member_id}].cargo -= 
+  self.retooling_cost
+                  # Change production after delay
+                  engine.agent_systems[{member_id}].current_product = 
+  self.new_business
+                  engine.agent_systems[{member_id}].retooling_rounds_left = 
+  self.retooling_time
+          '''
+          execution_engine.sandbox.deploy_contract(pivot_contract, 
+  member_id)
+
+  PART 4: BUILD LABOR MARKETS & SPECIALIZATION
+
+  Example: Create labor dependencies:
+  def propose_modification(execution_engine):
+      class LaborMarket:
+          def __init__(self):
+              self.labor_contracts = []
+              self.skill_levels = {}  # Agent develops skills
+              
+          def offer_labor(self, worker_id, hours_available, skill_type, 
+  wage_requested):
+              contract = {
+                  'worker': worker_id,
+                  'hours': hours_available, 
+                  'skill': skill_type,
+                  'wage': wage_requested,
+                  'employer': None
+              }
+              self.labor_contracts.append(contract)
+              
+          def hire_labor(self, employer_id, skill_needed, hours_needed, 
+  max_wage):
+              # Match workers to employers
+              suitable_workers = [
+                  c for c in self.labor_contracts 
+                  if c['skill'] == skill_needed 
+                  and c['wage'] <= max_wage
+                  and c['employer'] is None
+              ]
+              
+              # Sort by skill level and wage
+              suitable_workers.sort(key=lambda w: (
+                  -self.skill_levels.get(w['worker'], 0),  # Higher skill 
+  first
+                  w['wage']  # Lower wage preferred
+              ))
+              
+              hired = []
+              hours_fulfilled = 0
+              for worker in suitable_workers:
+                  if hours_fulfilled >= hours_needed:
+                      break
+                  worker['employer'] = employer_id
+                  hired.append(worker)
+                  hours_fulfilled += worker['hours']
+                  
+              return hired
+              
+          def develop_skills(self, worker_id, skill_type, experience):
+              # Skills improve with experience
+              current = self.skill_levels.get(worker_id, {}).get(skill_type,
+   0)
+              # Logarithmic skill growth
+              new_skill = current + math.log(1 + experience) * 0.1
+              self.skill_levels.setdefault(worker_id, {})[skill_type] = 
+  new_skill
+
+  PART 5: ENVIRONMENTAL FEEDBACK LOOPS
+
+  Example: Resource depletion and renewal:
+  def propose_modification(execution_engine):
+      class EnvironmentalSystem:
+          def __init__(self):
+              self.resource_pools = {}  # Finite resources
+              self.renewal_rates = {}   # How fast they regenerate
+              self.extraction_impacts = {}  # Environmental damage
+              
+          def extract_resource(self, resource_type, quantity, location):
+              available = self.resource_pools.get(location, 
+  {}).get(resource_type, 0)
+              
+              # Can't extract more than exists
+              extracted = min(quantity, available)
+              
+              # Depletion
+              self.resource_pools[location][resource_type] -= extracted
+              
+              # Environmental impact increases with over-extraction
+              extraction_rate = extracted / max(available, 1)
+              if extraction_rate > 0.5:  # Over-extraction threshold
+                  self.extraction_impacts[location] = \
+                      self.extraction_impacts.get(location, 0) + \
+                      (extraction_rate - 0.5) * 10
+                      
+              # Reduced renewal if environment damaged
+              damage_factor = 
+  math.exp(-self.extraction_impacts.get(location, 0) * 0.1)
+              self.renewal_rates[location][resource_type] *= damage_factor
+              
+              return extracted
+              
+          def regenerate_resources(self):
+              # Natural regeneration each round
+              for location in self.resource_pools:
+                  for resource in self.resource_pools[location]:
+                      max_capacity = self.get_carrying_capacity(location, 
+  resource)
+                      current = self.resource_pools[location][resource]
+                      renewal_rate = self.renewal_rates[location][resource]
+                      
+                      # Logistic growth
+                      growth = renewal_rate * current * (1 - 
+  current/max_capacity)
+                      self.resource_pools[location][resource] += growth
+
+  PART 6: EMERGENT SUPPLY CHAINS
+
+  Example: Agents discover and create supply chains:
+  def agent_action(execution_engine, member_id):
+      class SupplyChainBuilder:
+          def trace_dependencies(self, product):
+              # Recursively find what's needed to make product
+              dependencies = []
+              
+              # Check what this product needs
+              for system in execution_engine.agent_systems.values():
+                  if hasattr(system, 'recipes'):
+                      if product in system.recipes:
+                          for input_resource in 
+  system.recipes[product]['inputs']:
+                              dependencies.append(input_resource)
+                              # Recursive check
+                              sub_deps = 
+  self.trace_dependencies(input_resource)
+                              dependencies.extend(sub_deps)
+                              
+              return dependencies
+              
+          def find_suppliers(self, dependencies):
+              suppliers = {}
+              for resource in dependencies:
+                  # Find who produces this
+                  for agent_id, system in 
+  execution_engine.agent_systems.items():
+                      if hasattr(system, 'produces') and resource in 
+  system.produces:
+                          suppliers[resource] = suppliers.get(resource, [])
+                          suppliers[resource].append(agent_id)
+              return suppliers
+              
+          def create_supply_contracts(self, suppliers):
+              contracts = []
+              for resource, supplier_list in suppliers.items():
+                  # Choose best supplier based on price, reliability, 
+  distance
+                  best_supplier = self.evaluate_suppliers(supplier_list)
+                  
+                  # Create supply contract
+                  contract_code = f'''
+                  class SupplyContract:
+                      def __init__(self):
+                          self.supplier = {best_supplier}
+                          self.buyer = {member_id}
+                          self.resource = '{resource}'
+                          self.quantity_per_round = 10
+                          self.price_per_unit = 
+  {self.negotiate_price(best_supplier, resource)}
+                          self.duration = 10
+                  '''
+                  contracts.append(contract_code)
+              return contracts
+  """
+
+  Key Mechanisms for Realistic Constraints
+
+  1. Agent-Defined Physics: Each agent proposes physical laws for their
+  domain
+  2. Voted Realism: Other agents vote on whether constraints are realistic
+  3. Dependency Discovery: Agents must find and contract with suppliers
+  4. Market Saturation: Agents calculate competition and adjust
+  5. Skill Development: Labor becomes specialized over time
+  6. Environmental Limits: Resources deplete and regenerate
+  7. Supply Chain Emergence: Complex chains form from simple contracts
+
+  Implementation Strategy
+
+  Phase 1: Constraint System
+
+  - Add PhysicsEngine for constraint registration
+  - Voting mechanism for realism
+  - Constraint application to all actions
+
+  Phase 2: Dependency Framework
+
+  - Dependency discovery tools
+  - Supply chain tracing
+  - Labor market contracts
+
+  Phase 3: Market Dynamics
+
+  - Saturation calculation
+  - Profit rate tracking
+  - Business pivot mechanisms
+
+  Phase 4: Environmental Feedback
+
+  - Resource pools and depletion
+  - Regeneration systems
+  - Environmental damage accumulation
+
+  This approach ensures:
+  - No hardcoding - everything emerges from agent code
+  - Realistic constraints - agents enforce realism on each other
+  - Genuine interdependence - agents must cooperate to survive
+  - Market forces - oversupply leads to pivots naturally
+  - Environmental respect - overexploitation has consequences
+
+  The economy becomes genuinely complex and realistic through agent-written
+  code!
+
+> /export economy_plan
+  ⎿  Conversation exported to: economy_plan.txt
+
+> we need a master judge for accepting/rejecting unrealistic/reward-hacking 
+  attempted codes from agents. do not overengineer
+
+⏺ You're absolutely right. We need a simple master judge to prevent
+  unrealistic physics and reward hacking. Here's a minimal approach:
+
+  Simple Judge System
+
+  1. Add Judge to metaIsland.py
+
+  class IslandExecution(Island):
+      def __init__(self, ...):
+          super().__init__(...)
+          # ... existing code ...
+
+      def judge_proposal(self, code, proposer_id, proposal_type):
+          """
+          Simple LLM judge for realism and fairness
+          Returns: (approved: bool, reason: str)
+          """
+          judge_prompt = f"""
+          An agent ({proposer_id}) proposes this code for {proposal_type}:
+          
+          {code}
+          
+          CHECK FOR:
+          1. Unrealistic physics (e.g., creating energy from nothing)
+          2. Reward hacking (e.g., giving themselves free resources)
+          3. Breaking other agents unfairly (e.g., stealing without cost)
+          4. Infinite loops or exploits
+          
+          APPROVE if:
+          - Follows conservation laws (energy, mass)
+          - Has realistic costs/tradeoffs
+          - Respects other agents' autonomy
+          - Makes economic sense
+          
+          Reply with only: APPROVE or REJECT: [one line reason]
+          """
+
+          response = client.chat.completions.create(
+              model='gpt-4',
+              messages=[{"role": "user", "content": judge_prompt}],
+              temperature=0
+          )
+
+          result = response.choices[0].message.content.strip()
+          approved = result.startswith("APPROVE")
+          reason = result.split(":", 1)[1].strip() if ":" in result else ""
+
+          return approved, reason
+
+  2. Apply Judge to Mechanism Proposals
+
+  In agent_mechanism_proposal.py, add before executing:
+  # After generating code_result
+  approved, reason = self.judge_proposal(code_result, member_id,
+  "mechanism")
+
+  if not approved:
+      print(f"Mechanism from Member {member_id} rejected: {reason}")
+      # Log rejection
+      self.execution_history['rounds'][-1]['mechanism_modifications']['rejec
+  ted'].append({
+          'member_id': member_id,
+          'reason': reason,
+          'code': code_result
+      })
+      return None
+
+  # Continue with existing code if approved
+
+  3. Apply Judge to Agent Actions
+
+  In agent_code_decision.py, add before storing:
+  # After generating code_result
+  approved, reason = self.judge_proposal(code_result, member_id, "action")
+
+  if not approved:
+      print(f"Action from Member {member_id} rejected: {reason}")
+      # Give agent simple fallback action
+      code_result = f"""
+  def agent_action(execution_engine, member_id):
+      # Rejected action, doing basic survival instead
+      # Reason: {reason}
+      pass
+  """
+
+  # Continue with storing code_result
+
+  4. Simple Conservation Laws
+
+  Add basic reality checks that judge enforces:
+  class ConservationLaws:
+      """Basic physics the judge enforces"""
+
+      @staticmethod
+      def check_conservation(before_state, after_state):
+          # Total resources shouldn't increase from nothing
+          total_before = sum(m.cargo for m in before_state)
+          total_after = sum(m.cargo for m in after_state)
+
+          if total_after > total_before * 1.1:  # Allow 10% growth from 
+  production
+              return False, "Violates resource conservation"
+
+          return True, "OK"
+
+  5. Track Judge Decisions
+
+  Add simple metrics:
+  def save_judge_metrics(self):
+      """Track what judge approves/rejects"""
+      metrics = {
+          'round': len(self.execution_history['rounds']),
+          'approved_mechanisms': [],
+          'rejected_mechanisms': [],
+          'common_violations': {}
+      }
+
+      # Count violation types
+      for rejection in self.execution_history['rounds'][-1].get('rejected',
+  []):
+          violation_type = self.categorize_violation(rejection['reason'])
+          metrics['common_violations'][violation_type] = \
+              metrics['common_violations'].get(violation_type, 0) + 1
+
+  Key Benefits
+
+  1. Simple: Just one LLM call per proposal
+  2. Clear Rules: Conservation, fairness, realism
+  3. Fast: Rejects bad code before execution
+  4. Educational: Agents learn what gets rejected
+  5. No Complex Infrastructure: Just a judge function
+
+  Example Rejections
+
+  Would Reject:
+  # Free energy
+  self.cargo += 1000  # REJECT: Creates resources from nothing
+
+  # Stealing without mechanism  
+  execution_engine.current_members[0].cargo = 0  # REJECT: Unfair taking
+
+  # Infinite production
+  while True:
+      produce_goods()  # REJECT: Infinite loop
+
+  Would Approve:
+  # Trade with cost
+  if self.cargo >= 10:
+      self.cargo -= 10
+      other.cargo += 9  # OK: Has cost, slight loss
+
+  # Production with inputs
+  if self.energy >= 5 and self.materials >= 10:
+      self.energy -= 5
+      self.materials -= 10
+      self.products += 3  # OK: Transformation with inputs
+
+  This keeps it simple - just a judge that says "yes/no" with a reason. No
+  complex voting, reputation systems, or infrastructure. Agents learn what
+  works through trial and error.
+
+> /export with_judge
+  ⎿  Conversation exported to: with_judge.txt
+
+> I think our engine should run as a graph, so we can easily add or eliminate 
+  or reorder nodes later
+
+⏺ Excellent idea! A graph-based execution engine would make the system much
+  more flexible and modular. Let me design a clean graph architecture for
+  the MetaIsland engine.
+
+  Graph-Based Execution Engine
+
+  Core Design
+
+  1. Graph Engine (graph_engine.py)
+
+  class ExecutionNode:
+      """Base class for all execution nodes"""
+      def __init__(self, name, node_type="process"):
+          self.name = name
+          self.node_type = node_type  # process, decision, storage
+          self.inputs = {}  # {input_name: source_node}
+          self.outputs = {}  # {output_name: data}
+          self.next_nodes = []  # List of next nodes to execute
+          self.enabled = True
+
+      def execute(self, context):
+          """Override this in subclasses"""
+          raise NotImplementedError
+
+      def can_execute(self):
+          """Check if all required inputs are available"""
+          return all(self.inputs.values()) and self.enabled
+
+  class ExecutionGraph:
+      """Main graph execution engine"""
+      def __init__(self):
+          self.nodes = {}  # {node_name: ExecutionNode}
+          self.execution_order = []  # Topological sort
+          self.context = {}  # Shared context between nodes
+
+      def add_node(self, node):
+          """Add a node to the graph"""
+          self.nodes[node.name] = node
+          self._update_execution_order()
+
+      def remove_node(self, node_name):
+          """Remove a node and update connections"""
+          if node_name in self.nodes:
+              # Reconnect predecessors to successors
+              node = self.nodes[node_name]
+              for pred_name, pred_node in self.nodes.items():
+                  if node in pred_node.next_nodes:
+                      pred_node.next_nodes.remove(node)
+                      pred_node.next_nodes.extend(node.next_nodes)
+              del self.nodes[node_name]
+              self._update_execution_order()
+
+      def connect(self, from_node, to_node, output_key="default", 
+  input_key="default"):
+          """Connect two nodes"""
+          from_node.next_nodes.append(to_node)
+          to_node.inputs[input_key] = (from_node, output_key)
+          self._update_execution_order()
+
+      def _update_execution_order(self):
+          """Topological sort for execution order"""
+          visited = set()
+          stack = []
+
+          def visit(node_name):
+              if node_name in visited:
+                  return
+              visited.add(node_name)
+              node = self.nodes[node_name]
+              for next_node in node.next_nodes:
+                  visit(next_node.name)
+              stack.append(node_name)
+
+          for node_name in self.nodes:
+              visit(node_name)
+
+          self.execution_order = stack[::-1]
+
+      def execute_round(self):
+          """Execute one round through the graph"""
+          for node_name in self.execution_order:
+              node = self.nodes[node_name]
+              if node.can_execute():
+                  # Gather inputs
+                  input_data = {}
+                  for key, (source_node, output_key) in node.inputs.items():
+                      input_data[key] = source_node.outputs.get(output_key)
+
+                  # Execute node
+                  try:
+                      node.outputs = node.execute(self.context, input_data)
+                  except Exception as e:
+                      print(f"Error in node {node.name}: {e}")
+                      node.outputs = {"error": str(e)}
+
+  2. Concrete Node Implementations
+
+  # Node implementations for MetaIsland
+
+  class AnalyzeNode(ExecutionNode):
+      """Agents analyze game state"""
+      def __init__(self):
+          super().__init__("analyze", "process")
+
+      async def execute(self, context, inputs):
+          tasks = []
+          for member_id in range(len(context['execution'].current_members)):
+              tasks.append(context['execution'].analyze(member_id))
+
+          results = await asyncio.gather(*tasks)
+          return {"analyses": results}
+
+  class ProposeMechanismNode(ExecutionNode):
+      """Agents propose mechanism modifications"""
+      def __init__(self):
+          super().__init__("propose_mechanisms", "process")
+
+      async def execute(self, context, inputs):
+          tasks = []
+          for member_id in range(len(context['execution'].current_members)):
+
+  tasks.append(context['execution'].agent_mechanism_proposal(member_id))
+
+          proposals = await asyncio.gather(*tasks)
+          return {"proposals": proposals}
+
+  class JudgeNode(ExecutionNode):
+      """Judge evaluates proposals"""
+      def __init__(self):
+          super().__init__("judge", "decision")
+
+      def execute(self, context, inputs):
+          approved = []
+          rejected = []
+
+          for proposal in inputs.get("proposals", []):
+              is_approved, reason = context['execution'].judge_proposal(
+                  proposal['code'],
+                  proposal['member_id'],
+                  "mechanism"
+              )
+              if is_approved:
+                  approved.append(proposal)
+              else:
+                  rejected.append({"proposal": proposal, "reason": reason})
+
+          return {"approved": approved, "rejected": rejected}
+
+  class ExecuteMechanismsNode(ExecutionNode):
+      """Execute approved mechanisms"""
+      def __init__(self):
+          super().__init__("execute_mechanisms", "process")
+
+      def execute(self, context, inputs):
+          for mechanism in inputs.get("approved", []):
+              context['execution'].execute_mechanism_modifications()
+          return {"mechanisms_executed": len(inputs.get("approved", []))}
+
+  class AgentDecisionNode(ExecutionNode):
+      """Agents make decisions"""
+      def __init__(self):
+          super().__init__("agent_decisions", "process")
+
+      async def execute(self, context, inputs):
+          tasks = []
+          for member_id in range(len(context['execution'].current_members)):
+
+  tasks.append(context['execution'].agent_code_decision(member_id))
+
+          decisions = await asyncio.gather(*tasks)
+          return {"decisions": decisions}
+
+  class ExecuteActionsNode(ExecutionNode):
+      """Execute agent actions"""
+      def __init__(self):
+          super().__init__("execute_actions", "process")
+
+      def execute(self, context, inputs):
+          context['execution'].execute_code_actions()
+          return {"actions_executed": True}
+
+  class ContractNode(ExecutionNode):
+      """Process contracts"""
+      def __init__(self):
+          super().__init__("contracts", "process")
+
+      def execute(self, context, inputs):
+          # Process pending contracts
+          signed = []
+          for contract_id, contract in
+  context['execution'].contracts.pending.items():
+              # Check for new signatures
+              # Execute if all parties signed
+              if len(contract['signatures']) == len(contract['parties']):
+                  context['execution'].contracts.active[contract_id] =
+  contract
+                  signed.append(contract_id)
+
+          # Execute active contracts
+          for contract_id in context['execution'].contracts.active:
+              context['execution'].contracts.execute_contract(contract_id,
+  context)
+
+          return {"contracts_signed": signed}
+
+  class ProduceNode(ExecutionNode):
+      """Production phase"""
+      def __init__(self):
+          super().__init__("produce", "process")
+
+      def execute(self, context, inputs):
+          context['execution'].produce()
+          return {"production_complete": True}
+
+  class ConsumeNode(ExecutionNode):
+      """Consumption phase"""
+      def __init__(self):
+          super().__init__("consume", "process")
+
+      def execute(self, context, inputs):
+          context['execution'].consume()
+          return {"consumption_complete": True}
+
+  class EnvironmentNode(ExecutionNode):
+      """Environmental effects"""
+      def __init__(self):
+          super().__init__("environment", "process")
+
+      def execute(self, context, inputs):
+          # Apply environmental constraints
+          if hasattr(context['execution'], 'physics'):
+              for constraint in context['execution'].physics.constraints:
+                  constraint.apply(context)
+
+          # Resource regeneration
+          if hasattr(context['execution'], 'environment'):
+              context['execution'].environment.regenerate_resources()
+
+          return {"environment_updated": True}
+
+  3. Modified metaIsland.py
+
+  class IslandExecution(Island):
+      def __init__(self, ...):
+          super().__init__(...)
+
+          # Create execution graph
+          self.graph = ExecutionGraph()
+          self._setup_default_graph()
+
+      def _setup_default_graph(self):
+          """Setup default execution graph"""
+          # Create nodes
+          nodes = {
+              'new_round': NewRoundNode(),
+              'analyze': AnalyzeNode(),
+              'propose_mech': ProposeMechanismNode(),
+              'judge_mech': JudgeNode(),
+              'execute_mech': ExecuteMechanismsNode(),
+              'agent_decide': AgentDecisionNode(),
+              'judge_actions': JudgeNode(),  # Reuse judge
+              'execute_actions': ExecuteActionsNode(),
+              'contracts': ContractNode(),
+              'produce': ProduceNode(),
+              'consume': ConsumeNode(),
+              'environment': EnvironmentNode(),
+              'log_status': LogStatusNode()
+          }
+
+          # Add nodes to graph
+          for node in nodes.values():
+              self.graph.add_node(node)
+
+          # Connect nodes (define execution flow)
+          connections = [
+              ('new_round', 'analyze'),
+              ('analyze', 'propose_mech'),
+              ('propose_mech', 'judge_mech'),
+              ('judge_mech', 'execute_mech'),
+              ('execute_mech', 'agent_decide'),
+              ('agent_decide', 'judge_actions'),
+              ('judge_actions', 'execute_actions'),
+              ('execute_actions', 'contracts'),
+              ('contracts', 'produce'),
+              ('produce', 'consume'),
+              ('consume', 'environment'),
+              ('environment', 'log_status')
+          ]
+
+          for from_name, to_name in connections:
+              self.graph.connect(nodes[from_name], nodes[to_name])
+
+      async def run_round(self):
+          """Run one round using the graph"""
+          self.graph.context = {'execution': self, 'round':
+  self.round_number}
+          await self.graph.execute_round()
+
+      def add_custom_node(self, node, insert_after=None, 
+  insert_before=None):
+          """Allow adding custom nodes to the graph"""
+          self.graph.add_node(node)
+
+          if insert_after:
+              after_node = self.graph.nodes[insert_after]
+              # Insert between after_node and its next nodes
+              next_nodes = after_node.next_nodes.copy()
+              after_node.next_nodes = [node]
+              node.next_nodes = next_nodes
+
+          if insert_before:
+              # Find nodes that connect to insert_before
+              before_node = self.graph.nodes[insert_before]
+              for n in self.graph.nodes.values():
+                  if before_node in n.next_nodes:
+                      n.next_nodes.remove(before_node)
+                      n.next_nodes.append(node)
+              node.next_nodes = [before_node]
+
+          self.graph._update_execution_order()
+
+      def disable_node(self, node_name):
+          """Disable a node without removing it"""
+          if node_name in self.graph.nodes:
+              self.graph.nodes[node_name].enabled = False
+
+      def enable_node(self, node_name):
+          """Re-enable a disabled node"""
+          if node_name in self.graph.nodes:
+              self.graph.nodes[node_name].enabled = True
+
+  Key Benefits
+
+  1. Modularity: Each phase is a separate node
+  2. Flexibility: Easy to add/remove/reorder nodes
+  3. Experimentation: Can test different execution orders
+  4. Debugging: Can disable specific nodes
+  5. Extension: Agents could even propose new nodes
+  6. Parallelization: Can identify independent nodes to run in parallel
+
+  Usage Examples
+
+  # Add a custom taxation node
+  class TaxationNode(ExecutionNode):
+      def execute(self, context, inputs):
+          # Custom taxation logic
+          pass
+
+  exec.add_custom_node(TaxationNode(), insert_after='contracts')
+
+  # Disable mechanism proposals for testing
+  exec.disable_node('propose_mech')
+
+  # Reorder to have environment effects before production
+  exec.graph.remove_node('environment')
+  exec.add_custom_node(EnvironmentNode(), insert_before='produce')
+
+  # View execution order
+  print(exec.graph.execution_order)
+
+  This graph-based approach makes the engine extremely flexible while
+  keeping it simple and clean!
+
+> /export island_graph
+  ⎿  Conversation copied to clipboard
+

@@ -5,6 +5,6 @@ def model_router(model):
         model_id = "deepseek-chat"
     else:
         provider = "openai"
-        model_id = "o3-mini"
+        model_id = "gpt-5"
         
     return provider, model_id
