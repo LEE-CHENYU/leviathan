@@ -104,7 +104,7 @@ class IslandExecution(Island):
         self.graph = ExecutionGraph()
         self.contracts = ContractEngine()
         self.physics = PhysicsEngine()
-        self.judge = Judge(model_name="gpt-4")
+        self.judge = Judge(model_name="gpt-5")
 
         # Setup default execution graph
         self._setup_default_graph()
