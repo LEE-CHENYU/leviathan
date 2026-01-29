@@ -6,6 +6,13 @@ introduction: |
   - execution_engine.resources (if created by agents)
   - execution_engine.market (if created by agents)
   - execution_engine.businesses (if created by agents)
+  - execution_engine.physics (PhysicsEngine, if created by agents)
+
+  Notes:
+  - Contracts execute after actions; design terms with this timing in mind.
+  - Prefer small trials and diverse partners to preserve strategy diversity.
+  - If you construct custom action dicts in contracts, pass them through
+    execution_engine.physics.apply_constraints(...) before applying state changes.
 
 action_templates:
   - name: "Propose Trade Contract"
@@ -64,6 +71,9 @@ action_templates:
           if hasattr(execution_engine, 'contracts'):
               # Get contracts I'm involved in
               pending = execution_engine.contracts.get_contracts_for_party(member_id, 'pending')
+              max_signatures = 2  # avoid signing everything at once
+              signed = 0
+              signed_types = set()
 
               for contract in pending:
                   # Already signed by me?
@@ -72,6 +82,9 @@ action_templates:
 
                   # Evaluate if beneficial
                   terms = contract.get('terms', {})
+                  contract_type = terms.get('type')
+                  if contract_type in signed_types:
+                      continue
 
                   # Simple heuristic: sign if it's a trade and I have the resources
                   if terms.get('type') == 'trade':
@@ -85,6 +98,67 @@ action_templates:
                               execution_engine.contracts.sign_contract(
                                   contract['id'], member_id
                               )
+                              signed += 1
+                              if contract_type:
+                                  signed_types.add(contract_type)
+                              if signed >= max_signatures:
+                                  break
+
+  - name: "Trial Exchange Contract (Limited Term)"
+    description: "Start a small, reversible contract and auto-complete after a few executions"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Start a small, reversible contract and auto-complete after a few executions'''
+
+          if not hasattr(execution_engine, 'contracts') or not hasattr(execution_engine, 'resources'):
+              return
+
+          my_inv = execution_engine.resources.inventories.get(member_id, {})
+          if my_inv.get('food', 0) < 8:
+              return
+
+          # Pick a single partner (avoid broadcasting to all)
+          partner_id = None
+          for other_id in range(len(execution_engine.current_members)):
+              if other_id == member_id:
+                  continue
+              other_inv = execution_engine.resources.inventories.get(other_id, {})
+              if other_inv.get('materials', 0) >= 6:
+                  partner_id = other_id
+                  break
+
+          if partner_id is None:
+              return
+
+          trial_contract = '''
+      def execute_contract(execution_engine, context):
+          contract = context.get('contract', {})
+          party_a = contract['parties'][0]
+          party_b = contract['parties'][1]
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              if inv.get(party_a, {}).get('food', 0) >= 4 and \\
+                 inv.get(party_b, {}).get('materials', 0) >= 3:
+                  inv[party_a]['food'] -= 4
+                  inv[party_b]['materials'] -= 3
+                  inv[party_a]['materials'] = inv[party_a].get('materials', 0) + 3
+                  inv[party_b]['food'] = inv[party_b].get('food', 0) + 4
+
+                  # Auto-complete after 3 executions to keep it reversible
+                  if contract.get('execution_count', 0) >= 2:
+                      execution_engine.contracts.complete_contract(contract['id'], reason='trial_complete')
+
+                  return {"status": "success", "trial": True}
+          return {"status": "failed"}
+      '''
+
+          execution_engine.contracts.propose_contract(
+              code=trial_contract,
+              proposer_id=member_id,
+              parties=[member_id, partner_id],
+              terms={'type': 'trial_trade', 'limit': 3}
+          )
 
   - name: "Market Saturation Analysis & Business Pivot"
     description: "Analyze market and pivot if saturated"
@@ -234,7 +308,28 @@ action_templates:
               # Extract food (costs vitality)
               member = execution_engine.current_members[member_id]
               if member.vitality > 20:  # Only if healthy enough
+                  # Optional physics gating
+                  allowed_yield = None
+                  if hasattr(execution_engine, 'physics'):
+                      action = {
+                          'type': 'extract',
+                          'resource': 'food',
+                          'member_id': member_id,
+                          'yield': resources.resource_types.get('food', {}).get('base_yield', 1.0)
+                      }
+                      action = execution_engine.physics.apply_constraints(action, execution_engine)
+                      allowed_yield = action.get('yield')
+                      if allowed_yield is not None and allowed_yield <= 0:
+                          return
+
                   extracted = resources.extract(member_id, None, 'food')
+
+                  # Adjust inventory to respect physics-limited yield if provided
+                  if allowed_yield is not None and extracted > allowed_yield:
+                      inv = resources.inventories.setdefault(member_id, {})
+                      inv['food'] = max(0, inv.get('food', 0) - (extracted - allowed_yield))
+                      extracted = allowed_yield
+
                   print(f"Extracted {extracted} food")
 
                   # Pay vitality cost if defined
@@ -363,7 +458,8 @@ implementation_guide:
 
   reminders:
     - "Contracts must benefit both parties to be signed"
+    - "Use physics constraints when defining custom action dicts"
     - "Market prices reflect supply/demand"
     - "Pivot when profit margins drop"
     - "Build supply chains for reliability"
-    - "Diversify risk across multiple relationships"
+    - "Diversify risk across multiple relationships and contract terms"

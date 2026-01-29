@@ -48,6 +48,16 @@ class IslandExecution(Island):
         # Cache messages consumed during decision for later logging/evaluation
         self._decision_messages = {}
 
+        # Diversity controller for adaptive exploration pressure
+        self._diversity_controller = {
+            "alpha": 0.25,
+            "target_diversity": 0.45,
+            "target_entropy": 0.6,
+            "adjustment": 0.0,
+            "min_adjust": -0.15,
+            "max_adjust": 0.25,
+        }
+
     def _resolve_member_ref(self, member_ref, prefer_index: bool = True) -> Optional[Member]:
         """Resolve a member reference (Member or index/id) to a live Member object."""
         if isinstance(member_ref, Member):
@@ -666,6 +676,7 @@ class IslandExecution(Island):
                     "resource_pressure",
                     "avg_vitality",
                     "avg_cargo",
+                    "gini_wealth",
                     "action_entropy",
                     "dominant_action_share",
                 ),
@@ -1191,6 +1202,111 @@ class IslandExecution(Island):
         dominance_note = f"; dominant={dominant} ({dominance:.2f})" if dominance >= 0.5 else ""
         return "Population action mix (last round): " + ", ".join(parts) + dominance_note
 
+    def _summarize_population_state(self, top_k: int = 3) -> str:
+        """Summarize current population state for strategic grounding."""
+        members = list(self.current_members) if hasattr(self, "current_members") else []
+        if not members:
+            return "Population state snapshot: no members."
+
+        member_count = len(members)
+        cargo_vals = [float(m.cargo) for m in members]
+        land_vals = [float(m.land_num) for m in members]
+        vitality_vals = [float(m.vitality) for m in members]
+        survival_vals = [float(self.compute_survival_chance(m)) for m in members]
+
+        def _mean_std(values):
+            if not values:
+                return 0.0, 0.0
+            arr = np.array(values, dtype=float)
+            return float(np.mean(arr)), float(np.std(arr))
+
+        cargo_mean, cargo_std = _mean_std(cargo_vals)
+        land_mean, land_std = _mean_std(land_vals)
+        vitality_mean, vitality_std = _mean_std(vitality_vals)
+
+        survival_min = float(np.min(survival_vals)) if survival_vals else 0.0
+        survival_mean = float(np.mean(survival_vals)) if survival_vals else 0.0
+        survival_max = float(np.max(survival_vals)) if survival_vals else 0.0
+
+        land_total = float(np.prod(self.land.shape)) if hasattr(self, "land") else 0.0
+        land_owned = float(sum(land_vals))
+        land_scarcity = land_owned / land_total if land_total else 0.0
+
+        gini_cargo = self._compute_gini(cargo_vals)
+        gini_land = self._compute_gini(land_vals)
+        wealth_vals = [c + l for c, l in zip(cargo_vals, land_vals)]
+        gini_wealth = self._compute_gini(wealth_vals)
+
+        round_context = self._compute_round_context()
+        attack_rate = float(round_context.get("attack_rate", 0.0))
+        benefit_rate = float(round_context.get("benefit_rate", 0.0))
+        benefit_land_rate = float(round_context.get("benefit_land_rate", 0.0))
+        resource_pressure = float(round_context.get("resource_pressure", 0.0))
+        action_entropy = float(round_context.get("action_entropy", 0.0))
+        dominant_action_share = float(round_context.get("dominant_action_share", 0.0))
+
+        top_k = max(0, int(top_k))
+        top_holders = sorted(
+            members,
+            key=lambda m: (m.cargo + m.land_num),
+            reverse=True,
+        )[:top_k]
+        if top_holders:
+            top_text = ", ".join(
+                f"member_{m.id}({m.cargo:.1f}+{m.land_num})"
+                for m in top_holders
+            )
+        else:
+            top_text = "none"
+
+        sent_total = 0
+        received_total = 0
+        senders = set()
+        recipients = set()
+        if self.execution_history.get('rounds'):
+            last_round = self.execution_history['rounds'][-1]
+            for comm in (last_round.get('messages', {}) or {}).values():
+                for recipient_id, _msg in comm.get('sent', []) or []:
+                    sent_total += 1
+                    if recipient_id is not None:
+                        recipients.add(recipient_id)
+                for msg in comm.get('received', []) or []:
+                    received_total += 1
+                    sender_label = self._extract_message_sender(msg)
+                    if sender_label is not None:
+                        senders.add(sender_label)
+
+        if sent_total or received_total:
+            communication_line = (
+                f"- Communication last round: sent {sent_total} "
+                f"(to {len(recipients)}), received {received_total} "
+                f"(from {len(senders)})"
+            )
+        else:
+            communication_line = "- Communication last round: no messages"
+
+        lines = [
+            "Population state snapshot:",
+            f"- Members: {member_count}; land scarcity: "
+            f"{land_scarcity:.2f} ({land_owned:.0f}/{land_total:.0f})",
+            f"- Survival chance (min/avg/max): "
+            f"{survival_min:.2f}/{survival_mean:.2f}/{survival_max:.2f}",
+            f"- Vitality avg/std: {vitality_mean:.2f}/{vitality_std:.2f}; "
+            f"Cargo avg/std: {cargo_mean:.2f}/{cargo_std:.2f}; "
+            f"Land avg/std: {land_mean:.2f}/{land_std:.2f}",
+            f"- Inequality (Gini): cargo {gini_cargo:.2f}, land {gini_land:.2f}, "
+            f"wealth {gini_wealth:.2f}",
+            f"- Interaction rates per member (current round): attack {attack_rate:.2f}, "
+            f"benefit {benefit_rate:.2f}, land benefit {benefit_land_rate:.2f}",
+            f"- Action entropy/dominance: entropy {action_entropy:.2f}, "
+            f"dominant_share {dominant_action_share:.2f}",
+            f"- Resource pressure: {resource_pressure:.2f}",
+            f"- Top holders (cargo+land): {top_text}",
+            communication_line,
+        ]
+
+        return "\n".join(lines)
+
     def _summarize_member_action_mix(self, member_id: int, window: int = 5) -> str:
         """Summarize a member's recent action mix to encourage adaptive diversity."""
         member_key = self._member_storage_key(member_id)
@@ -1450,6 +1566,38 @@ class IslandExecution(Island):
             "underused_tags": underused_tags,
         }
 
+    def _update_diversity_controller(
+        self,
+        diversity_ratio: Optional[float],
+        entropy_norm: Optional[float],
+    ) -> Tuple[float, float]:
+        """Adaptive controller to balance learning with diversity via EMA-like updates."""
+        ctrl = getattr(self, "_diversity_controller", None) or {}
+        alpha = float(ctrl.get("alpha", 0.25))
+        target_diversity = float(ctrl.get("target_diversity", 0.45))
+        target_entropy = float(ctrl.get("target_entropy", 0.6))
+        min_adjust = float(ctrl.get("min_adjust", -0.15))
+        max_adjust = float(ctrl.get("max_adjust", 0.25))
+
+        weight = 0.0
+        error_sum = 0.0
+        if diversity_ratio is not None:
+            error_sum += target_diversity - float(diversity_ratio)
+            weight += 1.0
+        if entropy_norm is not None:
+            error_sum += 0.5 * (target_entropy - float(entropy_norm))
+            weight += 0.5
+        if weight <= 0:
+            return 0.0, 0.0
+
+        error = error_sum / weight
+        adjustment = float(ctrl.get("adjustment", 0.0)) + alpha * error
+        adjustment = max(min_adjust, min(max_adjust, adjustment))
+
+        ctrl.update({"adjustment": adjustment, "last_error": error})
+        self._diversity_controller = ctrl
+        return adjustment, error
+
     def _compute_population_tag_pressure(
         self,
         window_rounds: int = 3,
@@ -1464,6 +1612,9 @@ class IslandExecution(Island):
                 "dominant_signature": tuple(),
                 "dominant_share": 0.0,
                 "total_actions": 0,
+                "signature_counts": Counter(),
+                "signature_shares": {},
+                "unique_signatures": 0,
             }
 
         total_actions = stats.get("total_actions", 0) or 0
@@ -1473,6 +1624,9 @@ class IslandExecution(Island):
                 "dominant_signature": stats.get("dominant_signature", tuple()),
                 "dominant_share": stats.get("dominant_share", 0.0),
                 "total_actions": 0,
+                "signature_counts": Counter(),
+                "signature_shares": {},
+                "unique_signatures": 0,
             }
 
         known_tags = stats.get("known_tags") or ()
@@ -1482,6 +1636,9 @@ class IslandExecution(Island):
                 "dominant_signature": stats.get("dominant_signature", tuple()),
                 "dominant_share": stats.get("dominant_share", 0.0),
                 "total_actions": total_actions,
+                "signature_counts": stats.get("signature_counts") or Counter(),
+                "signature_shares": {},
+                "unique_signatures": int(stats.get("unique_signatures") or 0),
             }
 
         expected = 1.0 / max(1, len(known_tags))
@@ -1494,11 +1651,21 @@ class IslandExecution(Island):
             delta = max(-1.0, min(1.0, delta))
             pressure[tag] = max_bonus * reliability * delta
 
+        signature_counts = stats.get("signature_counts") or Counter()
+        unique_signatures = int(stats.get("unique_signatures") or len(signature_counts))
+        signature_shares = {
+            sig: (count / total_actions if total_actions else 0.0)
+            for sig, count in signature_counts.items()
+        }
+
         return {
             "pressure": pressure,
             "dominant_signature": stats.get("dominant_signature", tuple()),
             "dominant_share": stats.get("dominant_share", 0.0),
             "total_actions": total_actions,
+            "signature_counts": signature_counts,
+            "signature_shares": signature_shares,
+            "unique_signatures": unique_signatures,
         }
 
     def _signature_diversity_bonus(self, signature: tuple, tag_pressure: dict) -> float:
@@ -2198,6 +2365,69 @@ class IslandExecution(Island):
             return "No diversity guidance available."
         return "\n".join(lines)
 
+    def _compute_contextual_signature_scores(
+        self,
+        memory_entries: list,
+        current_stats: Optional[dict],
+        current_round_context: Optional[dict],
+        current_relation_context: Optional[dict],
+        min_similarity: float = 0.35,
+    ) -> dict:
+        """Compute similarity-weighted scores for signatures in the current context."""
+        if not memory_entries:
+            return {}
+        if not (current_stats or current_round_context or current_relation_context):
+            return {}
+
+        buckets = {}
+        for mem in memory_entries:
+            context = mem.get("context", {}) or {}
+            similarity = self._context_similarity_score(
+                context,
+                current_stats,
+                current_round_context,
+                current_relation_context,
+            )
+            if similarity is None or similarity < min_similarity:
+                continue
+            sig = self._get_entry_signature(
+                mem,
+                prefer_executed=True,
+                fallback_to_planned=True,
+            )
+            if not sig:
+                continue
+            score = mem.get("balanced_score")
+            if score is None:
+                delta = context.get("delta") or {}
+                perf = mem.get("performance", 0.0)
+                score = self._compute_balanced_score(delta, perf)
+            try:
+                score = float(score)
+            except (TypeError, ValueError):
+                score = 0.0
+            bucket = buckets.setdefault(
+                sig,
+                {"weight": 0.0, "score": 0.0, "count": 0, "sim_sum": 0.0},
+            )
+            bucket["weight"] += similarity
+            bucket["score"] += similarity * score
+            bucket["count"] += 1
+            bucket["sim_sum"] += similarity
+
+        results = {}
+        for sig, bucket in buckets.items():
+            weight = bucket["weight"]
+            avg_score = bucket["score"] / max(1e-9, weight)
+            avg_sim = bucket["sim_sum"] / max(1, bucket["count"])
+            results[sig] = {
+                "avg_score": avg_score,
+                "avg_sim": avg_sim,
+                "count": bucket["count"],
+                "weight": weight,
+            }
+        return results
+
     def _summarize_strategy_recommendations(
         self,
         member,
@@ -2207,6 +2437,9 @@ class IslandExecution(Island):
         exploration_bonus: float = 0.35,
         population_window_rounds: int = 3,
         max_items: int = 3,
+        current_stats: Optional[dict] = None,
+        current_round_context: Optional[dict] = None,
+        current_relation_context: Optional[dict] = None,
     ) -> str:
         """Provide lightweight decision support without forcing convergence."""
         member_key = self._member_storage_key(member_id)
@@ -2291,7 +2524,7 @@ class IslandExecution(Island):
                 return None
             excluded = set(exclude_sigs or [])
             for candidate in candidates:
-                sig = candidate[4]
+                sig = candidate["sig"]
                 if sig in excluded:
                     continue
                 if not self._signature_ineligible_tags(member, sig):
@@ -2299,15 +2532,95 @@ class IslandExecution(Island):
             return None
 
         total = sum(signature_counts.values())
+        dominant_sig = None
+        dominant_share = 0.0
+        if signature_counts:
+            dominant_sig, dominant_count = signature_counts.most_common(1)[0]
+            dominant_share = dominant_count / max(1, total)
+
+        streak, last_sig = self._signature_streak(
+            member_id,
+            prefer_executed=True,
+            fallback_to_planned=False,
+            include_empty=False,
+        )
+
+        context_scores = self._compute_contextual_signature_scores(
+            recent,
+            current_stats,
+            current_round_context,
+            current_relation_context,
+        )
+        overall_avg = 0.0
+        total_scores = sum(len(scores) for scores in signature_scores.values())
+        if total_scores:
+            overall_avg = (
+                sum(sum(scores) for scores in signature_scores.values()) / total_scores
+            )
+
+        exploration_bonus_effective = float(exploration_bonus)
+        exploration_adjustments = []
+        if dominant_share >= 0.6:
+            exploration_bonus_effective += 0.05
+            exploration_adjustments.append("recent dominance")
+        if streak >= 3:
+            exploration_bonus_effective += 0.05
+            exploration_adjustments.append("signature streak")
+        if idle_ratio >= 0.5:
+            exploration_bonus_effective += 0.05
+            exploration_adjustments.append("idle window")
+        resource_ratio = None
+        if current_stats and current_round_context:
+            avg_resources = float(current_round_context.get("avg_vitality", 0.0)) + float(
+                current_round_context.get("avg_cargo", 0.0)
+            )
+            my_resources = float(current_stats.get("vitality", 0.0)) + float(
+                current_stats.get("cargo", 0.0)
+            )
+            if avg_resources >= 1.0:
+                resource_ratio = my_resources / avg_resources
+                if resource_ratio < 0.85:
+                    exploration_bonus_effective -= 0.05
+                    exploration_adjustments.append("low resources")
+                elif resource_ratio > 1.15:
+                    exploration_bonus_effective += 0.05
+                    exploration_adjustments.append("resource buffer")
+        pop_stats = self._compute_population_diversity_stats(
+            window_rounds=population_window_rounds
+        )
+        if pop_stats:
+            diversity_adjustment, diversity_error = self._update_diversity_controller(
+                pop_stats.get("diversity_ratio"),
+                pop_stats.get("signature_entropy_norm"),
+            )
+            if abs(diversity_adjustment) > 1e-6:
+                exploration_bonus_effective += diversity_adjustment
+                alpha = float(self._diversity_controller.get("alpha", 0.0))
+                exploration_adjustments.append(
+                    f"diversity α={alpha:.2f} err={diversity_error:.2f}"
+                )
         tag_pressure_bundle = self._compute_population_tag_pressure(
             window_rounds=population_window_rounds
         )
         tag_pressure = tag_pressure_bundle.get("pressure") or {}
+        pop_signature_counts = tag_pressure_bundle.get("signature_counts") or Counter()
+        pop_signature_shares = tag_pressure_bundle.get("signature_shares") or {}
+        pop_unique_signatures = int(
+            tag_pressure_bundle.get("unique_signatures") or len(pop_signature_counts)
+        )
+        pop_dominant_sig = tag_pressure_bundle.get("dominant_signature", tuple())
+        pop_dominant_share = float(tag_pressure_bundle.get("dominant_share", 0.0) or 0.0)
+        if pop_dominant_share >= 0.6:
+            exploration_bonus_effective += 0.05
+            exploration_adjustments.append("population convergence")
+        exploration_bonus_effective = max(
+            0.2, min(0.6, exploration_bonus_effective)
+        )
         sig_stats = []
         for sig, scores in signature_scores.items():
             count = len(scores)
             avg = sum(scores) / count if count else 0.0
-            ucb = avg + exploration_bonus * math.sqrt(
+            ucb = avg + exploration_bonus_effective * math.sqrt(
                 math.log(total + 1) / max(1, count)
             )
             diversity_bonus = self._signature_diversity_bonus(sig, tag_pressure)
@@ -2316,11 +2629,66 @@ class IslandExecution(Island):
             infeasible_rate = reliability.get("infeasible_rate", 0.0)
             reliability_penalty = -0.15 * max(0.0, 1.0 - float(exec_rate))
             reliability_penalty -= 0.1 * max(0.0, min(1.0, float(infeasible_rate)))
-            adjusted = ucb + diversity_bonus + reliability_penalty
-            sig_stats.append(
-                (adjusted, ucb, avg, count, sig, diversity_bonus, reliability_penalty)
+            context_bonus = 0.0
+            context_info = context_scores.get(sig)
+            if context_info is not None:
+                delta = context_info.get("avg_score", 0.0) - overall_avg
+                context_bonus = max(-0.12, min(0.12, 0.25 * delta))
+            novelty_bonus = 0.05 * (1.0 - (count / max(1.0, total)))
+            feasibility_penalty = 0.0
+            ineligible_tags = self._signature_ineligible_tags(member, sig)
+            if ineligible_tags:
+                feasibility_penalty = -0.08 * (
+                    len(ineligible_tags) / max(1, len(sig))
+                )
+            pop_diversity_bonus = 0.0
+            if pop_signature_shares:
+                expected_share = 1.0 / max(
+                    1, pop_unique_signatures or len(pop_signature_shares)
+                )
+                pop_share = float(pop_signature_shares.get(sig, 0.0) or 0.0)
+                delta = (expected_share - pop_share) / max(expected_share, 1e-9)
+                delta = max(-1.0, min(1.0, delta))
+                pop_diversity_bonus = 0.06 * delta
+                if (
+                    pop_dominant_sig
+                    and sig == pop_dominant_sig
+                    and pop_dominant_share >= 0.6
+                ):
+                    pop_diversity_bonus -= 0.05 * (pop_dominant_share - 0.6) / 0.4
+            dominance_penalty = 0.0
+            if dominant_sig and sig == dominant_sig and dominant_share >= 0.6:
+                dominance_penalty = -0.1 * (dominant_share - 0.6) / 0.4
+            streak_penalty = -0.05 if (streak >= 3 and sig == last_sig) else 0.0
+            adjusted = (
+                ucb
+                + diversity_bonus
+                + reliability_penalty
+                + context_bonus
+                + novelty_bonus
+                + pop_diversity_bonus
+                + feasibility_penalty
+                + dominance_penalty
+                + streak_penalty
             )
-        sig_stats.sort(key=lambda item: item[0], reverse=True)
+            sig_stats.append(
+                {
+                    "adjusted": adjusted,
+                    "ucb": ucb,
+                    "avg": avg,
+                    "count": count,
+                    "sig": sig,
+                    "diversity": diversity_bonus,
+                    "pop_diversity": pop_diversity_bonus,
+                    "reliability": reliability_penalty,
+                    "feasibility": feasibility_penalty,
+                    "context": context_bonus,
+                    "novelty": novelty_bonus,
+                    "dominance": dominance_penalty,
+                    "streak": streak_penalty,
+                }
+            )
+        sig_stats.sort(key=lambda item: item["adjusted"], reverse=True)
 
         avg_sorted = sorted(
             [
@@ -2338,19 +2706,6 @@ class IslandExecution(Island):
                 break
         if best_by_avg is None and avg_sorted:
             best_by_avg = avg_sorted[0]
-
-        dominant_sig = None
-        dominant_share = 0.0
-        if signature_counts:
-            dominant_sig, dominant_count = signature_counts.most_common(1)[0]
-            dominant_share = dominant_count / max(1, total)
-
-        streak, last_sig = self._signature_streak(
-            member_id,
-            prefer_executed=True,
-            fallback_to_planned=False,
-            include_empty=False,
-        )
 
         negative = [
             (avg, count, sig)
@@ -2403,6 +2758,24 @@ class IslandExecution(Island):
         promising_tags.sort(reverse=True)
         caution_tags.sort()
 
+        context_candidate = None
+        if context_scores:
+            context_sorted = sorted(
+                [
+                    (
+                        info.get("avg_score", 0.0),
+                        info.get("avg_sim", 0.0),
+                        info.get("count", 0),
+                        sig,
+                    )
+                    for sig, info in context_scores.items()
+                ],
+                key=lambda item: (item[0], item[1], item[2]),
+                reverse=True,
+            )
+            if context_sorted:
+                context_candidate = context_sorted[0]
+
         def _format_tag_list(stats):
             if not stats:
                 return "none"
@@ -2415,6 +2788,13 @@ class IslandExecution(Island):
             "Strategy recommendations (soft guidance):",
             f"- Recent window: {total} signature samples (out of {total_recent} entries)",
         ]
+        if exploration_adjustments or exploration_bonus_effective != exploration_bonus:
+            reason_text = ", ".join(exploration_adjustments) if exploration_adjustments else "context"
+            ratio_text = f"; resource_ratio {resource_ratio:.2f}" if resource_ratio is not None else ""
+            lines.append(
+                f"- Exploration bonus (effective): {exploration_bonus_effective:.2f} "
+                f"({reason_text}{ratio_text})"
+            )
         if idle_ratio >= 0.5:
             lines.append(
                 f"- Inactivity rate (executed): {idle_ratio:.2f} "
@@ -2442,9 +2822,15 @@ class IslandExecution(Island):
                 f"- Suggested baseline: {self._format_signature(sig)} "
                 f"(avg {avg:.2f}, n={count}){note}"
             )
+        if context_candidate is not None:
+            avg_score, avg_sim, count, sig = context_candidate
+            lines.append(
+                f"- Context-matched candidate: {self._format_signature(sig)} "
+                f"(avg {avg_score:.2f}, sim {avg_sim:.2f}, n={count})"
+            )
 
         baseline_sig = best_by_avg[2] if best_by_avg else None
-        explore_sig = sig_stats[0][4] if sig_stats else None
+        explore_sig = sig_stats[0]["sig"] if sig_stats else None
         baseline_ineligible = bool(
             self._signature_ineligible_tags(member, baseline_sig)
         ) if baseline_sig else False
@@ -2453,42 +2839,56 @@ class IslandExecution(Island):
         ) if explore_sig else False
 
         if sig_stats:
-            adjusted, ucb, avg, count, sig, diversity_bonus, reliability_penalty = sig_stats[0]
+            top = sig_stats[0]
+            sig = top["sig"]
             note = _signature_note(sig)
             adjustment_parts = []
-            if diversity_bonus:
-                adjustment_parts.append(f"diversity {diversity_bonus:+.2f}")
-            if reliability_penalty:
-                adjustment_parts.append(f"reliability {reliability_penalty:+.2f}")
+            for key, label in (
+                ("diversity", "diversity"),
+                ("pop_diversity", "pop_diversity"),
+                ("reliability", "reliability"),
+                ("feasibility", "feasibility"),
+                ("context", "context"),
+                ("novelty", "novelty"),
+                ("dominance", "dominance"),
+                ("streak", "streak"),
+            ):
+                value = top.get(key, 0.0)
+                if value:
+                    adjustment_parts.append(f"{label} {value:+.2f}")
             if adjustment_parts:
                 lines.append(
                     "- Exploration candidate (UCB adjusted): "
                     f"{self._format_signature(sig)} "
-                    f"(score {adjusted:.2f}, ucb {ucb:.2f}, "
-                    f"{', '.join(adjustment_parts)}, avg {avg:.2f}, n={count}){note}"
+                    f"(score {top['adjusted']:.2f}, ucb {top['ucb']:.2f}, "
+                    f"{', '.join(adjustment_parts)}, avg {top['avg']:.2f}, n={top['count']}){note}"
                 )
             else:
                 lines.append(
                     f"- Exploration candidate (UCB): {self._format_signature(sig)} "
-                    f"(score {ucb:.2f}, avg {avg:.2f}, n={count}){note}"
+                    f"(score {top['ucb']:.2f}, avg {top['avg']:.2f}, n={top['count']}){note}"
                 )
 
         shown_sigs = {sig for sig in (baseline_sig, explore_sig) if sig}
         if baseline_ineligible or explore_ineligible:
             feasible_candidate = _best_feasible_candidate(sig_stats)
             if feasible_candidate:
-                adjusted, _, avg, count, sig, _, _ = feasible_candidate
+                sig = feasible_candidate["sig"]
                 if sig not in shown_sigs:
                     note = _signature_note(sig)
                     lines.append(
                         f"- Feasible alternative: {self._format_signature(sig)} "
-                        f"(score {adjusted:.2f}, avg {avg:.2f}, n={count}){note}"
+                        f"(score {feasible_candidate['adjusted']:.2f}, "
+                        f"avg {feasible_candidate['avg']:.2f}, "
+                        f"n={feasible_candidate['count']}){note}"
                     )
                     shown_sigs.add(sig)
 
         avoid_sigs = set()
         if dominant_sig is not None and dominant_share >= 0.6:
             avoid_sigs.add(dominant_sig)
+        if pop_dominant_sig is not None and pop_dominant_share >= 0.6:
+            avoid_sigs.add(pop_dominant_sig)
         if streak >= 3 and last_sig:
             avoid_sigs.add(last_sig)
         if avoid_sigs:
@@ -2497,12 +2897,14 @@ class IslandExecution(Island):
                 exclude_sigs=avoid_sigs,
             )
             if diverse_candidate:
-                adjusted, _, avg, count, sig, _, _ = diverse_candidate
+                sig = diverse_candidate["sig"]
                 if sig not in shown_sigs:
                     note = _signature_note(sig)
                     lines.append(
                         f"- Diversity-safe alternative: {self._format_signature(sig)} "
-                        f"(score {adjusted:.2f}, avg {avg:.2f}, n={count}){note}"
+                        f"(score {diverse_candidate['adjusted']:.2f}, "
+                        f"avg {diverse_candidate['avg']:.2f}, "
+                        f"n={diverse_candidate['count']}){note}"
                     )
                     shown_sigs.add(sig)
 
@@ -2510,6 +2912,11 @@ class IslandExecution(Island):
             lines.append(
                 f"- Diversity guard: {dominant_share:.2f} of recent actions share "
                 f"{self._format_signature(dominant_sig)}; consider mixing tags."
+            )
+        if pop_dominant_sig is not None and pop_dominant_share >= 0.6:
+            lines.append(
+                f"- Population guard: {pop_dominant_share:.2f} of population actions "
+                f"share {self._format_signature(pop_dominant_sig)}; diversify if safe."
             )
 
         if tag_stats_bundle:
@@ -3007,6 +3414,7 @@ class IslandExecution(Island):
         strategy_state = self._summarize_strategy_state(member)
         population_action_mix = self._summarize_population_action_mix()
         population_strategy_profile = self._summarize_population_strategy_diversity()
+        population_state_summary = self._summarize_population_state()
 
         current_stats = {
             "vitality": member.vitality,
@@ -3081,6 +3489,9 @@ class IslandExecution(Island):
         strategy_recommendations = self._summarize_strategy_recommendations(
             member,
             member_id,
+            current_stats=current_stats,
+            current_round_context=round_context,
+            current_relation_context=relationship_context,
         )
         
         # Build a clarifying prompt to reduce hallucinations
@@ -3180,6 +3591,9 @@ class IslandExecution(Island):
 
         Population action mix (last round):
         {population_action_mix}
+
+        Population state snapshot:
+        {population_state_summary}
 
         Population strategy diversity snapshot:
         {population_strategy_profile}
@@ -3433,6 +3847,7 @@ class IslandExecution(Island):
                 "land_scarcity": round_context.get("land_scarcity"),
                 "resource_pressure": round_context.get("resource_pressure"),
                 "dominant_action_share": round_context.get("dominant_action_share"),
+                "gini_wealth": round_context.get("gini_wealth"),
                 "net_support": relationship_context.get("net_support"),
             }
             self._auto_update_strategy_memory(

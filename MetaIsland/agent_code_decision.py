@@ -37,6 +37,10 @@ async def _agent_code_decision(self, member_id) -> None:
         'population_state_summary',
         'No population state summary available.'
     )
+    contract_summary = data.get(
+        'contract_summary',
+        'Contract activity: unavailable.'
+    )
 
     current_mechanisms = data['current_mechanisms']
     report = data['report']
@@ -63,6 +67,10 @@ async def _agent_code_decision(self, member_id) -> None:
                 'analysis_card_summary',
                 'No analysis cards available.'
             ),
+            experiment_summary=data.get(
+                'experiment_summary',
+                'No experiment outcomes available.'
+            ),
             strategy_profile=data.get('strategy_profile', 'No strategy profile available.'),
             population_strategy_profile=data.get(
                 'population_strategy_profile',
@@ -80,7 +88,8 @@ async def _agent_code_decision(self, member_id) -> None:
             message_context=message_context,
             communication_summary=communication_summary,
             base_code=base_code,
-            population_state_summary=population_state_summary
+            population_state_summary=population_state_summary,
+            contract_summary=contract_summary
         )
 
         completion = client.chat.completions.create(
@@ -113,9 +122,15 @@ async def _agent_code_decision(self, member_id) -> None:
         return code_result
 
     except Exception as e:
+        stable_id = None
+        try:
+            stable_id = self._resolve_member_stable_id(member_id)
+        except Exception:
+            stable_id = None
         error_info = {
             'round': len(self.execution_history['rounds']),
-            'member_id': member_id,
+            'member_id': stable_id if stable_id is not None else member_id,
+            'member_index': member_id,
             'type': 'agent_action',
             'error': str(e),
             'traceback': traceback.format_exc(),

@@ -34,6 +34,10 @@ async def _analyze(self, member_id):
     population_strategy_profile = data['population_strategy_profile']
     population_exploration_summary = data['population_exploration_summary']
     strategy_recommendations = data['strategy_recommendations']
+    experiment_summary = data.get(
+        'experiment_summary',
+        'No experiment outcomes available.'
+    )
     contextual_strategy_summary = data.get(
         'contextual_strategy_summary',
         'No contextual strategy data.'
@@ -92,6 +96,9 @@ async def _analyze(self, member_id):
 
     Strategy recommendations:
     {strategy_recommendations}
+
+    Experiment outcomes (baseline vs variation):
+    {experiment_summary}
 
     Contextual strategy cues:
     {contextual_strategy_summary}
@@ -283,8 +290,14 @@ async def _analyze(self, member_id):
     exec_env['np'] = np  # Make numpy available in the environment
 
     # print(f"Analysis result: {result}")
-    # Store analysis in execution history
-    self.execution_history['rounds'][-1]['analysis'][member_id] = result
+    # Store analysis in execution history using stable member id when possible
+    stable_id = None
+    try:
+        stable_id = self._resolve_member_stable_id(member_id)
+    except Exception:
+        stable_id = None
+    analysis_key = stable_id if stable_id is not None else member_id
+    self.execution_history['rounds'][-1]['analysis'][analysis_key] = result
     try:
         self._record_analysis_card(member_id, result)
     except Exception:

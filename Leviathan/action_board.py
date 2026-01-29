@@ -48,7 +48,7 @@ def make_decision_with_gpt4(api_key, prompt=""):
     response = client.chat.completions.create(model="gpt-5.2",
     messages=messages,
     temperature=1,
-    max_tokens=150,
+    max_completion_tokens=150,
     top_p=1,
     frequency_penalty=0,
     presence_penalty=0)
@@ -101,4 +101,3 @@ add_decision_to_action_board(3, action_board)
 add_decision_to_action_board(4, action_board)
 
 print(action_board)
-

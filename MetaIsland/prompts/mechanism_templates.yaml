@@ -112,6 +112,45 @@ contract_templates:
 
           execution_engine.contract_templates['trade'] = trade_contract_template
 
+  - name: "Trial Trade Contract (Limited Term)"
+    description: "Create a reversible trade contract with an explicit stop condition"
+    code: |
+      def propose_modification(execution_engine):
+          '''Create a reversible trade contract with an explicit stop condition'''
+
+          if not hasattr(execution_engine, 'contract_templates'):
+              execution_engine.contract_templates = {}
+
+          trial_trade_template = \'\'\'
+      def execute_contract(execution_engine, context):
+          contract = context.get('contract', {})
+          terms = contract.get('terms', {})
+          party_a = contract['parties'][0]
+          party_b = contract['parties'][1]
+          max_exec = terms.get('max_exec', 3)
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              give_a = terms.get('party_a_gives', {'type': 'food', 'quantity': 3})
+              give_b = terms.get('party_b_gives', {'type': 'materials', 'quantity': 2})
+
+              if inv.get(party_a, {}).get(give_a['type'], 0) >= give_a['quantity'] and \\
+                 inv.get(party_b, {}).get(give_b['type'], 0) >= give_b['quantity']:
+                  inv[party_a][give_a['type']] -= give_a['quantity']
+                  inv[party_b][give_b['type']] -= give_b['quantity']
+                  inv[party_a][give_b['type']] = inv[party_a].get(give_b['type'], 0) + give_b['quantity']
+                  inv[party_b][give_a['type']] = inv[party_b].get(give_a['type'], 0) + give_a['quantity']
+
+                  if contract.get('execution_count', 0) >= max_exec - 1:
+                      execution_engine.contracts.complete_contract(contract['id'], reason='trial_complete')
+
+                  return {"status": "success", "trial": True}
+
+          return {"status": "failed"}
+      \'\'\'
+
+          execution_engine.contract_templates['trial_trade'] = trial_trade_template
+
   - name: "Service Contract (Labor/Production)"
     description: "Create ongoing service contracts"
     code: |
@@ -275,6 +314,37 @@ physics_templates:
                   proposer_id=MEMBER_ID,
                   domain='agriculture',
                   description='Realistic agricultural constraints with soil depletion and water requirements'
+              )
+
+  - name: "Tagged Constraint (Opt-in)"
+    description: "Apply only when actions include a matching tag"
+    code: |
+      def propose_modification(execution_engine):
+          '''Apply only when actions include a matching tag'''
+
+          constraint_code = '''
+      class TaggedConstraint:
+          def __init__(self):
+              self.tag = "soil_guard"
+              self.max_yield = 4.0
+
+          def apply_constraint(self, action, execution_engine):
+              tags = action.get('tags', [])
+              if self.tag not in tags:
+                  return action
+
+              if action.get('type') == 'extract' and action.get('resource') == 'food':
+                  action['yield'] = min(action.get('yield', 0), self.max_yield)
+
+              return action
+      '''
+
+          if hasattr(execution_engine, 'physics'):
+              execution_engine.physics.propose_constraint(
+                  code=constraint_code,
+                  proposer_id=MEMBER_ID,
+                  domain='agriculture',
+                  description='Opt-in extraction cap via action tags'
               )
 
   - name: "Manufacturing Physics"
@@ -446,3 +516,4 @@ usage_guidelines:
     - "Build systems that help ALL agents, not just you"
     - "Focus on creating realistic, sustainable economics"
     - "Prefer opt-in, parameterized mechanisms that preserve multiple viable strategies"
+    - "Add explicit rollback/stop conditions for trials (cancel/complete)"

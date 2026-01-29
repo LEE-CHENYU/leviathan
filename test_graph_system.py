@@ -27,7 +27,7 @@ class SimpleTestNode(ExecutionNode):
         return {f"{self.name}_output": f"Data from {self.name}"}
 
 
-async def test_graph_execution():
+async def _graph_execution_async():
     """Test basic graph execution"""
     print("\n" + "="*60)
     print("TEST 1: Basic Graph Execution")
@@ -63,6 +63,11 @@ async def test_graph_execution():
     assert node3.executed, "Node3 should have executed"
 
     print("\n✓ Basic graph execution works!")
+
+
+def test_graph_execution():
+    """Pytest-friendly wrapper for graph execution"""
+    asyncio.run(_graph_execution_async())
 
 
 def test_contract_engine():
@@ -172,7 +177,7 @@ async def run_all_tests():
     print("="*70)
 
     try:
-        await test_graph_execution()
+        await _graph_execution_async()
         test_contract_engine()
         test_physics_engine()
         test_judge_basic()

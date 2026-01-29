@@ -1389,6 +1389,26 @@ class Island():
         self.round_total_production = 0.0
         self.round_total_consumption = 0.0
 
+    def _compute_gini(self, values: List[float]) -> float:
+        """Compute Gini coefficient for a list of values."""
+        if not values:
+            return 0.0
+        arr = np.array(values, dtype=float)
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            return 0.0
+        min_val = float(np.min(arr))
+        if min_val < 0:
+            arr = arr - min_val
+        total = float(np.sum(arr))
+        if total <= 0:
+            return 0.0
+        arr = np.sort(arr)
+        n = arr.size
+        cum = np.cumsum(arr)
+        gini = (n + 1 - 2 * float(np.sum(cum)) / total) / n
+        return float(max(0.0, min(1.0, gini)))
+
     def _compute_round_context(self) -> Dict[str, Any]:
         total_land = float(np.prod(self.land.shape))
         empty_land = float(np.sum(self.land.owner == None))
@@ -1402,8 +1422,24 @@ class Island():
         consumption = self.round_total_consumption
         resource_pressure = 0.0 if production <= 0 else (consumption - production) / production
 
-        avg_vitality = float(np.mean([m.vitality for m in self.current_members])) if self.current_members else 0.0
-        avg_cargo = float(np.mean([m.cargo for m in self.current_members])) if self.current_members else 0.0
+        vitality_vals = [float(m.vitality) for m in self.current_members] if self.current_members else []
+        cargo_vals = [float(m.cargo) for m in self.current_members] if self.current_members else []
+        land_vals = [float(m.land_num) for m in self.current_members] if self.current_members else []
+
+        avg_vitality = float(np.mean(vitality_vals)) if vitality_vals else 0.0
+        avg_cargo = float(np.mean(cargo_vals)) if cargo_vals else 0.0
+        vitality_std = float(np.std(vitality_vals)) if vitality_vals else 0.0
+        cargo_std = float(np.std(cargo_vals)) if cargo_vals else 0.0
+        land_std = float(np.std(land_vals)) if land_vals else 0.0
+        vitality_median = float(np.median(vitality_vals)) if vitality_vals else 0.0
+        cargo_median = float(np.median(cargo_vals)) if cargo_vals else 0.0
+        land_median = float(np.median(land_vals)) if land_vals else 0.0
+
+        gini_vitality = self._compute_gini(vitality_vals)
+        gini_cargo = self._compute_gini(cargo_vals)
+        gini_land = self._compute_gini(land_vals)
+        wealth_vals = [c + l for c, l in zip(cargo_vals, land_vals)]
+        gini_wealth = self._compute_gini(wealth_vals)
 
         action_map = {
             "attack": "attack",
@@ -1459,6 +1495,16 @@ class Island():
             "resource_pressure": resource_pressure,
             "avg_vitality": avg_vitality,
             "avg_cargo": avg_cargo,
+            "vitality_std": vitality_std,
+            "cargo_std": cargo_std,
+            "land_std": land_std,
+            "vitality_median": vitality_median,
+            "cargo_median": cargo_median,
+            "land_median": land_median,
+            "gini_vitality": gini_vitality,
+            "gini_cargo": gini_cargo,
+            "gini_land": gini_land,
+            "gini_wealth": gini_wealth,
             "action_shares": action_shares,
             "action_entropy": entropy,
             "dominant_action_share": dominant_share,

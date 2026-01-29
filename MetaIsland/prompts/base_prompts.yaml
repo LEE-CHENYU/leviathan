@@ -41,6 +41,32 @@ system_attributes: |
 
   6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
 
+  7) New systems may be present on execution_engine (check with hasattr):
+      • execution_engine.contracts (ContractEngine): propose_contract, sign_contract,
+        get_contracts_for_party, cancel_contract, complete_contract
+      • execution_engine.physics (PhysicsEngine): propose_constraint, approve_constraint,
+        apply_constraints, get_constraints_by_domain
+      • execution_engine.judge (Judge) validates mechanism proposals (do not call directly)
+
+execution_flow: |
+  [Execution Flow (Graph)]
+  - Round order: new_round -> analyze -> propose_mechanisms -> judge -> execute_mechanisms
+    -> agent_decisions -> execute_actions -> contracts -> produce -> consume -> environment -> log_status.
+  - Your agent_action runs after mechanisms execute and before contracts are processed.
+  - Active contracts are processed after actions; plan for this timing.
+
+contracts_and_physics: |
+  [Contracts & Physics Usage]
+  - Use hasattr checks before accessing execution_engine.contracts or execution_engine.physics.
+  - Prefer small, reversible, opt-in contracts; start with 1-2 partners and short terms.
+  - Avoid broadcasting identical contracts to everyone in one round; preserve partner diversity.
+  - Sign only when you can fulfill terms and the exchange improves survival.
+  - Use cancel_contract or complete_contract as explicit rollback/stop conditions.
+  - If you define new action dicts in mechanisms/contracts, pass them through
+    execution_engine.physics.apply_constraints(action, execution_engine) before state changes.
+  - Propose physics constraints that are domain-scoped, conservative, and reversible; avoid
+    global caps that force a single equilibrium.
+
 critical_constraints: |
   [Critical constraints]
   - Carefully analyze previous errors shown above and avoid repeating them
@@ -79,6 +105,7 @@ strategy_diversity: |
   - Treat each round as a lightweight experiment: keep one safe baseline and one bounded-risk variation.
   - Use code-memory outcome deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance) to keep, refine, or retire tactics.
   - If population convergence is high, bias toward underused tags or mixed-signature tactics to preserve diversity.
+  - When using contracts or shared mechanisms, diversify partners and terms to avoid lock-in.
   - Avoid strategies that require everyone to behave the same; prefer robustness to heterogeneous opponents.
   - Preserve agent-level diversity; do not copy other agents' strategies verbatim.
   - Prefer conditional, context-sensitive tactics over one-size-fits-all rules.
@@ -99,6 +126,7 @@ planning_and_evaluation: |
   - State a short-term objective (1-3 rounds) and a longer-term objective (5-10 rounds).
   - Translate objectives into concrete actions and guardrails.
   - Evaluate outcomes using survival metrics and memory deltas.
+  - If you use contracts or constraints, define explicit success criteria and a stop/rollback trigger.
   - If results are negative or uncertain, switch to a different action signature.
   - Use communication to align on shared objectives while keeping independent fallback plans.
 
@@ -106,6 +134,7 @@ memory_guidance: |
   [Memory Use]
   - Use code_memory and analysis_memory as evidence; do not invent events.
   - When you learn something, store a compact note in your own memory object (e.g., member.strategy_memory).
+  - Record contract/constraint experiments as: hypothesis, partners/domain, outcome.
   - Keep memory entries short: hypothesis, action signature, outcome.
   - Avoid overwriting others' memories; only update your own.
 

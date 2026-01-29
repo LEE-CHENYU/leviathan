@@ -65,8 +65,17 @@ class ExecuteMechanismsNode(ExecutionNode):
             print("\n[Mechanisms] No approved mechanisms to execute")
             return {"mechanisms_executed": 0}
 
+        if execution.execution_history.get('rounds'):
+            round_record = execution.execution_history['rounds'][-1]
+            mods_record = round_record.get('mechanism_modifications')
+            if isinstance(mods_record, dict):
+                mods_record['approved_ids'] = [
+                    mod.get('member_id') for mod in approved if isinstance(mod, dict)
+                ]
+                mods_record['approved_count'] = len(approved)
+
         print(f"\n[Mechanisms] Executing {len(approved)} approved mechanisms...")
-        execution.execute_mechanism_modifications()
+        execution.execute_mechanism_modifications(approved=approved)
 
         return {"mechanisms_executed": len(approved)}
 

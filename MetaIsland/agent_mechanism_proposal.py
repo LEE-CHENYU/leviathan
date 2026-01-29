@@ -25,6 +25,7 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
 
     # Use the prepared data
     member = data['member']
+    stable_id = getattr(member, "id", None)
     relations = data['relations']
     features = data['features']
     code_memory = data['code_memory']
@@ -48,7 +49,9 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
         round_attempts = [
             attempt
             for attempt in data['modification_attempts'][round_num]
-            if attempt.get('member_id') == member_id
+            if attempt.get('member_id') == stable_id
+            or attempt.get('member_index') == member_id
+            or attempt.get('member_id') == member_id
         ]
         modification_attempts.extend(round_attempts)
     report = data['report']
@@ -83,6 +86,10 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
                 'analysis_card_summary',
                 'No analysis cards available.'
             ),
+            experiment_summary=data.get(
+                'experiment_summary',
+                'No experiment outcomes available.'
+            ),
             strategy_profile=data.get('strategy_profile', 'No strategy profile available.'),
             population_strategy_profile=data.get(
                 'population_strategy_profile',
@@ -116,7 +123,8 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
         round_num = len(self.execution_history['rounds'])
         mod_proposal = {
             'round': round_num,
-            'member_id': member_id,
+            'member_id': stable_id if stable_id is not None else member_id,
+            'member_index': member_id,
             'code': code_result,
             'features_at_generation': features.to_dict('records'),
             'relationships_at_generation': relations,
@@ -137,9 +145,11 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
         return code_result
 
     except Exception as e:
+        stable_id = stable_id if stable_id is not None else None
         error_info = {
             'round': len(self.execution_history['rounds']),
-            'member_id': member_id,
+            'member_id': stable_id if stable_id is not None else member_id,
+            'member_index': member_id,
             'type': 'propose_modification',
             'error': str(e),
             'traceback': traceback.format_exc(),

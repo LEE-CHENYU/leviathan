@@ -147,6 +147,7 @@ class PromptLoader:
         past_performance: str,
         analysis_memory: str,
         analysis_card_summary: str,
+        experiment_summary: str,
         strategy_profile: str,
         population_strategy_profile: str,
         population_exploration_summary: str,
@@ -155,7 +156,8 @@ class PromptLoader:
         message_context: str,
         communication_summary: str,
         base_code: str,
-        population_state_summary: str = "No population state summary available."
+        population_state_summary: str = "No population state summary available.",
+        contract_summary: str = "Contract activity: unavailable."
     ) -> str:
         """
         Build complete action decision prompt
@@ -172,12 +174,14 @@ class PromptLoader:
             past_performance: Performance history
             analysis_memory: Analysis history
             analysis_card_summary: Recent analysis strategy cards
+            experiment_summary: Recent baseline/variation experiment outcomes
             strategy_profile: Summary of action signature coverage
             population_strategy_profile: Population-level strategy diversity summary
             population_exploration_summary: Population-level exploration signals
             strategy_recommendations: Strategy suggestion summary
             contextual_strategy_summary: Contextual strategy performance summary
             population_state_summary: Snapshot of current population state
+            contract_summary: Contract activity summary for this agent
             message_context: Received messages
             communication_summary: Recent communication summary
             base_code: Base class code
@@ -221,6 +225,17 @@ class PromptLoader:
             "",
             base['system_attributes'],
             "",
+        ]
+
+        if base.get('execution_flow'):
+            sections.append(base['execution_flow'])
+            sections.append("")
+
+        if base.get('contracts_and_physics'):
+            sections.append(base['contracts_and_physics'])
+            sections.append("")
+
+        sections += [
             f"Analysis of the game state:",
             report if report else "No analysis available",
             "",
@@ -241,11 +256,17 @@ class PromptLoader:
             "Population state snapshot:",
             population_state_summary,
             "",
+            "Contract activity (your participation):",
+            contract_summary,
+            "",
             "Analysis Memory:",
             analysis_memory,
             "",
             "Analysis strategy cards:",
             analysis_card_summary,
+            "",
+            "Experiment outcomes (baseline vs variation):",
+            experiment_summary,
             "",
             "Strategy profile:",
             strategy_profile,
@@ -352,6 +373,7 @@ class PromptLoader:
         past_performance: str,
         analysis_memory: str,
         analysis_card_summary: str,
+        experiment_summary: str,
         strategy_profile: str,
         population_strategy_profile: str,
         population_exploration_summary: str,
@@ -367,7 +389,7 @@ class PromptLoader:
 
         Args:
             member_id: ID of the agent
-            (similar params as build_action_prompt, including population_strategy_profile)
+            (similar params as build_action_prompt, including experiment_summary)
             population_state_summary: Snapshot of current population state
 
         Returns:
@@ -400,6 +422,17 @@ class PromptLoader:
             "",
             base['system_attributes'],
             "",
+        ]
+
+        if base.get('execution_flow'):
+            sections.append(base['execution_flow'])
+            sections.append("")
+
+        if base.get('contracts_and_physics'):
+            sections.append(base['contracts_and_physics'])
+            sections.append("")
+
+        sections += [
             f"Analysis of the game state:",
             report if report else "No analysis available",
             "",
@@ -419,6 +452,9 @@ class PromptLoader:
             "",
             "Analysis strategy cards:",
             analysis_card_summary,
+            "",
+            "Experiment outcomes (baseline vs variation):",
+            experiment_summary,
             "",
             "Population state snapshot:",
             population_state_summary,

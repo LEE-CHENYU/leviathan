@@ -83,11 +83,11 @@ class IslandExecution(Island):
             random_seed
         )
         
-        self.performance_history = {}  # {member_id: [list_of_performance_metrics]}
-        self.round_performance_history = {}  # {member_id: [per-round survival deltas]}
+        self.performance_history = {}  # {stable_member_id: [list_of_performance_metrics]}
+        self.round_performance_history = {}  # {stable_member_id: [per-round survival deltas]}
         
         # Add code memory tracking
-        self.code_memory = {}  # {member_id: [{'code': str, 'performance': float, 'context': dict}]}
+        self.code_memory = {}  # {stable_member_id: [{'code': str, 'performance': float, 'context': dict}]}
         
         # Add execution history tracking
         self.execution_history = {
@@ -119,6 +119,16 @@ class IslandExecution(Island):
         # Track round number for graph context
         self.round_number = 0
 
+        # Diversity controller for adaptive exploration pressure
+        self._diversity_controller = {
+            "alpha": 0.25,
+            "target_diversity": 0.45,
+            "target_entropy": 0.6,
+            "adjustment": 0.0,
+            "min_adjust": -0.15,
+            "max_adjust": 0.25,
+        }
+
     def new_round(self):
         """
         Initialize a new round in the execution history with a structured record.
@@ -133,10 +143,12 @@ class IslandExecution(Island):
             "analysis": {},
             "analysis_cards": {},
             "agent_actions": [],      # List of agent code execution details
-            "agent_messages": {},     # Dictionary keyed by member_id
+            "agent_messages": {},     # Dictionary keyed by stable member id
             "population_strategy_profile": None,
             "mechanism_modifications": {
                 "attempts": [],       # Proposed modifications this round
+                "approved_ids": [],   # Approved member ids (judge-gated)
+                "approved_count": 0,  # Approved proposal count
                 "executed": []        # Those that have been successfully executed
             },
             "errors": {
@@ -147,6 +159,11 @@ class IslandExecution(Island):
             "relationships": {},       # Relationships logged per member (if needed)
             "generated_code": {}
         }
+        # Capture round-start snapshot for end-of-round evaluation
+        try:
+            round_record["round_start_snapshot"] = self._collect_member_snapshot()
+        except Exception:
+            round_record["round_start_snapshot"] = {}
         self.execution_history['rounds'].append(round_record)
     
     def _load_base_class_code(self) -> dict:
@@ -278,6 +295,60 @@ class IslandExecution(Island):
         if len(text) <= limit:
             return text
         return text[: max(0, limit - 3)] + "..."
+
+    def _resolve_member_index(self, member_ref) -> Optional[int]:
+        """Resolve a member reference (index, id, or Member) to current_members index."""
+        if member_ref is None:
+            return None
+        if hasattr(member_ref, "id"):
+            member_ref = member_ref.id
+        if isinstance(member_ref, int) and 0 <= member_ref < len(self.current_members):
+            return member_ref
+        for idx, member in enumerate(self.current_members):
+            if member.id == member_ref:
+                return idx
+        return None
+
+    def _resolve_member_stable_id(self, member_ref) -> Optional[int]:
+        """Resolve a member reference (index, id, or Member) to stable member.id."""
+        if member_ref is None:
+            return None
+        if hasattr(member_ref, "id"):
+            return member_ref.id
+        if isinstance(member_ref, int) and 0 <= member_ref < len(self.current_members):
+            return self.current_members[member_ref].id
+        for member in self.current_members:
+            if member.id == member_ref:
+                return member_ref
+        return None
+
+    def _get_member_history(self, store: dict, member_ref) -> Tuple[Optional[int], list]:
+        """Return (stable_id, history_list) with light migration from index keys."""
+        stable_id = self._resolve_member_stable_id(member_ref)
+        if stable_id is None:
+            return None, []
+        if stable_id in store:
+            return stable_id, store[stable_id]
+        if isinstance(member_ref, int) and member_ref in store and member_ref != stable_id:
+            store[stable_id] = store[member_ref]
+            return stable_id, store[stable_id]
+        return stable_id, []
+
+    def _get_round_member_entry(self, round_data: dict, key: str, member_ref):
+        """Fetch per-member round_data entry using stable id with index fallback."""
+        if not round_data or not key:
+            return None
+        bucket = round_data.get(key, {})
+        if not isinstance(bucket, dict):
+            return None
+        stable_id = self._resolve_member_stable_id(member_ref)
+        if stable_id is None:
+            return None
+        if stable_id in bucket:
+            return bucket[stable_id]
+        if isinstance(member_ref, int) and member_ref in bucket:
+            return bucket[member_ref]
+        return None
 
     def _auto_update_strategy_memory(
         self,
@@ -500,11 +571,17 @@ class IslandExecution(Island):
         if not self.execution_history.get("rounds"):
             return
         round_data = self.execution_history["rounds"][-1]
-        round_data.setdefault("analysis_cards", {})[member_id] = card
-        try:
-            member = self.current_members[member_id]
-        except Exception:
-            member = None
+        stable_id = self._resolve_member_stable_id(member_id)
+        if stable_id is None:
+            return
+        round_data.setdefault("analysis_cards", {})[stable_id] = card
+        member = None
+        member_index = self._resolve_member_index(member_id)
+        if member_index is not None:
+            try:
+                member = self.current_members[member_index]
+            except Exception:
+                member = None
         round_num = round_data.get("round_number", len(self.execution_history["rounds"]))
         memory_note = card.get("memory_note")
         if memory_note:
@@ -522,7 +599,7 @@ class IslandExecution(Island):
         window = max(1, int(window))
         cards = []
         for round_data in self.execution_history["rounds"][-window:]:
-            card = round_data.get("analysis_cards", {}).get(member_id)
+            card = self._get_round_member_entry(round_data, "analysis_cards", member_id)
             if card:
                 round_num = round_data.get("round_number")
                 cards.append((round_num, card))
@@ -533,6 +610,126 @@ class IslandExecution(Island):
             label = f"Round {round_num}" if round_num is not None else "Round ?"
             summary = self._format_strategy_card_brief(card, limit=160)
             lines.append(f"- {label}: {summary if summary else 'card parsed'}")
+        return "\n".join(lines)
+
+    def get_experiment_summary(
+        self,
+        member_id: int,
+        window: int = 6,
+        min_samples: int = 2,
+    ) -> str:
+        """Summarize baseline/variation experiment outcomes from recent actions."""
+        _, memory = self._get_member_history(self.code_memory, member_id)
+        if not memory:
+            return "No experiment outcomes yet."
+
+        experiments = [mem for mem in memory if mem.get("experiment")]
+        if not experiments:
+            return "No experiment outcomes yet."
+
+        window = max(1, int(window))
+        recent = experiments[-window:]
+        if not recent:
+            return "No experiment outcomes yet."
+
+        labels = ("baseline", "variation", "unmatched")
+        perf_by_label = {label: [] for label in labels}
+        match_scores = {label: [] for label in labels}
+
+        for mem in recent:
+            exp = mem.get("experiment") or {}
+            label = exp.get("label", "unmatched")
+            if label not in perf_by_label:
+                label = "unmatched"
+            perf_by_label[label].append(self._get_memory_performance(mem))
+            score = exp.get("match_score")
+            if score is not None:
+                try:
+                    match_scores[label].append(float(score))
+                except (TypeError, ValueError):
+                    pass
+
+        def _avg(values: list) -> Optional[float]:
+            if not values:
+                return None
+            return sum(values) / len(values)
+
+        base_avg = _avg(perf_by_label["baseline"])
+        var_avg = _avg(perf_by_label["variation"])
+        other_avg = _avg(perf_by_label["unmatched"])
+
+        lines = [
+            "Experiment outcomes (recent baseline/variation tests):",
+            f"- Window: {len(recent)} actions; "
+            f"baseline {len(perf_by_label['baseline'])}, "
+            f"variation {len(perf_by_label['variation'])}, "
+            f"other {len(perf_by_label['unmatched'])}",
+        ]
+
+        if base_avg is not None:
+            lines.append(
+                f"- Baseline avg delta_survival: {base_avg:.2f} "
+                f"(n={len(perf_by_label['baseline'])})"
+            )
+        if var_avg is not None:
+            lines.append(
+                f"- Variation avg delta_survival: {var_avg:.2f} "
+                f"(n={len(perf_by_label['variation'])})"
+            )
+        if other_avg is not None and perf_by_label["unmatched"]:
+            lines.append(
+                f"- Unmatched avg delta_survival: {other_avg:.2f} "
+                f"(n={len(perf_by_label['unmatched'])})"
+            )
+
+        total_count = len(recent)
+        matched_count = (
+            len(perf_by_label["baseline"]) + len(perf_by_label["variation"])
+        )
+        match_rate = matched_count / total_count if total_count else 0.0
+        avg_match_score = None
+        match_pool = match_scores.get("baseline", []) + match_scores.get("variation", [])
+        if match_pool:
+            avg_match_score = sum(match_pool) / len(match_pool)
+        if total_count:
+            lines.append(
+                f"- Plan match rate: {match_rate:.2f} "
+                f"(baseline {len(perf_by_label['baseline'])}, "
+                f"variation {len(perf_by_label['variation'])}, "
+                f"unmatched {len(perf_by_label['unmatched'])})"
+            )
+        if avg_match_score is not None:
+            lines.append(
+                f"- Avg match score (matched): {avg_match_score:.2f}"
+            )
+
+        best_label = None
+        best_avg = None
+        for label, avg in (("baseline", base_avg), ("variation", var_avg)):
+            if avg is None:
+                continue
+            if best_avg is None or avg > best_avg:
+                best_avg = avg
+                best_label = label
+        if best_label is not None:
+            lines.append(
+                f"- Best recent plan: {best_label} "
+                f"(avg delta_survival {best_avg:.2f})"
+            )
+
+        low_sample = (
+            len(perf_by_label["baseline"]) < min_samples
+            or len(perf_by_label["variation"]) < min_samples
+        )
+        if low_sample:
+            lines.append(
+                "- Low sample in recent tests; keep bounded variation to avoid premature convergence."
+            )
+        if total_count and match_rate < 0.5:
+            lines.append(
+                "- Plan adherence low; follow baseline/variation tags from analysis to keep experiments interpretable."
+            )
+
         return "\n".join(lines)
 
     def _collect_strategy_notes(
@@ -639,7 +836,7 @@ class IslandExecution(Island):
                 bucket.pop(0)
 
         for round_data in self.execution_history['rounds'][start_round - 1:]:
-            comm = round_data.get('agent_messages', {}).get(member_id)
+            comm = self._get_round_member_entry(round_data, "agent_messages", member_id)
             if not comm:
                 continue
             for msg in comm.get('received', []) or []:
@@ -688,6 +885,112 @@ class IslandExecution(Island):
 
         return "\n".join(lines)
 
+    def _collect_contract_partner_stats(self) -> dict:
+        """Aggregate partner mix and status counts for contracts by party."""
+        stats = {
+            "partner_counts": {},
+            "status_counts": {},
+            "partner_unique": {},
+            "partner_top_share": {},
+            "partner_top_partner": {},
+            "avg_unique_partners": 0.0,
+            "avg_top_partner_share": 0.0,
+        }
+        if not hasattr(self, "contracts"):
+            return stats
+
+        partner_counts = {}
+        status_counts = {}
+        for contract in self.contracts.contracts.values():
+            parties = contract.get("parties", []) or []
+            status = contract.get("status", "unknown")
+            for party in parties:
+                status_counts.setdefault(party, Counter())[status] += 1
+                for other in parties:
+                    if other == party:
+                        continue
+                    partner_counts.setdefault(party, Counter())[other] += 1
+
+        partner_unique = {}
+        partner_top_share = {}
+        partner_top_partner = {}
+        for party, counts in partner_counts.items():
+            partner_unique[party] = len(counts)
+            if counts:
+                top_partner, top_count = counts.most_common(1)[0]
+                total_links = sum(counts.values())
+                partner_top_partner[party] = top_partner
+                partner_top_share[party] = (
+                    float(top_count) / total_links if total_links else 0.0
+                )
+            else:
+                partner_top_partner[party] = None
+                partner_top_share[party] = 0.0
+
+        member_ids = [m.id for m in getattr(self, "current_members", []) or []]
+        if member_ids:
+            unique_vals = [partner_unique.get(mid, 0) for mid in member_ids]
+            share_vals = [partner_top_share.get(mid, 0.0) for mid in member_ids]
+            stats["avg_unique_partners"] = float(np.mean(unique_vals)) if unique_vals else 0.0
+            stats["avg_top_partner_share"] = float(np.mean(share_vals)) if share_vals else 0.0
+
+        stats["partner_counts"] = partner_counts
+        stats["status_counts"] = status_counts
+        stats["partner_unique"] = partner_unique
+        stats["partner_top_share"] = partner_top_share
+        stats["partner_top_partner"] = partner_top_partner
+        return stats
+
+    def _summarize_contract_activity(self, member_id: int, max_partners: int = 3) -> str:
+        """Summarize contract involvement and partner diversity for a member."""
+        if not hasattr(self, "contracts"):
+            return "Contract activity: unavailable."
+
+        stable_id = self._resolve_member_stable_id(member_id)
+        party_id = stable_id if stable_id is not None else member_id
+
+        contracts = [
+            contract for contract in self.contracts.contracts.values()
+            if party_id in (contract.get("parties") or [])
+        ]
+        if not contracts:
+            return "Contract activity: none."
+
+        status_counts = Counter()
+        for contract in contracts:
+            status_counts[contract.get("status", "unknown")] += 1
+
+        partner_stats = self._collect_contract_partner_stats()
+        partner_counts = partner_stats.get("partner_counts", {}).get(party_id, Counter())
+        partner_unique = partner_stats.get("partner_unique", {}).get(party_id, 0)
+        top_partner = partner_stats.get("partner_top_partner", {}).get(party_id)
+        top_share = partner_stats.get("partner_top_share", {}).get(party_id, 0.0)
+
+        partner_text = "none"
+        if partner_counts:
+            partner_text = ", ".join(
+                f"member_{pid} (n={count})"
+                for pid, count in partner_counts.most_common(max(1, int(max_partners)))
+            )
+
+        lines = [
+            "Contract activity (your involvement):",
+            f"- contracts: total {len(contracts)} | pending {status_counts.get('pending', 0)} "
+            f"| active {status_counts.get('active', 0)} | completed {status_counts.get('completed', 0)} "
+            f"| failed {status_counts.get('failed', 0)}",
+            f"- partners: {partner_unique} unique; top partner "
+            f"{'member_' + str(top_partner) if top_partner is not None else 'none'} "
+            f"(share {top_share:.2f})",
+            f"- partner mix: {partner_text}",
+        ]
+
+        if top_share >= 0.6 and partner_unique > 1:
+            lines.append(
+                "- concentration risk: consider diversifying partners or terms."
+            )
+
+        return "\n".join(lines)
+
     def _peek_messages(
         self,
         member_id: int,
@@ -697,16 +1000,34 @@ class IslandExecution(Island):
         """Return unread messages for the member without clearing them."""
         if round_num is None:
             round_num = len(self.execution_history.get("rounds", []))
+        member_key = self._resolve_member_stable_id(member_id)
+        if member_key is None:
+            return []
+        if (
+            isinstance(member_id, int)
+            and member_id != member_key
+            and member_id in self.messages
+            and member_key not in self.messages
+        ):
+            self.messages[member_key] = self.messages.pop(member_id)
+        if (
+            isinstance(member_id, int)
+            and member_id != member_key
+            and member_id in self._message_snapshot_round
+            and member_key not in self._message_snapshot_round
+        ):
+            self._message_snapshot_round[member_key] = self._message_snapshot_round.pop(member_id)
+            self._message_snapshot_len[member_key] = self._message_snapshot_len.pop(member_id, 0)
 
-        inbox = self.messages.get(member_id, [])
-        snapshot_round = self._message_snapshot_round.get(member_id)
+        inbox = self.messages.get(member_key, [])
+        snapshot_round = self._message_snapshot_round.get(member_key)
 
         if create_snapshot and snapshot_round != round_num:
-            self._message_snapshot_round[member_id] = round_num
-            self._message_snapshot_len[member_id] = len(inbox)
+            self._message_snapshot_round[member_key] = round_num
+            self._message_snapshot_len[member_key] = len(inbox)
             snapshot_round = round_num
 
-        snapshot_len = self._message_snapshot_len.get(member_id)
+        snapshot_len = self._message_snapshot_len.get(member_key)
         if snapshot_round == round_num and snapshot_len is not None:
             return inbox[:snapshot_len]
         return inbox
@@ -719,23 +1040,176 @@ class IslandExecution(Island):
         for member_id, snapshot_round in list(self._message_snapshot_round.items()):
             if snapshot_round != round_num:
                 continue
-            snapshot_len = int(self._message_snapshot_len.get(member_id, 0) or 0)
-            inbox = self.messages.get(member_id, [])
+            member_key = self._resolve_member_stable_id(member_id) or member_id
+            if (
+                member_key != member_id
+                and member_key not in self._message_snapshot_round
+            ):
+                self._message_snapshot_round[member_key] = snapshot_round
+                self._message_snapshot_len[member_key] = self._message_snapshot_len.get(member_id, 0)
+                self._message_snapshot_round.pop(member_id, None)
+                self._message_snapshot_len.pop(member_id, None)
+            if (
+                member_key != member_id
+                and member_key not in self.messages
+                and member_id in self.messages
+            ):
+                self.messages[member_key] = self.messages.pop(member_id)
+
+            snapshot_len = int(self._message_snapshot_len.get(member_key, 0) or 0)
+            inbox = self.messages.get(member_key, [])
             if snapshot_len > 0:
                 snapshot_len = min(snapshot_len, len(inbox))
                 remaining = inbox[snapshot_len:]
                 if remaining:
-                    self.messages[member_id] = remaining
+                    self.messages[member_key] = remaining
                 else:
-                    self.messages.pop(member_id, None)
-            self._message_snapshot_round.pop(member_id, None)
-            self._message_snapshot_len.pop(member_id, None)
+                    self.messages.pop(member_key, None)
+            self._message_snapshot_round.pop(member_key, None)
+            self._message_snapshot_len.pop(member_key, None)
 
     def _format_signature(self, signature: tuple) -> str:
         """Format a signature tuple for readable summaries."""
         if not signature:
             return "none"
         return ", ".join(signature)
+
+    def _normalize_action_tags(self, tags: List[str]) -> tuple:
+        """Normalize a list of action tags into a canonical signature tuple."""
+        if not tags:
+            return tuple()
+        tag_order = [
+            "attack",
+            "offer",
+            "offer_land",
+            "bear",
+            "expand",
+            "message",
+            "contracts",
+            "market",
+            "resources",
+            "businesses",
+        ]
+        aliases = {
+            "messages": "message",
+            "msg": "message",
+            "contract": "contracts",
+            "contracts": "contracts",
+            "markets": "market",
+            "resource": "resources",
+            "business": "businesses",
+            "offerland": "offer_land",
+            "offer-land": "offer_land",
+        }
+        seen = set()
+        for raw in tags:
+            if raw is None:
+                continue
+            text = str(raw).strip().lower()
+            if not text:
+                continue
+            text = text.replace(" ", "_")
+            text = aliases.get(text, text)
+            if text in tag_order:
+                seen.add(text)
+        if not seen:
+            return tuple()
+        return tuple([tag for tag in tag_order if tag in seen])
+
+    def _score_signature_match(self, signature: tuple, target: tuple) -> float:
+        """Score how closely an action signature matches a target tag list."""
+        if not signature or not target:
+            return 0.0
+        sig_set = set(signature)
+        target_set = set(target)
+        if not sig_set or not target_set:
+            return 0.0
+        if sig_set == target_set:
+            return 1.0
+        coverage = len(sig_set & target_set) / float(len(target_set))
+        penalty = len(sig_set - target_set) / float(len(sig_set)) if sig_set else 0.0
+        score = coverage - 0.25 * penalty
+        return float(max(0.0, min(1.0, score)))
+
+    def _get_latest_analysis_card(
+        self,
+        member_id: int,
+        max_back: int = 3,
+    ) -> Tuple[Optional[int], Optional[dict]]:
+        """Return the most recent analysis card for a member."""
+        rounds = self.execution_history.get("rounds", [])
+        if not rounds:
+            return None, None
+        max_back = max(1, int(max_back))
+        for round_data in reversed(rounds[-max_back:]):
+            card = self._get_round_member_entry(round_data, "analysis_cards", member_id)
+            if card:
+                round_num = round_data.get("round_number")
+                return round_num, card
+        return None, None
+
+    def _record_experiment_outcome(
+        self,
+        member_id: int,
+        round_num: int,
+        signature: tuple,
+        metrics: dict,
+        context_key: str = "",
+    ) -> Optional[dict]:
+        """Record how the executed signature aligns with the latest analysis plan."""
+        plan_round, card = self._get_latest_analysis_card(member_id)
+        if not card:
+            return None
+
+        baseline_sig = self._normalize_action_tags(card.get("baseline_signature"))
+        variation_sig = self._normalize_action_tags(card.get("variation_signature"))
+        baseline_score = self._score_signature_match(signature, baseline_sig)
+        variation_score = self._score_signature_match(signature, variation_sig)
+
+        label = "unmatched"
+        match_score = 0.0
+        if baseline_score or variation_score:
+            if baseline_score >= variation_score:
+                label = "baseline"
+                match_score = baseline_score
+            else:
+                label = "variation"
+                match_score = variation_score
+
+        experiment = {
+            "plan_round": plan_round,
+            "label": label,
+            "match_score": match_score,
+            "baseline_signature": baseline_sig,
+            "variation_signature": variation_sig,
+            "success_metrics": card.get("success_metrics", []),
+            "guardrails": card.get("guardrails", []),
+            "confidence": card.get("confidence"),
+            "context_key": context_key or "",
+        }
+
+        try:
+            member_index = self._resolve_member_index(member_id)
+            member = (
+                self.current_members[member_index]
+                if member_index is not None
+                else None
+            )
+        except Exception:
+            member = None
+
+        delta_survival = metrics.get("delta_survival", 0.0)
+        note = (
+            f"exp r{round_num} plan_r{plan_round or '?'} "
+            f"{label} match={match_score:.2f} "
+            f"d_surv={float(delta_survival):.2f} "
+            f"base={self._format_signature(baseline_sig)} "
+            f"var={self._format_signature(variation_sig)}"
+        )
+        note = self._truncate_message(note, limit=180)
+        self._append_strategy_report(member, note, key="experiments")
+
+        return experiment
 
     def _extract_action_signature(self, code_str: str) -> tuple:
         """Extract a coarse action signature from generated code for diversity sampling."""
@@ -898,6 +1372,42 @@ class IslandExecution(Island):
             "dominant_share": dominant_share,
         }
 
+    def _collect_plan_alignment_stats(self, round_num: int) -> dict:
+        """Collect plan alignment metrics based on experiment labels for a round."""
+        stats = {
+            "total_actions": 0,
+            "plan_samples": 0,
+            "baseline": 0,
+            "variation": 0,
+            "unmatched": 0,
+            "missing": 0,
+            "avg_match_score": None,
+        }
+        scores = []
+        for mem_list in self.code_memory.values():
+            for mem in mem_list:
+                if mem.get('context', {}).get('round') != round_num:
+                    continue
+                stats["total_actions"] += 1
+                experiment = mem.get("experiment")
+                if not experiment:
+                    stats["missing"] += 1
+                    continue
+                label = experiment.get("label", "unmatched")
+                if label not in ("baseline", "variation", "unmatched"):
+                    label = "unmatched"
+                stats[label] += 1
+                stats["plan_samples"] += 1
+                score = experiment.get("match_score")
+                if score is not None:
+                    try:
+                        scores.append(float(score))
+                    except (TypeError, ValueError):
+                        pass
+        if scores:
+            stats["avg_match_score"] = sum(scores) / len(scores)
+        return stats
+
     def _signature_overlap(self, sig_a: tuple, sig_b: tuple) -> float:
         """Compute Jaccard overlap between two action signatures."""
         if not sig_a or not sig_b:
@@ -912,7 +1422,7 @@ class IslandExecution(Island):
         """Compute a simple novelty score based on prior signature frequency."""
         if not signature:
             return 0.0
-        history = self.code_memory.get(member_id, [])
+        _, history = self._get_member_history(self.code_memory, member_id)
         if not history:
             return 1.0
         count = 0
@@ -1062,6 +1572,38 @@ class IslandExecution(Island):
             f"{key}={value}" for key, value in sorted(context_tags.items())
         )
 
+    def _update_diversity_controller(
+        self,
+        diversity_ratio: Optional[float],
+        entropy_norm: Optional[float],
+    ) -> Tuple[float, float]:
+        """Adaptive controller to balance learning with diversity via EMA-like updates."""
+        ctrl = getattr(self, "_diversity_controller", None) or {}
+        alpha = float(ctrl.get("alpha", 0.25))
+        target_diversity = float(ctrl.get("target_diversity", 0.45))
+        target_entropy = float(ctrl.get("target_entropy", 0.6))
+        min_adjust = float(ctrl.get("min_adjust", -0.15))
+        max_adjust = float(ctrl.get("max_adjust", 0.25))
+
+        weight = 0.0
+        error_sum = 0.0
+        if diversity_ratio is not None:
+            error_sum += target_diversity - float(diversity_ratio)
+            weight += 1.0
+        if entropy_norm is not None:
+            error_sum += 0.5 * (target_entropy - float(entropy_norm))
+            weight += 0.5
+        if weight <= 0:
+            return 0.0, 0.0
+
+        error = error_sum / weight
+        adjustment = float(ctrl.get("adjustment", 0.0)) + alpha * error
+        adjustment = max(min_adjust, min(max_adjust, adjustment))
+
+        ctrl.update({"adjustment": adjustment, "last_error": error})
+        self._diversity_controller = ctrl
+        return adjustment, error
+
     def _context_similarity_score(self, current_tags: dict, past_tags: dict) -> float:
         """Compute a coarse similarity score between two context tag sets."""
         if not current_tags or not past_tags:
@@ -1074,6 +1616,52 @@ class IslandExecution(Island):
             if current_tags.get(key) == past_tags.get(key)
         )
         return matches / float(len(shared_keys))
+
+    def _collect_context_weighted_signature_stats(
+        self,
+        memory: list,
+        current_tags: dict,
+        min_similarity: float = 0.35,
+    ) -> dict:
+        """Aggregate signature performance weighted by context similarity."""
+        if not memory or not current_tags:
+            return {}
+
+        stats = {}
+        for mem in memory:
+            past_tags = mem.get("context_tags") or {}
+            if not past_tags:
+                continue
+            similarity = self._context_similarity_score(current_tags, past_tags)
+            if similarity < min_similarity:
+                continue
+            sig = mem.get("signature")
+            if sig is None:
+                sig = self._extract_action_signature(mem.get("code", ""))
+            sig = tuple(sig) if sig else tuple()
+            perf = self._get_memory_performance(mem)
+            record = stats.setdefault(
+                sig,
+                {
+                    "weight_sum": 0.0,
+                    "perf_sum": 0.0,
+                    "count": 0,
+                    "similarity_sum": 0.0,
+                },
+            )
+            record["weight_sum"] += similarity
+            record["perf_sum"] += similarity * perf
+            record["count"] += 1
+            record["similarity_sum"] += similarity
+
+        for record in stats.values():
+            weight_sum = record["weight_sum"]
+            record["avg"] = record["perf_sum"] / weight_sum if weight_sum else 0.0
+            count = record["count"]
+            record["similarity_avg"] = (
+                record["similarity_sum"] / count if count else 0.0
+            )
+        return stats
 
     def _get_memory_performance(self, mem: dict, prefer_round: bool = True) -> float:
         """Return the best available performance metric for a memory entry."""
@@ -1106,9 +1694,10 @@ class IslandExecution(Island):
         snapshot = self._collect_member_snapshot()
         if not snapshot:
             return {}
-        stats = snapshot.get(member_id)
-        if stats is None and 0 <= member_id < len(self.current_members):
-            stats = snapshot.get(self.current_members[member_id].id)
+        stable_id = self._resolve_member_stable_id(member_id)
+        if stable_id is None:
+            return {}
+        stats = snapshot.get(stable_id)
         if not stats:
             return {}
         cutoffs = self._compute_population_context_cutoffs(snapshot)
@@ -1358,6 +1947,28 @@ class IslandExecution(Island):
         else:
             communication_line = "- Communication last round: no messages"
 
+        contract_line = "- Contracts: unavailable"
+        if hasattr(self, "contracts"):
+            stats = self.contracts.get_statistics()
+            contract_line = (
+                "- Contracts (total/pending/active/completed/failed): "
+                f"{stats.get('total_contracts', 0)}/"
+                f"{stats.get('pending', 0)}/"
+                f"{stats.get('active', 0)}/"
+                f"{stats.get('completed', 0)}/"
+                f"{stats.get('failed', 0)}"
+            )
+
+        physics_line = "- Physics: unavailable"
+        if hasattr(self, "physics"):
+            stats = self.physics.get_statistics()
+            domains = stats.get("domains", [])
+            domain_text = ", ".join(sorted(domains)) if domains else "none"
+            physics_line = (
+                f"- Physics constraints: active {stats.get('active_constraints', 0)} "
+                f"(domains: {domain_text})"
+            )
+
         lines = [
             "Population state snapshot:",
             f"- Members: {member_count}; land scarcity: "
@@ -1375,6 +1986,8 @@ class IslandExecution(Island):
             f"- Production/consumption: {production:.1f}/{consumption:.1f} "
             f"(net {net_production:.1f}); births {births}, deaths {deaths}",
             f"- Top holders (cargo+land): {top_text}",
+            contract_line,
+            physics_line,
             communication_line,
         ]
 
@@ -1382,10 +1995,9 @@ class IslandExecution(Island):
 
     def get_strategy_profile_summary(self, member_id: int, window: int = 5) -> str:
         """Summarize action signature coverage to encourage strategy diversity."""
-        if member_id not in self.code_memory or not self.code_memory[member_id]:
+        _, memory = self._get_member_history(self.code_memory, member_id)
+        if not memory:
             return "No strategy profile available."
-
-        memory = self.code_memory[member_id]
         signatures = self._get_memory_signatures(memory)
 
         tag_counts = Counter()
@@ -1717,10 +2329,9 @@ class IslandExecution(Island):
         max_signatures: int = 2
     ) -> str:
         """Summarize recent performance by coarse context tags."""
-        if member_id not in self.code_memory or not self.code_memory[member_id]:
+        _, memory = self._get_member_history(self.code_memory, member_id)
+        if not memory:
             return "No contextual strategy data yet."
-
-        memory = self.code_memory[member_id]
         window = max(1, window)
         recent = memory[-window:]
         if not recent:
@@ -1832,10 +2443,9 @@ class IslandExecution(Island):
         max_items: int = 3
     ) -> str:
         """Provide lightweight decision support without forcing convergence."""
-        if member_id not in self.code_memory or not self.code_memory[member_id]:
+        _, memory = self._get_member_history(self.code_memory, member_id)
+        if not memory:
             return "No strategy recommendations available."
-
-        memory = self.code_memory[member_id]
         window = max(1, window)
         recent = memory[-window:]
         if not recent:
@@ -1864,6 +2474,36 @@ class IslandExecution(Island):
         member_recent_signatures = set(signature_counts.keys())
         current_tags = self._get_member_context_tags(member_id)
         current_key = self._context_key_from_tags(current_tags)
+        context_stats = self._collect_context_weighted_signature_stats(
+            recent,
+            current_tags,
+            min_similarity=0.35,
+        )
+        context_ranked = []
+        context_top = None
+        context_candidate = None
+        if context_stats:
+            context_ranked = sorted(
+                [
+                    (
+                        record.get("avg", 0.0),
+                        record.get("weight_sum", 0.0),
+                        record.get("count", 0),
+                        record.get("similarity_avg", 0.0),
+                        sig,
+                    )
+                    for sig, record in context_stats.items()
+                ],
+                key=lambda x: (x[0], x[1], x[2]),
+                reverse=True,
+            )
+            if context_ranked:
+                context_top = context_ranked[0]
+                min_context_weight = max(0.6, 0.4 * float(min_samples))
+                for avg, weight_sum, count, sim_avg, sig in context_ranked:
+                    if count >= min_samples or weight_sum >= min_context_weight:
+                        context_candidate = (avg, weight_sum, count, sim_avg, sig)
+                        break
         risk_budget = 0.7
         survival_tag = current_tags.get("survival") if current_tags else None
         relation_tag = current_tags.get("relations") if current_tags else None
@@ -1924,6 +2564,10 @@ class IslandExecution(Island):
                 if novelty_vals else 0.0
             )
             sig_perf_stats.append((avg, std, count, novelty_avg, sig))
+        sig_perf_lookup = {
+            sig: (avg, std, count, novelty_avg)
+            for avg, std, count, novelty_avg, sig in sig_perf_stats
+        }
 
         std_cutoff = 0.0
         if sig_perf_stats:
@@ -1931,6 +2575,7 @@ class IslandExecution(Island):
             std_cutoff = std_values[len(std_values) // 2]
 
         baseline_candidate = None
+        baseline_reason = "stable"
         stable_candidates = [
             stat for stat in sig_perf_stats
             if stat[2] >= min_samples and stat[1] <= std_cutoff
@@ -1945,12 +2590,23 @@ class IslandExecution(Island):
                 sig_perf_stats,
                 key=lambda x: (x[0], -x[1], x[2])
             )
+            baseline_reason = "average"
 
         baseline_sig = None
         if baseline_candidate:
             baseline_sig = baseline_candidate[-1]
         elif best_by_avg is not None:
             baseline_sig = best_by_avg[2]
+            baseline_reason = "average"
+
+        if context_candidate is not None:
+            ctx_avg, _ctx_weight, _ctx_count, _ctx_sim, ctx_sig = context_candidate
+            baseline_avg = None
+            if baseline_sig is not None:
+                baseline_avg = sig_perf_lookup.get(baseline_sig, (None, None, None, None))[0]
+            if baseline_sig is None or baseline_avg is None or ctx_avg >= (baseline_avg - 0.02):
+                baseline_sig = ctx_sig
+                baseline_reason = "context"
 
         dominant_sig = None
         dominant_share = 0.0
@@ -2027,6 +2683,53 @@ class IslandExecution(Island):
             pop_dominant_sig, pop_dominant_count = pop_signature_counts.most_common(1)[0]
             pop_dominant_share = pop_dominant_count / pop_total
         pop_diversity_ratio = pop_unique / pop_total if pop_total else 0.0
+        pop_entropy = 0.0
+        pop_entropy_norm = 0.0
+        if pop_signature_counts and pop_total:
+            for count in pop_signature_counts.values():
+                prob = count / pop_total
+                if prob > 0:
+                    pop_entropy -= prob * math.log(prob)
+            max_entropy = math.log(pop_unique) if pop_unique > 1 else 0.0
+            pop_entropy_norm = pop_entropy / max_entropy if max_entropy > 0 else 0.0
+
+        diversity_override = None
+        if (
+            baseline_sig is not None
+            and pop_total
+            and pop_dominant_sig is not None
+            and baseline_sig == pop_dominant_sig
+            and pop_dominant_share >= 0.6
+            and risk_budget >= 0.6
+        ):
+            base_stats = sig_perf_lookup.get(baseline_sig)
+            baseline_avg = base_stats[0] if base_stats else None
+            perf_floor = baseline_avg - 0.03 if baseline_avg is not None else None
+            max_share = max(0.45, pop_dominant_share - 0.15)
+            candidates = []
+            for avg, _std, count, _novelty_avg, sig in sig_perf_stats:
+                if sig == baseline_sig:
+                    continue
+                if count < min_samples:
+                    continue
+                share = pop_signature_counts.get(sig, 0) / pop_total if pop_total else 0.0
+                if share >= max_share:
+                    continue
+                if perf_floor is not None and avg < perf_floor:
+                    continue
+                candidates.append((avg, -share, count, sig))
+            if candidates:
+                candidates.sort(reverse=True)
+                best_avg, _neg_share, best_count, best_sig = candidates[0]
+                diversity_override = {
+                    "previous": baseline_sig,
+                    "previous_share": pop_dominant_share,
+                    "candidate_share": pop_signature_counts.get(best_sig, 0) / pop_total if pop_total else 0.0,
+                    "baseline_avg": baseline_avg,
+                    "candidate_avg": best_avg,
+                }
+                baseline_sig = best_sig
+                baseline_reason = "diversity"
 
         niche_candidate = None
         if pop_entries and pop_total:
@@ -2075,20 +2778,44 @@ class IslandExecution(Island):
             if dominant_ratio >= 0.5 and avg_signature_share >= 0.45:
                 exploration_pressure += 0.1
                 pressure_reasons.append("own signature dominance")
+        if pop_total:
+            diversity_adjustment, diversity_error = self._update_diversity_controller(
+                pop_diversity_ratio,
+                pop_entropy_norm,
+            )
+            if abs(diversity_adjustment) > 1e-6:
+                exploration_pressure += diversity_adjustment
+                alpha = float(self._diversity_controller.get("alpha", 0.0))
+                pressure_reasons.append(
+                    f"diversity α={alpha:.2f} err={diversity_error:.2f}"
+                )
         exploration_bonus = max(0.25, base_exploration_bonus * risk_budget) + exploration_pressure
+
+        def _blend_with_context(avg_value: float, sig: tuple) -> Tuple[float, float]:
+            info = context_stats.get(sig) if context_stats else None
+            if not info:
+                return avg_value, 0.0
+            weight_sum = float(info.get("weight_sum", 0.0))
+            if weight_sum <= 0.0:
+                return avg_value, 0.0
+            context_avg = float(info.get("avg", avg_value))
+            weight = min(0.35, weight_sum / (weight_sum + 1.5))
+            blended = avg_value * (1.0 - weight) + context_avg * weight
+            return blended, weight
 
         sig_stats = []
         for sig, perfs in perf_by_sig.items():
             count = len(perfs)
             avg = sum(perfs) / count if count else 0.0
-            ucb = avg + exploration_bonus * math.sqrt(math.log(total + 1) / count)
-            sig_stats.append((ucb, avg, count, sig))
+            blended_avg, ctx_weight = _blend_with_context(avg, sig)
+            ucb = blended_avg + exploration_bonus * math.sqrt(math.log(total + 1) / count)
+            sig_stats.append((ucb, blended_avg, avg, count, sig, ctx_weight))
         sig_stats.sort(key=lambda x: x[0], reverse=True)
 
         variation_candidate = None
         if sig_stats:
             scored = []
-            for ucb, avg, count, sig in sig_stats:
+            for ucb, blended_avg, avg, count, sig, ctx_weight in sig_stats:
                 if baseline_sig is not None and sig == baseline_sig:
                     continue
                 if baseline_sig:
@@ -2103,7 +2830,17 @@ class IslandExecution(Island):
                         dominance_penalty = 0.15 + 0.15 * pop_dominant_share
                 adjusted = ucb - distance_penalty - dominance_penalty
                 scored.append(
-                    (adjusted, ucb, avg, count, sig, overlap, dominance_penalty)
+                    (
+                        adjusted,
+                        ucb,
+                        blended_avg,
+                        avg,
+                        count,
+                        sig,
+                        overlap,
+                        dominance_penalty,
+                        ctx_weight,
+                    )
                 )
             if scored:
                 scored.sort(key=lambda x: x[0], reverse=True)
@@ -2181,23 +2918,83 @@ class IslandExecution(Island):
                 )
         elif missing_context:
             lines.append(f"- Context tags missing for recent actions: {missing_context}")
+        if context_top is not None:
+            ctx_avg, ctx_weight, ctx_count, _ctx_sim, ctx_sig = context_top
+            lines.append(
+                f"- Context-weighted top signature: {self._format_signature(ctx_sig)} "
+                f"(avg {ctx_avg:.2f}, weight {ctx_weight:.2f}, n={ctx_count})"
+            )
+        elif current_tags:
+            lines.append(
+                "- Context-weighted signals: none (no similar contexts in window)"
+            )
         if member_signature_shares:
             lines.append(
                 f"- Recent population signature share: avg {avg_signature_share:.2f}, "
                 f"dominant rounds {dominant_share_hits}/{len(member_signature_shares)}"
             )
-        if exploration_pressure > 0:
+        if pressure_reasons:
             lines.append(
                 f"- Exploration pressure: base {base_exploration_bonus:.2f} -> "
                 f"{exploration_bonus:.2f} ({', '.join(pressure_reasons)})"
             )
 
-        if baseline_candidate is not None:
-            avg, std, count, _novelty, sig = baseline_candidate
-            lines.append(
-                f"- Suggested baseline (stable): {self._format_signature(sig)} "
-                f"(avg {avg:.2f}, std {std:.2f}, n={count})"
-            )
+        if baseline_sig is not None:
+            base_stats = sig_perf_lookup.get(baseline_sig)
+            base_avg = None
+            base_std = None
+            base_count = None
+            if base_stats:
+                base_avg, base_std, base_count, _ = base_stats
+            elif best_by_avg is not None and best_by_avg[2] == baseline_sig:
+                base_avg, base_count, _ = best_by_avg
+            baseline_label = "stable"
+            if baseline_reason == "context":
+                baseline_label = "context-aligned"
+            elif baseline_reason == "average":
+                baseline_label = "average"
+            elif baseline_reason == "diversity":
+                baseline_label = "diversity"
+            detail_suffix = ""
+            if baseline_reason == "context" and context_candidate is not None:
+                ctx_avg, ctx_weight, ctx_count, _ctx_sim, ctx_sig = context_candidate
+                if ctx_sig == baseline_sig:
+                    detail_suffix = (
+                        f", ctx avg {ctx_avg:.2f}, weight {ctx_weight:.2f}, n={ctx_count}"
+                    )
+            if base_avg is not None and base_count is not None:
+                if base_std is not None:
+                    lines.append(
+                        f"- Suggested baseline ({baseline_label}): "
+                        f"{self._format_signature(baseline_sig)} "
+                        f"(avg {base_avg:.2f}, std {base_std:.2f}, n={base_count}{detail_suffix})"
+                    )
+                else:
+                    lines.append(
+                        f"- Suggested baseline ({baseline_label}): "
+                        f"{self._format_signature(baseline_sig)} "
+                        f"(avg {base_avg:.2f}, n={base_count}{detail_suffix})"
+                    )
+            else:
+                lines.append(
+                    f"- Suggested baseline ({baseline_label}): "
+                    f"{self._format_signature(baseline_sig)}{detail_suffix}"
+                )
+            if diversity_override is not None:
+                prev_sig = diversity_override.get("previous")
+                prev_share = diversity_override.get("previous_share", 0.0)
+                cand_share = diversity_override.get("candidate_share", 0.0)
+                cand_avg = diversity_override.get("candidate_avg")
+                base_avg = diversity_override.get("baseline_avg")
+                avg_note = ""
+                if base_avg is not None and cand_avg is not None:
+                    avg_note = f" (avg {cand_avg:.2f} vs {base_avg:.2f})"
+                lines.append(
+                    "- Diversity adjustment: shifted off population dominant "
+                    f"{self._format_signature(prev_sig)} (share {prev_share:.2f}) "
+                    f"to {self._format_signature(baseline_sig)} "
+                    f"(share {cand_share:.2f}){avg_note}"
+                )
         elif best_by_avg is not None:
             avg, count, sig = best_by_avg
             lines.append(
@@ -2206,13 +3003,25 @@ class IslandExecution(Island):
             )
 
         if variation_candidate is not None:
-            adjusted, ucb, avg, count, sig, overlap, dominance_penalty = variation_candidate
+            (
+                adjusted,
+                ucb,
+                blended_avg,
+                _raw_avg,
+                count,
+                sig,
+                overlap,
+                dominance_penalty,
+                ctx_weight,
+            ) = variation_candidate
             detail_bits = [
                 f"score {adjusted:.2f}",
                 f"ucb {ucb:.2f}",
-                f"avg {avg:.2f}",
+                f"avg {blended_avg:.2f}",
                 f"n={count}",
             ]
+            if ctx_weight > 0:
+                detail_bits.append(f"ctx_w {ctx_weight:.2f}")
             if baseline_sig:
                 detail_bits.append(f"overlap {overlap:.2f}")
             if dominance_penalty > 0:
@@ -2222,10 +3031,13 @@ class IslandExecution(Island):
                 f"({', '.join(detail_bits)})"
             )
         elif sig_stats:
-            ucb, avg, count, sig = sig_stats[0]
+            ucb, blended_avg, _raw_avg, count, sig, ctx_weight = sig_stats[0]
+            detail_bits = [f"score {ucb:.2f}", f"avg {blended_avg:.2f}", f"n={count}"]
+            if ctx_weight > 0:
+                detail_bits.append(f"ctx_w {ctx_weight:.2f}")
             lines.append(
                 f"- Exploration candidate (UCB): {self._format_signature(sig)} "
-                f"(score {ucb:.2f}, avg {avg:.2f}, n={count})"
+                f"({', '.join(detail_bits)})"
             )
 
         if novelty_candidate is not None:
@@ -2321,13 +3133,30 @@ class IslandExecution(Island):
 
         return "\n".join(lines).strip()
 
-    def _select_memory_samples(self, memory, max_samples: int):
+    def _select_memory_samples(
+        self,
+        memory,
+        max_samples: int,
+        current_tags: Optional[dict] = None,
+        min_context_score: float = 0.5,
+    ):
         """Select a diversity-aware sample of memory entries."""
         if not memory:
             return []
 
         if len(memory) <= max_samples:
-            return [("Recent", mem) for mem in memory]
+            labeled = [("Recent", mem) for mem in memory]
+            if current_tags:
+                context_idx, context_score = self._find_contextual_memory_match(
+                    memory, current_tags
+                )
+                if (
+                    context_idx is not None
+                    and 0 <= context_idx < len(labeled)
+                    and context_score >= min_context_score
+                ):
+                    labeled[context_idx] = ("Context", memory[context_idx])
+            return labeled
 
         indices = list(range(len(memory)))
         by_perf = sorted(indices, key=lambda idx: self._get_memory_performance(memory[idx]))
@@ -2345,14 +3174,22 @@ class IslandExecution(Island):
             key=lambda idx: signature_counts.get(signatures[idx], len(memory) + 1)
         )
 
-        candidates = [
+        candidates = []
+        if current_tags:
+            context_idx, context_score = self._find_contextual_memory_match(
+                memory, current_tags
+            )
+            if context_idx is not None and context_score >= min_context_score:
+                candidates.append(("Context", context_idx))
+
+        candidates.extend([
             ("Recent", recent_idx),
             ("Best", best_idx),
             ("Rare", rare_idx),
             ("Worst", worst_idx),
             ("Median", median_idx),
             ("Volatile", abs_idx),
-        ]
+        ])
 
         selected = []
         seen = set()
@@ -2399,10 +3236,7 @@ class IslandExecution(Island):
 
     def get_code_memory_summary(self, member_id):
         """Generate a summary of previous code performances for the agent."""
-        if member_id not in self.code_memory:
-            return "No previous code history."
-            
-        memory = self.code_memory[member_id]
+        _, memory = self._get_member_history(self.code_memory, member_id)
         if not memory:
             return "No previous code history."
             
@@ -2453,7 +3287,11 @@ class IslandExecution(Island):
                 f"{' | '.join(label_parts)} (match {match_score:.2f}){metric_text}"
             )
 
-        selected = self._select_memory_samples(memory, max_samples=3)
+        selected = self._select_memory_samples(
+            memory,
+            max_samples=3,
+            current_tags=current_tags,
+        )
 
         for i, (label, mem) in enumerate(selected, start=1):
             perf = self._get_memory_performance(mem)
@@ -2571,6 +3409,7 @@ class IslandExecution(Island):
     def prepare_agent_data(self, member_id, error_context_type: str = "mechanism"):
         """Prepares and returns all necessary data for agent prompts."""
         member = self.current_members[member_id]
+        member_key = self._resolve_member_stable_id(member_id)
         # Gather relationship info
         relations = self.parse_relationship_matrix(self.relationship_dict)
         features = self.get_current_member_features()
@@ -2587,17 +3426,19 @@ class IslandExecution(Island):
         # Get analysis from execution history
         analysis_list = []
         for round_data in self.execution_history['rounds'][-3:]:  # Get last 3 rounds
-            if 'analysis' in round_data and member_id in round_data['analysis']:
-                analysis_list.append(round_data['analysis'][member_id])
+            analysis_entry = self._get_round_member_entry(round_data, "analysis", member_id)
+            if analysis_entry is not None:
+                analysis_list.append(analysis_entry)
         if analysis_list:
             analysis_memory = f"Previous analysis reports: {analysis_list}"
 
         analysis_card_summary = self.get_analysis_card_summary(member_id)
+        experiment_summary = self.get_experiment_summary(member_id)
         
         # Performance Memory
         past_performance = "No previous actions"
-        if member_id in self.performance_history and self.performance_history[member_id]:
-            perf_list = self.performance_history[member_id]
+        _, perf_list = self._get_member_history(self.performance_history, member_id)
+        if perf_list:
             avg_perf = sum(perf_list) / len(perf_list)
             recent = perf_list[-3:] if len(perf_list) >= 3 else perf_list
             trend = (recent[-1] - recent[0]) if len(recent) >= 2 else recent[-1]
@@ -2608,14 +3449,14 @@ class IslandExecution(Island):
                 f"recent volatility: {volatility:.2f}; "
                 f"last change: {recent[-1]:.2f}"
             )
-        if member_id in self.round_performance_history and self.round_performance_history[member_id]:
-            round_list = self.round_performance_history[member_id]
+        _, round_list = self._get_member_history(self.round_performance_history, member_id)
+        if round_list:
             round_avg = sum(round_list) / len(round_list)
             round_recent = round_list[-3:] if len(round_list) >= 3 else round_list
             round_trend = (round_recent[-1] - round_recent[0]) if len(round_recent) >= 2 else round_recent[-1]
             round_volatility = float(np.std(round_recent)) if len(round_recent) >= 2 else 0.0
             past_performance += (
-                f" | Round survival delta avg: {round_avg:.2f}; "
+                f" | End-of-round survival delta avg: {round_avg:.2f}; "
                 f"recent round trend: {round_trend:.2f}; "
                 f"recent round volatility: {round_volatility:.2f}; "
                 f"last round delta: {round_recent[-1]:.2f}"
@@ -2626,20 +3467,27 @@ class IslandExecution(Island):
         if self.execution_history['rounds']:
             errors = self.execution_history['rounds'][-1].get('errors', {})
             error_list = []
+            member_match = member_key if member_key is not None else member_id
 
             if error_context_type in ("agent_action", "agent_code", "agent"):
                 error_list = [
                     e for e in errors.get('agent_code_errors', [])
-                    if e.get('member_id') == member_id
+                    if e.get('member_id') == member_match
+                    or e.get('member_id') == member_id
+                    or e.get('member_index') == member_id
                 ]
             elif error_context_type in ("analysis", "analyze"):
-                analysis_error = errors.get('analyze_code_errors', {}).get(member_id)
+                analysis_error = errors.get('analyze_code_errors', {}).get(member_match)
+                if analysis_error is None:
+                    analysis_error = errors.get('analyze_code_errors', {}).get(member_id)
                 if analysis_error:
                     error_list = [analysis_error]
             else:  # mechanism by default
                 error_list = [
                     e for e in errors.get('mechanism_errors', [])
-                    if e.get('member_id') == member_id
+                    if e.get('member_id') == member_match
+                    or e.get('member_id') == member_id
+                    or e.get('member_index') == member_id
                 ]
 
             if error_list:
@@ -2654,6 +3502,7 @@ class IslandExecution(Island):
         received_messages = self._peek_messages(member_id)
         message_context = "\n".join(received_messages) if received_messages else "No messages received"
         communication_summary = self._summarize_communication(member_id)
+        contract_summary = self._summarize_contract_activity(member_id)
 
         # Get current game mechanisms and modification attempts
         current_round = len(self.execution_history['rounds'])
@@ -2675,9 +3524,10 @@ class IslandExecution(Island):
 
         report = None
         if (self.execution_history['rounds'] and 
-            'analysis' in self.execution_history['rounds'][-1] and
-            member_id in self.execution_history['rounds'][-1]['analysis']):
-            report = self.execution_history['rounds'][-1]['analysis'][member_id]
+            'analysis' in self.execution_history['rounds'][-1]):
+            report = self._get_round_member_entry(
+                self.execution_history['rounds'][-1], "analysis", member_id
+            )
 
         strategy_profile = self.get_strategy_profile_summary(member_id)
         population_strategy_profile = self.get_population_strategy_summary()
@@ -2698,10 +3548,12 @@ class IslandExecution(Island):
             'code_memory': code_memory,
             'analysis_memory': analysis_memory,
             'analysis_card_summary': analysis_card_summary,
+            'experiment_summary': experiment_summary,
             'past_performance': past_performance,
             'error_context': error_context,
             'message_context': message_context,
             'communication_summary': communication_summary,
+            'contract_summary': contract_summary,
             'current_mechanisms': current_mechanisms,
             'modification_attempts': modification_attempts,
             'report': report,
@@ -2748,6 +3600,90 @@ class IslandExecution(Island):
             }
         return snapshot
 
+    def _update_round_end_metrics(self) -> Optional[dict]:
+        """Compute end-of-round deltas and update memory entries for learning."""
+        if not self.execution_history.get('rounds'):
+            return None
+
+        round_record = self.execution_history['rounds'][-1]
+        if round_record.get("round_end_metrics") is not None:
+            return round_record.get("round_end_metrics")
+        start_snapshot = round_record.get("round_start_snapshot") or {}
+        end_snapshot = self._collect_member_snapshot()
+        round_record["round_end_snapshot"] = end_snapshot
+
+        if not start_snapshot:
+            return None
+
+        deltas = {}
+        for member_id, start_stats in start_snapshot.items():
+            end_stats = end_snapshot.get(member_id)
+            if not end_stats:
+                continue
+            deltas[member_id] = {
+                'vitality': end_stats['vitality'] - start_stats.get('vitality', 0.0),
+                'cargo': end_stats['cargo'] - start_stats.get('cargo', 0.0),
+                'land': end_stats['land'] - start_stats.get('land', 0.0),
+                'relation_balance': end_stats['relation_balance'] - start_stats.get('relation_balance', 0.0),
+                'survival_chance': end_stats['survival_chance'] - start_stats.get('survival_chance', 0.0),
+            }
+
+        round_record["round_end_deltas"] = deltas
+        if not deltas:
+            return None
+
+        survival_deltas = [delta['survival_chance'] for delta in deltas.values()]
+        vitality_deltas = [delta['vitality'] for delta in deltas.values()]
+        cargo_deltas = [delta['cargo'] for delta in deltas.values()]
+        land_deltas = [delta['land'] for delta in deltas.values()]
+        relation_deltas = [delta['relation_balance'] for delta in deltas.values()]
+
+        round_end_metrics = {
+            'round_end_population_avg_survival_delta': float(np.mean(survival_deltas)) if survival_deltas else 0.0,
+            'round_end_population_std_survival_delta': float(np.std(survival_deltas)) if len(survival_deltas) > 1 else 0.0,
+            'round_end_population_avg_vitality_delta': float(np.mean(vitality_deltas)) if vitality_deltas else 0.0,
+            'round_end_population_avg_cargo_delta': float(np.mean(cargo_deltas)) if cargo_deltas else 0.0,
+            'round_end_population_avg_land_delta': float(np.mean(land_deltas)) if land_deltas else 0.0,
+            'round_end_population_avg_relation_delta': float(np.mean(relation_deltas)) if relation_deltas else 0.0,
+            'round_end_member_count': len(deltas),
+        }
+
+        round_record["round_end_metrics"] = round_end_metrics
+        if isinstance(round_record.get("round_metrics"), dict):
+            round_record["round_metrics"].update(round_end_metrics)
+
+        round_num = round_record.get("round_number")
+        avg_survival = round_end_metrics.get('round_end_population_avg_survival_delta', 0.0)
+
+        for member_id, delta in deltas.items():
+            mem_list = self.code_memory.get(member_id, [])
+            if not mem_list:
+                continue
+            for mem in reversed(mem_list):
+                context = mem.get("context", {}) or {}
+                if context.get("round") != round_num:
+                    continue
+                metrics = mem.setdefault("metrics", {})
+                metrics["round_delta_survival"] = delta['survival_chance']
+                metrics["round_delta_vitality"] = delta['vitality']
+                metrics["round_delta_cargo"] = delta['cargo']
+                metrics["round_delta_land"] = delta['land']
+                metrics["round_delta_relation_balance"] = delta['relation_balance']
+                metrics["round_relative_survival"] = (
+                    delta['survival_chance'] - avg_survival
+                )
+                context["round_end_stats"] = end_snapshot.get(member_id, {})
+                context["round_end_delta"] = delta
+                mem["context"] = context
+                break
+
+        for member_id, delta in deltas.items():
+            self.round_performance_history.setdefault(member_id, []).append(
+                delta['survival_chance']
+            )
+
+        return round_end_metrics
+
     def execute_code_actions(self) -> None:
         """Executes all code that the agents wrote (if any) using a restricted namespace."""
         if not hasattr(self, 'agent_code_by_member'):
@@ -2762,16 +3698,23 @@ class IslandExecution(Island):
             if not code_str:
                 continue
 
-            print(f"\nExecuting code for Member {member_id}:")
+            member_index = self._resolve_member_index(member_id)
+            if member_index is None:
+                continue
+            member_key = self._resolve_member_stable_id(member_index)
+            if member_key is None:
+                continue
+
+            print(f"\nExecuting code for Member {member_key} (idx {member_index}):")
             # print(code_str)
 
             # Track old stats before executing
-            old_survival = self.compute_survival_chance(self.current_members[member_id])
-            old_relation_balance = self.compute_relation_balance(self.current_members[member_id])
+            old_survival = self.compute_survival_chance(self.current_members[member_index])
+            old_relation_balance = self.compute_relation_balance(self.current_members[member_index])
             old_stats = {
-                'vitality': self.current_members[member_id].vitality,
-                'cargo': self.current_members[member_id].cargo,
-                'land': self.current_members[member_id].land_num,
+                'vitality': self.current_members[member_index].vitality,
+                'cargo': self.current_members[member_index].cargo,
+                'land': self.current_members[member_index].land_num,
                 'relation_balance': old_relation_balance,
                 'survival_chance': old_survival
             }
@@ -2782,13 +3725,14 @@ class IslandExecution(Island):
             # Track messages for this member
             messages_sent = []
             # Get received messages that were surfaced to the agent (if any)
-            received_messages = self._peek_messages(member_id, create_snapshot=False)
+            received_messages = self._peek_messages(member_index, create_snapshot=False)
             original_send_message = self.send_message
 
             # Modified exec environment with message tracking
             def tracked_send_message(sender, recipient, msg):
                 nonlocal messages_sent
-                messages_sent.append((recipient, msg))
+                resolved_recipient = self._resolve_member_stable_id(recipient) or recipient
+                messages_sent.append((resolved_recipient, msg))
                 original_send_message(sender, recipient, msg)
 
             try:
@@ -2803,38 +3747,39 @@ class IslandExecution(Island):
                 exec(cleaned_code, local_env)
 
                 if 'agent_action' in local_env and callable(local_env['agent_action']):
-                    print(f"Executing agent_action() for Member {member_id}")
+                    print(f"Executing agent_action() for Member {member_key}")
                     # Pass self as execution_engine and member_id
-                    local_env['agent_action'](self, member_id)
+                    local_env['agent_action'](self, member_index)
                 else:
                     error_occurred = "No valid agent_action() found"
-                    print(f"No valid agent_action() found for Member {member_id}")
-                    self._logger.warning(f"No valid agent_action() found for member {member_id}.")
+                    print(f"No valid agent_action() found for Member {member_key}")
+                    self._logger.warning(f"No valid agent_action() found for member {member_key}.")
 
             except Exception as e:
                 error_occurred = str(e)
                 error_info = {
                     'round': round_num,
                     'type': 'agent_code_execution',
-                    'member_id': member_id,
+                    'member_id': member_key,
+                    'member_index': member_index,
                     'code': code_str,
                     'error': str(e),
                     'traceback': traceback.format_exc()
                 }
                 self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
-                print(f"Error executing code for member {member_id}:")
+                print(f"Error executing code for member {member_key}:")
                 print(traceback.format_exc())
-                self._logger.error(f"Error executing code for member {member_id}: {e}")
+                self._logger.error(f"Error executing code for member {member_key}: {e}")
             finally:
                 self.send_message = original_send_message
 
             # Track changes
-            new_survival = self.compute_survival_chance(self.current_members[member_id])
-            new_relation_balance = self.compute_relation_balance(self.current_members[member_id])
+            new_survival = self.compute_survival_chance(self.current_members[member_index])
+            new_relation_balance = self.compute_relation_balance(self.current_members[member_index])
             new_stats = {
-                'vitality': self.current_members[member_id].vitality,
-                'cargo': self.current_members[member_id].cargo,
-                'land': self.current_members[member_id].land_num,
+                'vitality': self.current_members[member_index].vitality,
+                'cargo': self.current_members[member_index].cargo,
+                'land': self.current_members[member_index].land_num,
                 'relation_balance': new_relation_balance,
                 'survival_chance': new_survival
             }
@@ -2842,11 +3787,11 @@ class IslandExecution(Island):
             performance_change = new_survival - old_survival
 
             # Store in code memory
-            if member_id not in self.code_memory:
-                self.code_memory[member_id] = []
+            if member_key not in self.code_memory:
+                self.code_memory[member_key] = []
                 
             signature = self._extract_action_signature(code_str)
-            signature_novelty = self._compute_signature_novelty(member_id, signature)
+            signature_novelty = self._compute_signature_novelty(member_index, signature)
             metrics = {
                 'delta_vitality': new_stats['vitality'] - old_stats['vitality'],
                 'delta_cargo': new_stats['cargo'] - old_stats['cargo'],
@@ -2855,11 +3800,18 @@ class IslandExecution(Island):
                 'delta_survival': performance_change,
             }
             self._auto_update_strategy_memory(
-                self.current_members[member_id],
+                self.current_members[member_index],
                 round_num,
                 signature,
                 metrics,
                 context_tags,
+            )
+            experiment = self._record_experiment_outcome(
+                member_index,
+                round_num,
+                signature,
+                metrics,
+                context_key=context_key,
             )
             message_summary = None
             if received_messages or messages_sent:
@@ -2875,7 +3827,7 @@ class IslandExecution(Island):
                     ],
                 }
             strategy_notes = self._collect_strategy_notes(
-                self.current_members[member_id]
+                self.current_members[member_index]
             )
             memory_entry = {
                 'code': code_str,
@@ -2892,21 +3844,24 @@ class IslandExecution(Island):
                     'round': round_num
                 }
             }
+            if experiment:
+                memory_entry['experiment'] = experiment
             if strategy_notes:
                 memory_entry['strategy_notes'] = strategy_notes
             if error_occurred:
                 memory_entry['error'] = error_occurred
                 
-            self.code_memory[member_id].append(memory_entry)
+            self.code_memory[member_key].append(memory_entry)
 
             # Store performance in history
-            if member_id not in self.performance_history:
-                self.performance_history[member_id] = []
-            self.performance_history[member_id].append(performance_change)
+            if member_key not in self.performance_history:
+                self.performance_history[member_key] = []
+            self.performance_history[member_key].append(performance_change)
 
             # Log changes for this round
             self.execution_history['rounds'][-1]['agent_actions'].append({
-                'member_id': member_id,
+                'member_id': member_key,
+                'member_index': member_index,
                 'code_executed': code_str,
                 'old_stats': old_stats,
                 'new_stats': new_stats,
@@ -2915,7 +3870,8 @@ class IslandExecution(Island):
             })
 
             # Log messages in round data
-            self.execution_history['rounds'][-1]['agent_messages'][member_id] = {
+            self.execution_history['rounds'][-1]['agent_messages'][member_key] = {
+                'member_index': member_index,
                 'received': received_messages,
                 'sent': messages_sent
             }
@@ -2948,6 +3904,26 @@ class IslandExecution(Island):
         pop_avg_land = float(np.mean(land_deltas)) if land_deltas else 0.0
 
         signature_stats = self._collect_round_signature_stats(round_num)
+        plan_stats = self._collect_plan_alignment_stats(round_num)
+        plan_samples = plan_stats.get("plan_samples", 0)
+        plan_matched = plan_stats.get("baseline", 0) + plan_stats.get("variation", 0)
+        plan_alignment_rate = (
+            plan_matched / plan_samples if plan_samples else None
+        )
+        baseline_rate = (
+            plan_stats.get("baseline", 0) / plan_samples if plan_samples else None
+        )
+        variation_rate = (
+            plan_stats.get("variation", 0) / plan_samples if plan_samples else None
+        )
+        unmatched_rate = (
+            plan_stats.get("unmatched", 0) / plan_samples if plan_samples else None
+        )
+        coverage_rate = (
+            plan_samples / plan_stats.get("total_actions", 0)
+            if plan_stats.get("total_actions", 0)
+            else None
+        )
 
         self.execution_history['rounds'][-1]['round_metrics'] = {
             'population_avg_survival_delta': pop_avg_survival,
@@ -2961,7 +3937,46 @@ class IslandExecution(Island):
             'population_signature_entropy': signature_stats.get('entropy', 0.0),
             'population_signature_dominant_share': signature_stats.get('dominant_share', 0.0),
             'member_count': len(round_deltas),
+            'plan_alignment_rate': plan_alignment_rate,
+            'plan_alignment_baseline_rate': baseline_rate,
+            'plan_alignment_variation_rate': variation_rate,
+            'plan_alignment_unmatched_rate': unmatched_rate,
+            'plan_alignment_avg_match_score': plan_stats.get("avg_match_score"),
+            'plan_alignment_plan_samples': plan_samples,
+            'plan_alignment_total_actions': plan_stats.get("total_actions", 0),
+            'plan_alignment_plan_coverage': coverage_rate,
+            'plan_alignment_missing_plans': plan_stats.get("missing", 0),
         }
+
+        active_ids = {member.id for member in self.current_members}
+        memory_keys = set(self.code_memory.keys())
+        memory_missing = len(active_ids - memory_keys)
+        memory_orphan = len(memory_keys - active_ids)
+        memory_active_coverage = (
+            len(active_ids & memory_keys) / len(active_ids)
+            if active_ids
+            else None
+        )
+        self.execution_history['rounds'][-1]['round_metrics'].update({
+            'memory_active_coverage': memory_active_coverage,
+            'memory_missing_count': memory_missing,
+            'memory_orphan_count': memory_orphan,
+        })
+
+        round_record = self.execution_history['rounds'][-1]
+        mods_record = round_record.get('mechanism_modifications') or {}
+        attempts = mods_record.get('attempts') or []
+        executed = mods_record.get('executed') or []
+        approved_count = mods_record.get('approved_count')
+        if approved_count is None:
+            approved_count = len(mods_record.get('approved_ids') or [])
+        errors = round_record.get('errors', {}).get('mechanism_errors') or []
+        self.execution_history['rounds'][-1]['round_metrics'].update({
+            'mechanism_attempted_count': len(attempts) if isinstance(attempts, list) else 0,
+            'mechanism_approved_count': int(approved_count or 0),
+            'mechanism_executed_count': len(executed) if isinstance(executed, list) else 0,
+            'mechanism_error_count': len(errors) if isinstance(errors, list) else 0,
+        })
 
         action_totals = {
             'attack': self._get_record_total('attack'),
@@ -2975,8 +3990,8 @@ class IslandExecution(Island):
         self.execution_history['rounds'][-1]['action_totals'] = action_totals
         self.execution_history['rounds'][-1]['action_edges'] = action_edges
 
+        # End-of-round deltas are recorded in _update_round_end_metrics()
         for member_id, delta in round_deltas.items():
-            self.round_performance_history.setdefault(member_id, []).append(delta['survival_chance'])
             mem_list = self.code_memory.get(member_id, [])
             if not mem_list:
                 continue
@@ -3055,10 +4070,10 @@ class IslandExecution(Island):
         including relationship changes and survival probability changes.
         """
         for member_id, performance_list in self.performance_history.items():
-            if member_id not in self.current_members:
-                continue  # Skip dead members
-                
-            member = self.current_members[member_id]
+            member_index = self._resolve_member_index(member_id)
+            if member_index is None:
+                continue  # Skip dead or unmapped members
+            member = self.current_members[member_index]
             current_survival = self.compute_survival_chance(member)
             avg_perf = sum(performance_list) / len(performance_list) if performance_list else 0
             
@@ -3134,12 +4149,26 @@ class IslandExecution(Island):
 
     def send_message(self, sender_id: int, recipient_id: int, message: str):
         """Allow agents to send messages to each other"""
-        print(f"[MSG] Member {sender_id} -> Member {recipient_id}: {message!r}")
-        # Add validation check
+        sender_key = sender_id
+        if not any(m.id == sender_id for m in self.current_members):
+            sender_index = self._resolve_member_index(sender_id)
+            if sender_index is not None:
+                sender_key = self.current_members[sender_index].id
+
+        recipient_key = None
         if any(m.id == recipient_id for m in self.current_members):
-            if recipient_id not in self.messages:
-                self.messages[recipient_id] = []
-            self.messages[recipient_id].append(f"From member_{sender_id}: {message}")
+            recipient_key = recipient_id
+        else:
+            recipient_index = self._resolve_member_index(recipient_id)
+            if recipient_index is not None:
+                recipient_key = self.current_members[recipient_index].id
+
+        display_recipient = recipient_key if recipient_key is not None else recipient_id
+        print(f"[MSG] Member {sender_key} -> Member {display_recipient}: {message!r}")
+        if recipient_key is not None:
+            if recipient_key not in self.messages:
+                self.messages[recipient_key] = []
+            self.messages[recipient_key].append(f"From member_{sender_key}: {message}")
         else:
             print(f"Invalid message recipient {recipient_id} from member {sender_id}")
 
@@ -3214,8 +4243,8 @@ class IslandExecution(Island):
         
     #     self.voting_box = {}
                     
-    def execute_mechanism_modifications(self):
-        """Execute ratified modifications"""
+    def execute_mechanism_modifications(self, approved: Optional[List[dict]] = None):
+        """Execute ratified modifications (optionally restricted to approved proposals)."""
         current_round = len(self.execution_history['rounds'])
            
         # Process voting first
@@ -3240,17 +4269,44 @@ class IslandExecution(Island):
 
         # Execute ratified modifications
         exec_env = {'execution_engine': self}
-        
-        # for mod in self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']:
-        #     # if not mod.get('ratified'):
-        #     #     continue
-        
-        mods = self.execution_history['rounds'][-1]['mechanism_modifications']['attempts']
-        
-        base_code = self.base_class_code
-        
-        # Get aggregated mechanism modification
-        base_code_prompt = f"""
+
+        if not self.execution_history.get('rounds'):
+            return
+
+        if approved is not None:
+            round_record = self.execution_history['rounds'][-1]
+            mods_record = round_record.get('mechanism_modifications')
+            if isinstance(mods_record, dict):
+                approved_ids = [
+                    mod.get('member_id')
+                    for mod in approved
+                    if isinstance(mod, dict)
+                ]
+                mods_record['approved_ids'] = approved_ids
+                mods_record['approved_count'] = len(approved_ids)
+            mods = [
+                mod for mod in approved
+                if isinstance(mod, dict) and mod.get('code')
+            ]
+        else:
+            mods = self.execution_history['rounds'][-1]['mechanism_modifications'].get('attempts', [])
+            mods = [
+                mod for mod in mods
+                if isinstance(mod, dict) and mod.get('code')
+            ]
+
+        if not mods:
+            print("\n[Mechanisms] No mechanism modifications to execute")
+            return
+
+        mod = None
+        if len(mods) == 1:
+            mod = mods[0]
+        else:
+            base_code = self.base_class_code
+
+            # Get aggregated mechanism modification
+            base_code_prompt = f"""
             [Base Code]
             Here is the base code for the Island and Member classes that you should reference when making modifications. Study the mechanisms carefully to ensure your code interacts correctly with the available attributes and methods. Pay special attention to:
             - Valid attribute access patterns
@@ -3259,8 +4315,8 @@ class IslandExecution(Island):
             - Data structure formats and valid operations
             {base_code}
             """
-        try:
-            prompt = f"""
+            try:
+                prompt = f"""
             [Base Mechanism Code]
             {base_code_prompt}
             
@@ -3283,48 +4339,54 @@ class IslandExecution(Island):
         
             Return only the aggregated code.
             """
-            
-            completion = client.chat.completions.create(
-                model=f'{provider}:{model_id}',
-                messages=[{"role": "user", "content": prompt}]
-            )
-            
-            aggregated_code = completion.choices[0].message.content.strip()
-            code_result = self.clean_code_string(aggregated_code)
-            
-            self.save_generated_code(code_result, '-1', 'aggregated_mechanism')
-            # print(f"Aggregated Mechanism Code: {code_result}")
-            
-            mod = {
-                'member_id': 'aggregated',
-                'code': code_result,
-                'round': len(self.execution_history['rounds'])
-            }
-            
-        except Exception as e:
-            print(f"Error getting aggregated modification from O1: {e}")
-            # Fall back to first modification if aggregation fails
-            mod = mods[0] if mods else None
                 
+                completion = client.chat.completions.create(
+                    model=f'{provider}:{model_id}',
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                
+                aggregated_code = completion.choices[0].message.content.strip()
+                code_result = self.clean_code_string(aggregated_code)
+                
+                self.save_generated_code(code_result, '-1', 'aggregated_mechanism')
+                # print(f"Aggregated Mechanism Code: {code_result}")
+                
+                mod = {
+                    'member_id': 'aggregated',
+                    'code': code_result,
+                    'round': current_round
+                }
+                
+            except Exception as e:
+                print(f"Error getting aggregated modification from O1: {e}")
+                # Fall back to first modification if aggregation fails
+                mod = mods[0] if mods else None
+
+        if not mod or not mod.get('code'):
+            return
+
+        member_id = mod.get('member_id', 'unknown')
+        mod.setdefault('round', current_round)
+
         try:
-            print(f"\nExecuting modification code for Member {mod['member_id']}:")
+            print(f"\nExecuting modification code for Member {member_id}:")
             # print(mod['code'])
 
             # Execute modification code
             exec(mod['code'], exec_env)
             exec_env['propose_modification'](self)
-            print(f"Aggregated Mechanism Modification code executed successfully.")
+            print("Mechanism modification code executed successfully.")
             
             # Get execution class attributes
-            class_attrs = self.get_execution_class_attributes(mod['member_id'])
+            class_attrs = self.get_execution_class_attributes(member_id)
             # Define a function to save mechanism execution data to JSON
             def save_mechanism_execution_to_json(mechanism_data, json_path):
                 with open(json_path, 'w') as f:
-                    json.dump(mechanism_data, f, indent=4)
+                    json.dump(mechanism_data, f, indent=4, default=str)
             
             # Prepare the mechanism execution data
             mechanism_data = {
-                'member_id': mod['member_id'],
+                'member_id': member_id,
                 'round': current_round,
                 'code': mod['code'],
                 'execution_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -3333,7 +4395,7 @@ class IslandExecution(Island):
             
             # Create a filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            json_filename = f'mechanism_execution_{mod["member_id"]}_round_{current_round}_{timestamp}.json'
+            json_filename = f'mechanism_execution_{member_id}_round_{current_round}_{timestamp}.json'
             json_path = os.path.join(self.mechanism_code_path, json_filename)
             
             # Save the data to JSON file
@@ -3349,13 +4411,13 @@ class IslandExecution(Island):
                 'type': 'execute_mechanism_modifications', 
                 'error': str(e),
                 'traceback': traceback.format_exc(),
-                'code': mod['code'],
-                'member_id': mod['member_id']
+                'code': mod.get('code'),
+                'member_id': member_id
             }
             self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
-            print(f"Error executing code for member {mod['member_id']}:")
+            print(f"Error executing code for member {member_id}:")
             print(traceback.format_exc())
-            self._logger.error(f"Error executing code for member {mod['member_id']}: {e}")
+            self._logger.error(f"Error executing code for member {member_id}: {e}")
 
     def save_generated_code(self, code: str, member_id: int, code_type: str) -> None:
         """
@@ -3573,6 +4635,7 @@ async def main(use_graph=True):
 
             # Print status
             exec.log_status(action=True, log_instead_of_print=True)
+            exec._update_round_end_metrics()
 
             print(f"\nSurviving members at end of round: {len(exec.current_members)}")
 
