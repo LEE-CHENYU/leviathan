@@ -4,15 +4,17 @@ Prevents unrealistic physics, reward hacking, and exploits.
 """
 from typing import Tuple, Dict, Any
 from datetime import datetime
-import aisuite as ai
+
+from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
+from MetaIsland.llm_utils import build_chat_kwargs
 
 
 class Judge:
     """Simple LLM judge for validating agent code"""
 
     def __init__(self, model_name: str = "default"):
-        self.client = ai.Client()
+        self.client = get_llm_client()
         self.provider, self.model_id = model_router(model_name)
         self.judgment_history = []
 
@@ -35,10 +37,12 @@ class Judge:
         judge_prompt = self._build_judge_prompt(code, proposer_id, proposal_type, context)
 
         try:
+            kwargs = build_chat_kwargs()
+            kwargs["temperature"] = 0  # Deterministic judging
             response = self.client.chat.completions.create(
                 model=f'{self.provider}:{self.model_id}',
                 messages=[{"role": "user", "content": judge_prompt}],
-                temperature=0  # Deterministic judging
+                **kwargs
             )
 
             result = response.choices[0].message.content.strip()

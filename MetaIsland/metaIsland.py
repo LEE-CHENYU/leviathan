@@ -33,9 +33,9 @@ from MetaIsland.nodes import (
 from dotenv import load_dotenv
 load_dotenv()
 
-import aisuite as ai
+from MetaIsland.llm_client import get_llm_client
 
-client = ai.Client()
+client = get_llm_client()
 
 from MetaIsland.model_router import model_router
 
@@ -1406,6 +1406,149 @@ class IslandExecution(Island):
                         pass
         if scores:
             stats["avg_match_score"] = sum(scores) / len(scores)
+        return stats
+
+    def _identify_ineligible_plan_tags(
+        self,
+        plan_tags: tuple,
+        member_stats: Optional[dict],
+        member_count: int,
+    ) -> set:
+        """Return plan tags that are infeasible given member stats and system availability."""
+        if not plan_tags:
+            return set()
+
+        land = 0.0
+        if member_stats:
+            try:
+                land = float(member_stats.get("land", 0.0))
+            except (TypeError, ValueError):
+                land = 0.0
+
+        ineligible = set()
+        for tag in plan_tags:
+            if tag in ("bear", "offer_land"):
+                if land <= 0.0 or member_count < 2:
+                    ineligible.add(tag)
+            elif tag == "contracts":
+                if not hasattr(self, "contracts"):
+                    ineligible.add(tag)
+            elif tag in ("market", "resources", "businesses"):
+                if not hasattr(self, tag):
+                    ineligible.add(tag)
+            elif tag == "attack":
+                if member_count < 2:
+                    ineligible.add(tag)
+        return ineligible
+
+    def _collect_plan_feasibility_stats(self, round_num: int) -> dict:
+        """Collect feasibility stats for planned action tags in a round."""
+        stats = {
+            "plan_samples": 0,
+            "plan_missing": 0,
+            "plan_tag_total": 0,
+            "plan_feasible_tag_total": 0,
+            "plan_ineligible_tag_count": 0,
+            "plan_only_tag_count": 0,
+        }
+
+        round_record = None
+        if self.execution_history.get("rounds"):
+            round_record = self.execution_history["rounds"][-1]
+        start_snapshot = {}
+        if round_record:
+            start_snapshot = round_record.get("round_start_snapshot") or {}
+        member_count = len(start_snapshot) if start_snapshot else len(self.current_members)
+
+        for member_id, mem_list in self.code_memory.items():
+            for mem in mem_list:
+                if mem.get("context", {}).get("round") != round_num:
+                    continue
+                experiment = mem.get("experiment")
+                if not experiment:
+                    stats["plan_missing"] += 1
+                    continue
+                label = experiment.get("label")
+                if label not in ("baseline", "variation"):
+                    stats["plan_missing"] += 1
+                    continue
+                if label == "baseline":
+                    plan_sig = experiment.get("baseline_signature")
+                else:
+                    plan_sig = experiment.get("variation_signature")
+
+                plan_tags = self._normalize_action_tags(plan_sig or [])
+                if not plan_tags:
+                    stats["plan_missing"] += 1
+                    continue
+
+                stats["plan_samples"] += 1
+                stats["plan_tag_total"] += len(plan_tags)
+
+                context = mem.get("context", {}) or {}
+                member_stats = context.get("old_stats") or start_snapshot.get(member_id, {})
+                ineligible = self._identify_ineligible_plan_tags(
+                    plan_tags,
+                    member_stats,
+                    member_count,
+                )
+                stats["plan_ineligible_tag_count"] += len(ineligible)
+
+                feasible_tags = [tag for tag in plan_tags if tag not in ineligible]
+                stats["plan_feasible_tag_total"] += len(feasible_tags)
+
+                executed_sig = mem.get("signature")
+                if executed_sig is None:
+                    executed_sig = self._extract_action_signature(mem.get("code", ""))
+                executed_sig = tuple(executed_sig) if executed_sig else tuple()
+                plan_only = [tag for tag in feasible_tags if tag not in executed_sig]
+                stats["plan_only_tag_count"] += len(plan_only)
+
+        if stats["plan_tag_total"]:
+            stats["plan_ineligible_tag_rate"] = (
+                stats["plan_ineligible_tag_count"] / stats["plan_tag_total"]
+            )
+        else:
+            stats["plan_ineligible_tag_rate"] = None
+
+        if stats["plan_feasible_tag_total"]:
+            stats["plan_only_tag_rate"] = (
+                stats["plan_only_tag_count"] / stats["plan_feasible_tag_total"]
+            )
+        else:
+            stats["plan_only_tag_rate"] = None
+
+        return stats
+
+    def _collect_agent_error_stats(self, round_num: int) -> dict:
+        """Collect agent code execution error stats for a round."""
+        stats = {
+            "agent_code_error_count": 0,
+            "agent_code_error_tag_counts": {},
+        }
+        round_record = None
+        if self.execution_history.get("rounds"):
+            round_record = self.execution_history["rounds"][-1]
+        if not round_record:
+            return stats
+
+        errors = round_record.get("errors", {}).get("agent_code_errors", [])
+        if not isinstance(errors, list) or not errors:
+            return stats
+
+        tag_counts = Counter()
+        for error_info in errors:
+            code_str = error_info.get("code", "") if isinstance(error_info, dict) else ""
+            signature = self._extract_action_signature(code_str)
+            signature = tuple(signature) if signature else tuple()
+            if signature:
+                for tag in signature:
+                    tag_counts[tag] += 1
+            else:
+                tag_counts["unknown"] += 1
+
+        stats["agent_code_error_count"] = len(errors)
+        stats["agent_code_error_tag_counts"] = dict(tag_counts)
         return stats
 
     def _signature_overlap(self, sig_a: tuple, sig_b: tuple) -> float:
@@ -3905,6 +4048,8 @@ class IslandExecution(Island):
 
         signature_stats = self._collect_round_signature_stats(round_num)
         plan_stats = self._collect_plan_alignment_stats(round_num)
+        plan_feasibility = self._collect_plan_feasibility_stats(round_num)
+        error_stats = self._collect_agent_error_stats(round_num)
         plan_samples = plan_stats.get("plan_samples", 0)
         plan_matched = plan_stats.get("baseline", 0) + plan_stats.get("variation", 0)
         plan_alignment_rate = (
@@ -3946,6 +4091,21 @@ class IslandExecution(Island):
             'plan_alignment_total_actions': plan_stats.get("total_actions", 0),
             'plan_alignment_plan_coverage': coverage_rate,
             'plan_alignment_missing_plans': plan_stats.get("missing", 0),
+            'plan_ineligible_tag_rate': plan_feasibility.get("plan_ineligible_tag_rate"),
+            'plan_only_tag_rate': plan_feasibility.get("plan_only_tag_rate"),
+            'plan_tag_total': plan_feasibility.get("plan_tag_total", 0),
+            'plan_feasible_tag_total': plan_feasibility.get("plan_feasible_tag_total", 0),
+            'plan_ineligible_tag_count': plan_feasibility.get("plan_ineligible_tag_count", 0),
+            'plan_only_tag_count': plan_feasibility.get("plan_only_tag_count", 0),
+            'plan_feasibility_samples': plan_feasibility.get("plan_samples", 0),
+            'plan_feasibility_missing': plan_feasibility.get("plan_missing", 0),
+            'agent_code_error_count': error_stats.get("agent_code_error_count", 0),
+            'agent_code_error_rate': (
+                error_stats.get("agent_code_error_count", 0) / len(round_deltas)
+                if round_deltas
+                else None
+            ),
+            'agent_code_error_tag_counts': error_stats.get("agent_code_error_tag_counts", {}),
         }
 
         active_ids = {member.id for member in self.current_members}

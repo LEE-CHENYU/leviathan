@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import textwrap
 
+import pytest
+
 from MetaIsland.metaIsland import IslandExecution
 
 
@@ -105,3 +107,72 @@ def test_round_metrics_include_mechanism_counts(tmp_path):
     assert metrics.get('mechanism_approved_count') == 1
     assert metrics.get('mechanism_executed_count') == 1
     assert metrics.get('mechanism_error_count') == 0
+
+
+def test_round_metrics_include_plan_feasibility(tmp_path):
+    exec_engine = IslandExecution(2, (3, 3), str(tmp_path), random_seed=4)
+    exec_engine.new_round()
+
+    member = exec_engine.current_members[0]
+    member.land_num = 0
+    member.owned_land = []
+
+    analysis_text = textwrap.dedent(
+        """
+        Strategy update.
+        ```json
+        {
+          "hypothesis": "test plan feasibility",
+          "baseline_signature": ["bear", "message"],
+          "variation_signature": ["attack"],
+          "success_metrics": ["delta_survival"],
+          "guardrails": ["avoid death"],
+          "coordination": ["message ally"],
+          "memory_note": "feasibility test",
+          "diversity_note": "avoid monoculture",
+          "confidence": 0.5
+        }
+        ```
+        """
+    ).strip()
+    exec_engine._record_analysis_card(0, analysis_text)
+
+    code = _dedent(
+        """
+        def agent_action(execution_engine, member_id):
+            execution_engine.send_message(member_id, 1, "hi")
+        """
+    )
+    exec_engine.agent_code_by_member = {0: code}
+    exec_engine.execute_code_actions()
+
+    metrics = exec_engine.execution_history['rounds'][-1].get('round_metrics') or {}
+    assert metrics.get('plan_tag_total') == 2
+    assert metrics.get('plan_ineligible_tag_count') == 1
+    assert metrics.get('plan_feasible_tag_total') == 1
+    assert metrics.get('plan_only_tag_count') == 0
+    assert metrics.get('plan_feasibility_samples') == 1
+    assert metrics.get('plan_ineligible_tag_rate') == pytest.approx(0.5)
+    assert metrics.get('plan_only_tag_rate') == pytest.approx(0.0)
+
+
+def test_round_metrics_include_agent_error_tags(tmp_path):
+    exec_engine = IslandExecution(1, (2, 2), str(tmp_path), random_seed=5)
+    exec_engine.new_round()
+
+    code = _dedent(
+        """
+        def agent_action(execution_engine, member_id):
+            if False:
+                execution_engine.attack(member_id, member_id)
+            raise RuntimeError("boom")
+        """
+    )
+    exec_engine.agent_code_by_member = {0: code}
+    exec_engine.execute_code_actions()
+
+    metrics = exec_engine.execution_history['rounds'][-1].get('round_metrics') or {}
+    assert metrics.get('agent_code_error_count') == 1
+    assert metrics.get('agent_code_error_rate') == pytest.approx(1.0)
+    tag_counts = metrics.get('agent_code_error_tag_counts') or {}
+    assert tag_counts.get('attack') == 1

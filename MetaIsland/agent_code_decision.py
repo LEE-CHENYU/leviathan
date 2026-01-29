@@ -1,16 +1,17 @@
 import traceback
 
 from dotenv import load_dotenv
-import aisuite as ai
 
+from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
 from MetaIsland.prompt_loader import get_prompt_loader
+from MetaIsland.llm_utils import build_chat_kwargs
 
 load_dotenv()
 
-client = ai.Client()
+client = get_llm_client()
 
-provider, model_id = model_router("deepseek")
+provider, model_id = model_router("default")
 
 
 async def _agent_code_decision(self, member_id) -> None:
@@ -94,7 +95,8 @@ async def _agent_code_decision(self, member_id) -> None:
 
         completion = client.chat.completions.create(
             model=f'{provider}:{model_id}',
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            **build_chat_kwargs()
         )
         code_result = completion.choices[0].message.content.strip()
 

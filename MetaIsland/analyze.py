@@ -3,15 +3,16 @@ import openai
 import traceback
 
 from dotenv import load_dotenv
-import aisuite as ai
 
+from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
+from MetaIsland.llm_utils import build_chat_kwargs
 
 load_dotenv()
 
-client = ai.Client()
+client = get_llm_client()
 
-provider, model_id = model_router("deepseek")
+provider, model_id = model_router("default")
 
 async def _analyze(self, member_id):
     """
@@ -275,7 +276,8 @@ async def _analyze(self, member_id):
             
     completion = client.chat.completions.create(
                 model=f'{provider}:{model_id}', 
-                messages=[{"role": "user", "content": analysis_prompt}]
+                messages=[{"role": "user", "content": analysis_prompt}],
+                **build_chat_kwargs()
             )
     result = completion.choices[0].message.content.strip()
     # analysis_code = self.clean_code_string(analysis_code)

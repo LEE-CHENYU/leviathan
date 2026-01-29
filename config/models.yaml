@@ -14,8 +14,11 @@ routes:
     provider: openrouter
     model_id: minimax/minimax-m2.1
   deepseek:
-    provider: deepseek
-    model_id: deepseek-chat
+    provider: openrouter
+    model_id: minimax/minimax-m2.1
+  high:
+    provider: openai
+    model_id: gpt-5.2
   gpt-5.2:
     provider: openai
     model_id: gpt-5.2

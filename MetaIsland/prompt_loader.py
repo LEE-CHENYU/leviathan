@@ -82,7 +82,7 @@ class PromptLoader:
         for reminder in templates['implementation_guide']['reminders']:
             sections.append(f"- {reminder}")
 
-        return "\n".join(sections)
+        return "\n".join("" if s is None else str(s) for s in sections)
 
     def format_mechanism_templates(self, member_id: int) -> str:
         """Format mechanism templates into a prompt string"""
@@ -132,7 +132,7 @@ class PromptLoader:
         for reminder in templates['usage_guidelines']['reminders']:
             sections.append(f"- {reminder}")
 
-        return "\n".join(sections)
+        return "\n".join("" if s is None else str(s) for s in sections)
 
     def build_action_prompt(
         self,
@@ -357,7 +357,7 @@ class PromptLoader:
             sections.append("")
             sections.append(base['final_instruction_action'])
 
-        return "\n".join(sections)
+        return "\n".join("" if s is None else str(s) for s in sections)
 
     def build_mechanism_prompt(
         self,
@@ -571,7 +571,7 @@ class PromptLoader:
             sections.append("")
             sections.append(base['final_instruction_mechanism'])
 
-        return "\n".join(sections)
+        return "\n".join("" if s is None else str(s) for s in sections)
 
 
 # Global instance

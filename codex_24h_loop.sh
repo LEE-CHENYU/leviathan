@@ -5,12 +5,20 @@ ROOT="/Users/lichenyu/leviathan"
 LOG="$ROOT/codex_24h.log"
 PIDFILE="$ROOT/codex_24h.pid"
 STOPFILE="$ROOT/codex_24h.stop"
+ENV_FILE="$ROOT/.env"
 SLEEP_SECONDS="${SLEEP_SECONDS:-180}"
 DURATION_SECONDS="${DURATION_SECONDS:-86400}"
 OBJECTIVE_FILE="${OBJECTIVE_FILE:-$ROOT/codex_objective.txt}"
 OBJECTIVE_DEFAULT="Meaningful behavior = self-improving strategy design without collapsing agent/environment diversity; only do performance optimizations/refactors when the gain is large and measurable."
 OBJECTIVE="${OBJECTIVE:-$OBJECTIVE_DEFAULT}"
 REQUIRE_OPENAI_API_KEY="${REQUIRE_OPENAI_API_KEY:-1}"
+
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
 
 start_ts=$(date +%s)
 end_ts=$((start_ts + DURATION_SECONDS))
@@ -63,10 +71,13 @@ Size constraint (script length):
 Testing (stage-gated):
 - Stage 1 (always): run 'python test_graph_system.py' if it exists and is fast.
 - Stage 2 (conditional): if Stage 1 passes AND changes touch core behavior/learning/planning logic, run 'pytest -q'.
-- Stage 3 (conditional): if you changed core behavior or reward/memory dynamics, run a minimal simulation script if one exists; otherwise describe what you'd run.
+- Stage 3 (end-to-end, source of truth): if you changed core behavior or reward/memory dynamics, run:
+  'python scripts/run_e2e_smoke.py'
+  Use the e2e summary at execution_histories/e2e_smoke/latest_summary.json as the primary feedback for evaluation and iteration decisions.
+  If Stage 3 can't run, do NOT change behavior; instead improve the test/instrumentation so Stage 3 can run.
   When Stage 3 is skipped, say 'Stage 3 skipped (not run): <reason>' instead of 'API unavailable'.
 Evaluation design (explicit + iterative):
-- Maintain or update a concise evaluation plan (e.g., `EVAL_PLAN.md`) with: metrics, baselines, thresholds, and expected deltas.
+- Maintain or update a concise evaluation plan (e.g., EVAL_PLAN.md) with: metrics, baselines, thresholds, and expected deltas.
 - Stage eval scale: small (few agents, 1–3 runs) → medium (more agents, 3–5 runs) → large only if gains look real.
 - When you change behavior logic, update the eval plan and run the smallest relevant eval; scale up only if results improve.
 Rules (lightweight safety):
