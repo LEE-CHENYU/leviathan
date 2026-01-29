@@ -453,6 +453,19 @@ class Island():
             self.record_total_dict[record_name][-1] += value_1 + value_2
         else:
             self.record_total_dict[record_name][-1] += value_1
+
+    def _record_init_per_period(self) -> None:
+        """Reset per-period records and append new totals."""
+        for key in self.record_action_dict.keys():
+            self.record_action_dict[key] = {}
+        for key in self.record_total_dict.keys():
+            self.record_total_dict[key].append(0)
+
+        self.record_total_consumption.append(0)
+        self.record_total_production.append(0)
+
+        self.record_born = []
+        self.record_death = []
         
     
     ############################################################################
@@ -874,6 +887,9 @@ class Island():
             # 输出
             if log_status:
                 self.log_status()
+
+            # 初始化存储
+            self._record_init_per_period()
 
         # 回合数+1
         self.current_round += 1

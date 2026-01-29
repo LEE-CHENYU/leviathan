@@ -1,0 +1,21 @@
+# Centralized model routing configuration
+# Use logical keys (e.g., "default", "benchmark", "deepseek") mapped to provider/model_id pairs.
+
+default:
+  provider: openrouter
+  model_id: minimax/minimax-m2.1
+
+benchmark:
+  provider: openai
+  model_id: gpt-5.2
+
+routes:
+  minimax:
+    provider: openrouter
+    model_id: minimax/minimax-m2.1
+  deepseek:
+    provider: deepseek
+    model_id: deepseek-chat
+  gpt-5.2:
+    provider: openai
+    model_id: gpt-5.2

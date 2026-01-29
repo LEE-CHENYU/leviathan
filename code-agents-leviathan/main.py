@@ -10,7 +10,9 @@ def initialize_agents():
     """Create agent pool with fallback API support"""
     load_dotenv()
     openai_key = os.getenv("OPENAI_API_KEY")
-    print(f"[DEBUG] Using OpenAI key: {openai_key[:10]}...{openai_key[-10:]}")  # Print first/last 10 chars for verification
+    if not openai_key:
+        raise RuntimeError("OPENAI_API_KEY not found in environment variables.")
+    print("[INFO] OpenAI API key loaded.")
     agents = []
     
     for i in range(int(os.getenv("AGENT_POOL_SIZE", 5))):

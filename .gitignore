@@ -9,6 +9,7 @@ codex_24h.stop
 \data*
 **egg-info*
 Leviathan/api_key.py
+.env
 <<<<<<< Updated upstream
 Leviathan/Finance_gpt_agent_002.py
 Leviathan/decision_mechanism.py

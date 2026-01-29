@@ -134,6 +134,8 @@ class Land():
                 backend = backend,
             ):
                 clear_list.append(member_to_pass.id)
+                if hasattr(island, "round_action_dict") and "clear" in island.round_action_dict:
+                    island._record_actions("clear", member_to_pass, member, 1.0)
                 self._find_neighbors(
                     clear_list,
                     self_blocked_list,
@@ -263,4 +265,3 @@ class Land():
         ax = axs[1]
         current_map = self._color_map(original_color=False)
         self._plot_map(ax, current_map, show_id)
-

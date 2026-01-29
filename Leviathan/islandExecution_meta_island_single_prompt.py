@@ -13,6 +13,8 @@ that implements your vision of social organization while ensuring your survival.
 - Verify member has land before using bear() action
 - Check member IDs exist before referencing them
 - Ensure all matrix indices are valid
+- member_id passed into agent_action is the current_members index (surviver_id), not necessarily member.id
+- member.current_clear_list contains stable member IDs; map them before indexing current_members
 - current_members is a LIST accessed by index, not a dictionary
 - Access members using execution_engine.current_members[index]
 - Check if index exists: if index < len(execution_engine.current_members)
@@ -20,12 +22,13 @@ that implements your vision of social organization while ensuring your survival.
 IMPORTANT: Here are the attributes and methods actually available:
 
 1) Each member object has:
-    • member.id (int): The unique ID for the member
+    • member.id (int): Stable unique ID for the member (does not change)
+    • member.surviver_id (int): Current index in current_members (changes after deaths)
     • member.vitality (float)
     • member.cargo (float)
     • member.overall_productivity (float)
     • member.age (float)
-    • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
+    • member.current_clear_list (List[int]) - stable member IDs of neighbors or cleared adjacents
 2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
     Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
     The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -40,8 +43,12 @@ IMPORTANT: Here are the attributes and methods actually available:
     • execution_engine.offer_land(member1, member2, True) - Offers land
     • execution_engine.bear(member1, member2) - Bears offspring
     • execution_engine.expand(member1, member2) - Expands territory
-5) The members are accessed by execution_engine.current_members[id].
-    For example, execution_engine.current_members[2] for the member with ID=2.
+    • execution_engine.send_message(sender_index, recipient_index, "message")
+    • execution_engine.send_message_by_id(sender_id, recipient_id, "message")
+    • execution_engine.get_member_by_id(member_id) -> Member or None
+    • execution_engine.resolve_member_index_by_id(member_id) -> index or None
+5) The members are accessed by execution_engine.current_members[index].
+    Example: execution_engine.current_members[2] returns the member with surviver_id=2.
 6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
 
 Current status (features of all members):
@@ -72,18 +79,19 @@ Consider these social strategies:
 
 [Communication Strategy]
 You can communicate with multiple members in a single round using:
-execution_engine.send_message(your_id, recipient_id, "message")
+execution_engine.send_message(your_index, recipient_index, "message")
+execution_engine.send_message_by_id(your_id, recipient_id, "message")
 Example usage:
 - Broadcast to all: 
     for recipient in range(len(execution_engine.current_members)):
-        if recipient != your_id:
-            execution_engine.send_message(your_id, recipient, "Let's cooperate!")
+        if recipient != your_index:
+            execution_engine.send_message(your_index, recipient, "Let's cooperate!")
 - Message allies:
     for ally_id in ally_list:
-        execution_engine.send_message(your_id, ally_id, "Attack target X")
+        execution_engine.send_message_by_id(your_id, ally_id, "Attack target X")
 - Group coordination:
     for member_id in coalition:
-        execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
+        execution_engine.send_message_by_id(your_id, member_id, "Vote YES on proposal")
 
 [Received Messages]
 {message_context}

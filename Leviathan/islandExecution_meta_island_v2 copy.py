@@ -1,4 +1,5 @@
 from Leviathan.Island import Island
+import Leviathan.api_key
 from Leviathan.Member import Member
 from Leviathan.Land import Land
 from typing import List, Tuple, Optional
@@ -67,22 +68,48 @@ class IslandExecution(Island):
         # Initialize code storage
         self.agent_code_by_member = {}
 
+    def _resolve_member_ref(self, member_ref, prefer_index: bool = True) -> Optional[Member]:
+        """Resolve a member reference (Member or index/id) to a live Member object."""
+        if isinstance(member_ref, Member):
+            return member_ref
+        idx = self.resolve_member_index(member_ref, prefer_index=prefer_index)
+        if idx is None:
+            return None
+        if 0 <= idx < len(self.current_members):
+            return self.current_members[idx]
+        return None
+
+    def _require_member(self, member_ref, label: str, prefer_index: bool = True) -> Member:
+        member = self._resolve_member_ref(member_ref, prefer_index=prefer_index)
+        if member is None:
+            raise ValueError(f"{label} reference {member_ref} could not be resolved")
+        return member
+
     def offer(self, member_1, member_2, parameter_influence):
-        super()._offer(member_1, member_2, parameter_influence)
+        giver = self._require_member(member_1, "offer member_1")
+        receiver = self._require_member(member_2, "offer member_2")
+        super()._offer(giver, receiver, parameter_influence)
         
     def offer_land(self, member_1, member_2, parameter_influence):
-        super()._offer_land(member_1, member_2, parameter_influence)
+        giver = self._require_member(member_1, "offer_land member_1")
+        receiver = self._require_member(member_2, "offer_land member_2")
+        super()._offer_land(giver, receiver, parameter_influence)
         
     def attack(self, member_1, member_2):
-        super()._attack(member_1, member_2)
+        attacker = self._require_member(member_1, "attack member_1")
+        target = self._require_member(member_2, "attack member_2")
+        super()._attack(attacker, target)
 
     def bear(self, member_1, member_2):
-        super()._bear(member_1, member_2)
-    
-    def expand(self, member_1, member_2):
-        super()._expand(member_1, member_2)
+        parent = self._require_member(member_1, "bear member_1")
+        partner = self._require_member(member_2, "bear member_2")
+        super()._bear(parent, partner)
 
-    def parse_relationship_matrix(self, relationship_dict):
+    def expand(self, member_1, member_2=None):
+        actor = self._require_member(member_1, "expand member_1")
+        super()._expand(actor)
+
+    def parse_relationship_matrix(self, relationship_dict=None):
         """
         Parse and return a human-readable summary of the relationship matrices.
         
@@ -90,6 +117,8 @@ class IslandExecution(Island):
                                  each containing a NxN numpy array of relationships.
         :return: A list of strings describing the relationships.
         """
+        if relationship_dict is None:
+            relationship_dict = self.relationship_dict
         summary = []
         rel_map = {
             'victim':      "member_{i} was attacked by member_{j}",
@@ -122,9 +151,10 @@ class IslandExecution(Island):
         """Collect features for all current members"""
         feature_rows = []
         
-        for member in self.current_members:
+        for idx, member in enumerate(self.current_members):
             # Get self attributes
             feature_row = {
+                "member_index": getattr(member, "surviver_id", idx),
                 "self_productivity": member.overall_productivity,
                 "self_vitality": member.vitality, 
                 "self_cargo": member.cargo,
@@ -155,6 +185,99 @@ class IslandExecution(Island):
             
         return '\n'.join(lines)
 
+    def _extract_action_signature(self, code_str: str) -> tuple:
+        """Extract a coarse action signature from generated code for diversity sampling."""
+        if not code_str:
+            return tuple()
+
+        patterns = {
+            "attack": ("execution_engine.attack(",),
+            "offer": ("execution_engine.offer(",),
+            "offer_land": ("execution_engine.offer_land(",),
+            "bear": ("execution_engine.bear(",),
+            "expand": ("execution_engine.expand(",),
+            "message": (
+                "execution_engine.send_message(",
+                "execution_engine.send_message_by_id(",
+                "send_message(",
+                "send_message_by_id(",
+            ),
+        }
+
+        signature = []
+        for tag, needles in patterns.items():
+            if any(needle in code_str for needle in needles):
+                signature.append(tag)
+
+        return tuple(signature)
+
+    def _select_memory_samples(self, memory, max_samples: int):
+        """Select a diversity-aware sample of memory entries."""
+        if not memory:
+            return []
+
+        if len(memory) <= max_samples:
+            return [("Recent", mem) for mem in memory]
+
+        indices = list(range(len(memory)))
+        by_perf = sorted(indices, key=lambda idx: memory[idx].get('performance', 0.0))
+
+        best_idx = by_perf[-1]
+        worst_idx = by_perf[0]
+        recent_idx = indices[-1]
+        median_idx = by_perf[len(by_perf) // 2]
+        abs_idx = max(indices, key=lambda idx: abs(memory[idx].get('performance', 0.0)))
+
+        candidates = [
+            ("Recent", recent_idx),
+            ("Best", best_idx),
+            ("Worst", worst_idx),
+            ("Median", median_idx),
+            ("Volatile", abs_idx),
+        ]
+
+        selected = []
+        seen = set()
+        for label, idx in candidates:
+            if idx not in seen:
+                selected.append((label, idx))
+                seen.add(idx)
+                if len(selected) >= max_samples:
+                    break
+
+        if len(selected) < max_samples:
+            remaining = [idx for idx in indices if idx not in seen]
+            remaining_sorted = sorted(
+                remaining,
+                key=lambda idx: memory[idx].get('context', {}).get('round', idx),
+                reverse=True,
+            )
+
+            selected_signatures = {
+                self._extract_action_signature(memory[idx].get('code', ''))
+                for idx in seen
+            }
+
+            for idx in remaining_sorted:
+                signature = self._extract_action_signature(memory[idx].get('code', ''))
+                if signature not in selected_signatures:
+                    selected.append(("Diverse", idx))
+                    seen.add(idx)
+                    selected_signatures.add(signature)
+                    if len(selected) >= max_samples:
+                        break
+
+            if len(selected) < max_samples:
+                for idx in remaining_sorted:
+                    if idx in seen:
+                        continue
+                    selected.append(("Recent", idx))
+                    seen.add(idx)
+                    if len(selected) >= max_samples:
+                        break
+
+        return [(label, memory[idx]) for label, idx in selected]
+
     def get_code_memory_summary(self, member_id):
         """Generate a summary of previous code performances for the agent."""
         if member_id not in self.code_memory:
@@ -164,16 +287,25 @@ class IslandExecution(Island):
         if not memory:
             return "No previous code history."
             
-        summary = ["Previous code strategies and their outcomes:"]
-        
-        # Sort memories by performance
-        sorted_memories = sorted(memory, key=lambda x: x['performance'], reverse=True)
-        
-        for i, mem in enumerate(sorted_memories[-5:]):  # Show last 5 memories
-            summary.append(f"\nStrategy {i+1} (Performance: {mem['performance']:.2f}):")
-            summary.append(f"Context: {mem['context']}")
+        summary = ["Previous code strategies and their outcomes (diversity-aware sample):"]
+
+        selected = self._select_memory_samples(memory, max_samples=5)
+
+        for i, (label, mem) in enumerate(selected, start=1):
+            perf = mem.get('performance', 0.0)
+            context = mem.get('context', {})
+            round_num = context.get('round')
+            round_suffix = f", Round {round_num}" if round_num is not None else ""
+
+            summary.append(f"\nStrategy {i} [{label}] (Performance: {perf:.2f}{round_suffix}):")
+            summary.append(f"Context: {context}")
+
+            signature = self._extract_action_signature(mem.get('code', ''))
+            if signature:
+                summary.append(f"Action signature: {', '.join(signature)}")
+
             summary.append("Code:")
-            summary.append(mem['code'])
+            summary.append(mem.get('code', ''))
             if 'error' in mem:
                 summary.append(f"Error encountered: {mem['error']}")
                 
@@ -418,6 +550,8 @@ class IslandExecution(Island):
         - Verify member has land before using bear() action
         - Check member IDs exist before referencing them
         - Ensure all matrix indices are valid
+        - member_id passed into agent_action is the current_members index (surviver_id), not necessarily member.id
+        - member.current_clear_list contains stable member IDs; map them before indexing current_members
         - current_members is a LIST accessed by index, not a dictionary
         - Access members using execution_engine.current_members[index]
         - Check if index exists: if index < len(execution_engine.current_members)
@@ -425,12 +559,13 @@ class IslandExecution(Island):
         IMPORTANT: Here are the attributes and methods actually available:
 
         1) Each member object has:
-            • member.id (int): The unique ID for the member
+            • member.id (int): Stable unique ID for the member (does not change)
+            • member.surviver_id (int): Current index in current_members (changes after deaths)
             • member.vitality (float)
             • member.cargo (float)
             • member.overall_productivity (float)
             • member.age (float)
-            • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
+            • member.current_clear_list (List[int]) - stable member IDs of neighbors or cleared adjacents
         2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
             Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
             The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -445,8 +580,12 @@ class IslandExecution(Island):
             • execution_engine.offer_land(member1, member2, True) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
             • execution_engine.expand(member1, member2) - Expands territory
-        5) The members are accessed by execution_engine.current_members[id].
-            For example, execution_engine.current_members[2] for the member with ID=2.
+            • execution_engine.send_message(sender_index, recipient_index, "message")
+            • execution_engine.send_message_by_id(sender_id, recipient_id, "message")
+            • execution_engine.get_member_by_id(member_id) -> Member or None
+            • execution_engine.resolve_member_index_by_id(member_id) -> index or None
+        5) The members are accessed by execution_engine.current_members[index].
+            Example: execution_engine.current_members[2] returns the member with surviver_id=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
 
         Current status (features of all members):
@@ -488,18 +627,19 @@ class IslandExecution(Island):
 
         [Communication Strategy]
         You can communicate with multiple members in a single round using:
-        execution_engine.send_message(your_id, recipient_id, "message")
+        execution_engine.send_message(your_index, recipient_index, "message")
+        execution_engine.send_message_by_id(your_id, recipient_id, "message")
         Example usage:
         - Broadcast to all: 
           for recipient in range(len(execution_engine.current_members)):
-              if recipient != your_id:
-                  execution_engine.send_message(your_id, recipient, "Let's cooperate!")
+              if recipient != your_index:
+                  execution_engine.send_message(your_index, recipient, "Let's cooperate!")
         - Message allies:
           for ally_id in ally_list:
-              execution_engine.send_message(your_id, ally_id, "Attack target X")
+              execution_engine.send_message_by_id(your_id, ally_id, "Attack target X")
         - Group coordination:
           for member_id in coalition:
-              execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
+              execution_engine.send_message_by_id(your_id, member_id, "Vote YES on proposal")
 
         [Received Messages]
         {message_context}
@@ -702,7 +842,10 @@ class IslandExecution(Island):
                 # Modified exec environment with message tracking
                 def tracked_send_message(sender, recipient, msg):
                     nonlocal messages_sent
-                    messages_sent.append((recipient, msg))
+                    recipient_label = self.resolve_member_id(recipient)
+                    if recipient_label is None:
+                        recipient_label = recipient
+                    messages_sent.append((recipient_label, msg))
                     self.send_message(sender, recipient, msg)
                     
                 local_env = {
@@ -878,14 +1021,41 @@ class IslandExecution(Island):
 
     def send_message(self, sender_id: int, recipient_id: int, message: str):
         """Allow agents to send messages to each other"""
-        print(f"[MSG] Member {sender_id} -> Member {recipient_id}: {message!r}")
+        sender_index = self.resolve_member_index(sender_id, prefer_index=True)
+        recipient_index = self.resolve_member_index(recipient_id, prefer_index=True)
+
+        sender_label = sender_id
+        if isinstance(sender_id, Member):
+            sender_label = sender_id.id
+        elif sender_index is not None and 0 <= sender_index < len(self.current_members):
+            sender_label = self.current_members[sender_index].id
+
+        recipient_label = recipient_id
+        if isinstance(recipient_id, Member):
+            recipient_label = recipient_id.id
+        elif recipient_index is not None and 0 <= recipient_index < len(self.current_members):
+            recipient_label = self.current_members[recipient_index].id
+
+        print(f"[MSG] Member {sender_label} -> Member {recipient_label}: {message!r}")
         # Add validation check
-        if any(m.id == recipient_id for m in self.current_members):
-            if recipient_id not in self.messages:
-                self.messages[recipient_id] = []
-            self.messages[recipient_id].append(f"From member_{sender_id}: {message}")
+        if recipient_index is not None and 0 <= recipient_index < len(self.current_members):
+            if recipient_index not in self.messages:
+                self.messages[recipient_index] = []
+            self.messages[recipient_index].append(
+                f"From member_{sender_label}: {message}"
+            )
         else:
             print(f"Invalid message recipient {recipient_id} from member {sender_id}")
+
+    def send_message_by_id(self, sender_id: int, recipient_id: int, message: str):
+        """Send a message using stable member.id values instead of indices."""
+        recipient_index = self.resolve_member_index_by_id(recipient_id)
+        if recipient_index is None:
+            print(f"Invalid message recipient {recipient_id} from member {sender_id}")
+            return
+        sender_index = self.resolve_member_index_by_id(sender_id)
+        sender_ref = sender_index if sender_index is not None else sender_id
+        self.send_message(sender_ref, recipient_index, message)
 
     def print_agent_messages(self):
         """Print message communication between agents"""
@@ -980,6 +1150,8 @@ class IslandExecution(Island):
         - Verify member has land before using bear() action
         - Check member IDs exist before referencing them
         - Ensure all matrix indices are valid
+        - member_id passed into agent_action is the current_members index (surviver_id), not necessarily member.id
+        - member.current_clear_list contains stable member IDs; map them before indexing current_members
         - current_members is a LIST accessed by index, not a dictionary
         - Access members using execution_engine.current_members[index]
         - Check if index exists: if index < len(execution_engine.current_members)
@@ -987,12 +1159,13 @@ class IslandExecution(Island):
         IMPORTANT: Here are the attributes and methods actually available:
 
         1) Each member object has:
-            • member.id (int): The unique ID for the member
+            • member.id (int): Stable unique ID for the member (does not change)
+            • member.surviver_id (int): Current index in current_members (changes after deaths)
             • member.vitality (float)
             • member.cargo (float)
             • member.overall_productivity (float)
             • member.age (float)
-            • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
+            • member.current_clear_list (List[int]) - stable member IDs of neighbors or cleared adjacents
         2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
             Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
             The keys are: 'victim', 'benefit', 'benefit_land'.
@@ -1007,8 +1180,12 @@ class IslandExecution(Island):
             • execution_engine.offer_land(member1, member2, True) - Offers land
             • execution_engine.bear(member1, member2) - Bears offspring
             • execution_engine.expand(member1, member2) - Expands territory
-        5) The members are accessed by execution_engine.current_members[id].
-            For example, execution_engine.current_members[2] for the member with ID=2.
+            • execution_engine.send_message(sender_index, recipient_index, "message")
+            • execution_engine.send_message_by_id(sender_id, recipient_id, "message")
+            • execution_engine.get_member_by_id(member_id) -> Member or None
+            • execution_engine.resolve_member_index_by_id(member_id) -> index or None
+        5) The members are accessed by execution_engine.current_members[index].
+            Example: execution_engine.current_members[2] returns the member with surviver_id=2.
         6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
 
         Current status (features of all members):

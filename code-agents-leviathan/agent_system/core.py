@@ -55,7 +55,7 @@ class Agent:
             headers=headers,
             timeout=30,
             json={
-                "model": "gpt-4",
+                "model": "gpt-5.2",
                 "messages": [
                     {"role": "system", "content": "You are a Python code generator. Respond only with pure Python code, no explanations or markdown formatting."},
                     {"role": "user", "content": prompt}

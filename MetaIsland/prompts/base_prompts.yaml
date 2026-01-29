@@ -56,6 +56,7 @@ communication_section: |
   [Communication]
   You can communicate with multiple members in a single round using:
   execution_engine.send_message(your_id, recipient_id, "message")
+  (A helper send_message(...) is also available and tracked.)
 
   Example usage:
   - Broadcast to all:
@@ -68,6 +69,60 @@ communication_section: |
   - Group coordination:
       for member_id in coalition:
           execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
+
+strategy_diversity: |
+  [Strategy Diversity & Exploration]
+  - Use the strategy profile to avoid repeating the same action pattern every round.
+  - Use the population diversity snapshot to avoid monoculture; explore underused tags when safe.
+  - Watch context concentration (survival/relations/cargo/land tags); if clustered, plan a variation for the next context shift.
+  - If recent performance is flat or negative, switch to a different action signature.
+  - Treat each round as a lightweight experiment: keep one safe baseline and one bounded-risk variation.
+  - Use code-memory outcome deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance) to keep, refine, or retire tactics.
+  - If population convergence is high, bias toward underused tags or mixed-signature tactics to preserve diversity.
+  - Avoid strategies that require everyone to behave the same; prefer robustness to heterogeneous opponents.
+  - Preserve agent-level diversity; do not copy other agents' strategies verbatim.
+  - Prefer conditional, context-sensitive tactics over one-size-fits-all rules.
+  - When borrowing mechanisms, adapt them to your goals and constraints.
+  - Avoid mechanisms that collapse environmental variation without clear survival benefit.
+
+self_improvement_loop: |
+  [Self-Improvement Loop]
+  - Form a clear hypothesis about what lever should improve survival (vitality, cargo, territory, relations).
+  - Choose a baseline action and one bounded-risk variation; keep them distinct.
+  - Define success criteria using available deltas (delta_vitality, delta_cargo, delta_relation_balance, survival).
+  - Run the variation for 1-3 rounds, then keep, refine, or retire it based on evidence.
+  - Prefer reversible changes; avoid irreversible commitments without evidence.
+  - If a tactic looks dominant, explore counter-tactics or hybrids rather than copying it.
+
+planning_and_evaluation: |
+  [Planning & Evaluation]
+  - State a short-term objective (1-3 rounds) and a longer-term objective (5-10 rounds).
+  - Translate objectives into concrete actions and guardrails.
+  - Evaluate outcomes using survival metrics and memory deltas.
+  - If results are negative or uncertain, switch to a different action signature.
+  - Use communication to align on shared objectives while keeping independent fallback plans.
+
+memory_guidance: |
+  [Memory Use]
+  - Use code_memory and analysis_memory as evidence; do not invent events.
+  - When you learn something, store a compact note in your own memory object (e.g., member.strategy_memory).
+  - Keep memory entries short: hypothesis, action signature, outcome.
+  - Avoid overwriting others' memories; only update your own.
+
+coordination_protocols: |
+  [Coordination Protocols]
+  - Coordinate on goals, not exact scripts; avoid forcing uniform behavior.
+  - Propose roles (scout, trader, defender) and allow opt-in participation.
+  - When messaging, include a clear ask, expected benefit, and an exit option.
+  - Maintain redundancy: never rely on a single ally or mechanism.
+
+mechanism_design_guardrails: |
+  [Mechanism Design Guardrails]
+  - Prefer opt-in or optional mechanisms; avoid forcing uniform strategy.
+  - Provide escape hatches/rollback and versioning so multiple approaches can coexist.
+  - Avoid hard-coded single equilibria; allow multiple roles and strategies to emerge.
+  - Keep changes minimal and measurable; define success metrics and rollback triggers.
+  - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
 
 game_mechanics: |
   [Core Game Mechanics & Parameters]
@@ -134,6 +189,7 @@ challenge_questions: |
   8. What would happen if other agents adopted your strategy?
   9. Are you balancing short-term and long-term objectives optimally?
   10. How could your strategy be countered, and how would you adapt?
+  11. Does your plan preserve diversity in strategies and avoid single-equilibrium lock-in?
 
 final_instruction_action: |
   Using the above comprehensive prompt with all integrated constraints, produce a unique agent_action() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code.

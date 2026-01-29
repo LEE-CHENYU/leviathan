@@ -45,7 +45,7 @@ def make_decision_with_gpt4(api_key, prompt=""):
 
     messages = [{"role": "system", "content": "Start of conversation based on game rules."}, {"role": "user", "content": prompt}]
         
-    response = client.chat.completions.create(model="gpt-4o",
+    response = client.chat.completions.create(model="gpt-5.2",
     messages=messages,
     temperature=1,
     max_tokens=150,

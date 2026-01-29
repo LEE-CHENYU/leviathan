@@ -146,8 +146,16 @@ class PromptLoader:
         code_memory: str,
         past_performance: str,
         analysis_memory: str,
+        analysis_card_summary: str,
+        strategy_profile: str,
+        population_strategy_profile: str,
+        population_exploration_summary: str,
+        strategy_recommendations: str,
+        contextual_strategy_summary: str,
         message_context: str,
-        base_code: str
+        communication_summary: str,
+        base_code: str,
+        population_state_summary: str = "No population state summary available."
     ) -> str:
         """
         Build complete action decision prompt
@@ -163,7 +171,15 @@ class PromptLoader:
             code_memory: Code memory
             past_performance: Performance history
             analysis_memory: Analysis history
+            analysis_card_summary: Recent analysis strategy cards
+            strategy_profile: Summary of action signature coverage
+            population_strategy_profile: Population-level strategy diversity summary
+            population_exploration_summary: Population-level exploration signals
+            strategy_recommendations: Strategy suggestion summary
+            contextual_strategy_summary: Contextual strategy performance summary
+            population_state_summary: Snapshot of current population state
             message_context: Received messages
+            communication_summary: Recent communication summary
             base_code: Base class code
 
         Returns:
@@ -222,9 +238,45 @@ class PromptLoader:
             "Performance history:",
             past_performance,
             "",
+            "Population state snapshot:",
+            population_state_summary,
+            "",
             "Analysis Memory:",
             analysis_memory,
             "",
+            "Analysis strategy cards:",
+            analysis_card_summary,
+            "",
+            "Strategy profile:",
+            strategy_profile,
+            "",
+            "Population strategy diversity snapshot:",
+            population_strategy_profile,
+            "",
+            "Population exploration signals:",
+            population_exploration_summary,
+            "",
+            "Strategy recommendations:",
+            strategy_recommendations,
+            "",
+            "Contextual strategy cues:",
+            contextual_strategy_summary,
+            ""
+        ]
+
+        if base.get('self_improvement_loop'):
+            sections.append(base['self_improvement_loop'])
+            sections.append("")
+
+        if base.get('planning_and_evaluation'):
+            sections.append(base['planning_and_evaluation'])
+            sections.append("")
+
+        if base.get('memory_guidance'):
+            sections.append(base['memory_guidance'])
+            sections.append("")
+
+        sections += [
             "Based on the previous code performance, adapt and improve the strategy.",
             "If a previous strategy worked well (high performance), consider building upon it.",
             "If it failed, try a different approach.",
@@ -251,13 +303,38 @@ class PromptLoader:
             "==================================================================",
             "",
             self.format_action_templates(),
-            "",
-            base['communication_section'],
-            "",
-            "[Received Messages]",
-            "Here are the messages sent by other agents, you can use them as reference to make your own decisions:",
-            message_context
+            ""
         ]
+
+        if base.get('strategy_diversity'):
+            sections.append(base['strategy_diversity'])
+            sections.append("")
+
+        if base.get('survival_metrics'):
+            sections.append(base['survival_metrics'])
+            sections.append("")
+
+        if base.get('challenge_questions'):
+            sections.append(base['challenge_questions'])
+            sections.append("")
+
+        if base.get('coordination_protocols'):
+            sections.append(base['coordination_protocols'])
+            sections.append("")
+
+        sections.append(base['communication_section'])
+        sections.append("")
+        sections.append("[Communication Summary]")
+        sections.append("Recent communication context for coordination:")
+        sections.append(communication_summary)
+        sections.append("")
+        sections.append("[Received Messages]")
+        sections.append("Here are the messages sent by other agents, you can use them as reference to make your own decisions:")
+        sections.append(message_context)
+
+        if base.get('final_instruction_action'):
+            sections.append("")
+            sections.append(base['final_instruction_action'])
 
         return "\n".join(sections)
 
@@ -274,15 +351,24 @@ class PromptLoader:
         code_memory: str,
         past_performance: str,
         analysis_memory: str,
+        analysis_card_summary: str,
+        strategy_profile: str,
+        population_strategy_profile: str,
+        population_exploration_summary: str,
+        strategy_recommendations: str,
+        contextual_strategy_summary: str,
         message_context: str,
-        base_code: str
+        communication_summary: str,
+        base_code: str,
+        population_state_summary: str = "No population state summary available."
     ) -> str:
         """
         Build complete mechanism proposal prompt
 
         Args:
             member_id: ID of the agent
-            (similar params as build_action_prompt)
+            (similar params as build_action_prompt, including population_strategy_profile)
+            population_state_summary: Snapshot of current population state
 
         Returns:
             Complete formatted prompt
@@ -331,9 +417,45 @@ class PromptLoader:
             "Analysis Memory:",
             analysis_memory,
             "",
+            "Analysis strategy cards:",
+            analysis_card_summary,
+            "",
+            "Population state snapshot:",
+            population_state_summary,
+            "",
+            "Strategy profile:",
+            strategy_profile,
+            "",
+            "Population strategy diversity snapshot:",
+            population_strategy_profile,
+            "",
+            "Population exploration signals:",
+            population_exploration_summary,
+            "",
+            "Strategy recommendations:",
+            strategy_recommendations,
+            "",
+            "Contextual strategy cues:",
+            contextual_strategy_summary,
+            "",
             "Performance history:",
             past_performance,
-            "",
+            ""
+        ]
+
+        if base.get('self_improvement_loop'):
+            sections.append(base['self_improvement_loop'])
+            sections.append("")
+
+        if base.get('planning_and_evaluation'):
+            sections.append(base['planning_and_evaluation'])
+            sections.append("")
+
+        if base.get('memory_guidance'):
+            sections.append(base['memory_guidance'])
+            sections.append("")
+
+        sections += [
             "Based on the previous code performance, propose a modification to the game mechanics.",
             "If a previous proposal worked well (high performance), consider building upon it.",
             "If it failed, try a different approach.",
@@ -373,8 +495,22 @@ class PromptLoader:
             "- Build upon and extend working mechanisms",
             "- Identify opportunities for optimization",
             modification_attempts,
-            "",
+            ""
+        ]
+
+        if base.get('mechanism_design_guardrails'):
+            sections.append(base['mechanism_design_guardrails'])
+            sections.append("")
+
+        if base.get('coordination_protocols'):
+            sections.append(base['coordination_protocols'])
+            sections.append("")
+
+        sections += [
             "[Message Context]",
+            "Recent communication context for coordination:",
+            communication_summary,
+            "",
             "Here are the messages sent by other agents, you can use them as reference to make your own decisions:",
             message_context,
             "",
@@ -382,6 +518,22 @@ class PromptLoader:
             "",
             base['error_prevention']
         ]
+
+        if base.get('strategy_diversity'):
+            sections.append("")
+            sections.append(base['strategy_diversity'])
+
+        if base.get('survival_metrics'):
+            sections.append("")
+            sections.append(base['survival_metrics'])
+
+        if base.get('challenge_questions'):
+            sections.append("")
+            sections.append(base['challenge_questions'])
+
+        if base.get('final_instruction_mechanism'):
+            sections.append("")
+            sections.append(base['final_instruction_mechanism'])
 
         return "\n".join(sections)
 

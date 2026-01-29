@@ -18,31 +18,28 @@ async def _agent_code_decision(self, member_id) -> None:
     data = self.prepare_agent_data(member_id)
 
     # Build main prompt using loader
+    current_mechanisms = self.format_mechanisms_for_prompt(data['current_mechanisms'])
     main_prompt = loader.build_action_prompt(
         member_id=member_id,
         island_ideology=self.island_ideology,
         error_context=data['error_context'],
-        current_mechanisms=str(data['current_mechanisms']),
+        current_mechanisms=current_mechanisms,
         report=str(data['report']) if data['report'] else "No analysis available",
         features=data['features'].to_string(),
         relations="\n".join(data['relations']),
         code_memory=data['code_memory'],
         past_performance=data['past_performance'],
         analysis_memory=data['analysis_memory'],
+        strategy_profile=data['strategy_profile'],
+        population_strategy_profile=data['population_strategy_profile'],
         message_context=data['message_context'],
         base_code=str(self.base_class_code)
     )
 
-    # Add challenge questions
-    main_prompt += f"\n\n{base['challenge_questions']}"
-
-    # Add final instruction
-    final_prompt = main_prompt + f"\n\n{base['final_instruction_action']}"
-
     # Call LLM (existing code)
     completion = client.chat.completions.create(
         model=f'{provider}:{model_id}',
-        messages=[{"role": "user", "content": final_prompt}]
+        messages=[{"role": "user", "content": main_prompt}]
     )
     # ... rest of existing code
 ```
@@ -63,32 +60,33 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
     data = self.prepare_agent_data(member_id)
 
     # Build main prompt using loader
+    current_mechanisms = self.format_mechanisms_for_prompt(data['current_mechanisms'])
+    modification_attempts = []
+    for round_num, attempts in data['modification_attempts'].items():
+        modification_attempts.extend(attempts)
+    modification_attempts = self.format_modification_attempts_for_prompt(modification_attempts)
     main_prompt = loader.build_mechanism_prompt(
         member_id=member_id,
         island_ideology=self.island_ideology,
         error_context=data['error_context'],
-        current_mechanisms=str(data['current_mechanisms']),
-        modification_attempts=str(data['modification_attempts']),
+        current_mechanisms=current_mechanisms,
+        modification_attempts=modification_attempts,
         report=str(data['report']) if data['report'] else "No analysis available",
         features=data['features'].to_string(),
         relations="\n".join(data['relations']),
         code_memory=data['code_memory'],
         past_performance=data['past_performance'],
         analysis_memory=data['analysis_memory'],
+        strategy_profile=data['strategy_profile'],
+        population_strategy_profile=data['population_strategy_profile'],
         message_context=data['message_context'],
         base_code=str(self.base_class_code)
     )
 
-    # Add challenge questions
-    main_prompt += f"\n\n{base['challenge_questions']}"
-
-    # Add final instruction
-    final_prompt = main_prompt + f"\n\n{base['final_instruction_mechanism']}"
-
     # Call LLM (existing code)
     completion = client.chat.completions.create(
         model=f'{provider}:{model_id}',
-        messages=[{"role": "user", "content": final_prompt}]
+        messages=[{"role": "user", "content": main_prompt}]
     )
     # ... rest of existing code
 ```

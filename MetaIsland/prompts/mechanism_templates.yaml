@@ -445,3 +445,4 @@ usage_guidelines:
     - "Contracts must be mutually beneficial to be signed"
     - "Build systems that help ALL agents, not just you"
     - "Focus on creating realistic, sustainable economics"
+    - "Prefer opt-in, parameterized mechanisms that preserve multiple viable strategies"

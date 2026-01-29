@@ -7,7 +7,7 @@ import os
 
 # client = ai.Client()
 
-# models = ["openai:gpt-4o", "anthropic:claude-3-5-sonnet-20241022", "groq:llama-3.2-3b-preview"]
+# models = ["openai:gpt-5.2", "anthropic:claude-3-5-sonnet-20241022", "groq:llama-3.2-3b-preview"]
 
 # messages = [
 #     {"role": "system", "content": "Respond in Pirate English."},

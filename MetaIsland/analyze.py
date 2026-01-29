@@ -20,7 +20,7 @@ async def _analyze(self, member_id):
     
     member = self.current_members[member_id]
     
-    data = self.prepare_agent_data(member_id)
+    data = self.prepare_agent_data(member_id, error_context_type="analysis")
     member = data['member']
     relations = data['relations']
     features = data['features']
@@ -29,15 +29,29 @@ async def _analyze(self, member_id):
     past_performance = data['past_performance']
     error_context = data['error_context']
     message_context = data['message_context']
+    communication_summary = data['communication_summary']
+    strategy_profile = data['strategy_profile']
+    population_strategy_profile = data['population_strategy_profile']
+    population_exploration_summary = data['population_exploration_summary']
+    strategy_recommendations = data['strategy_recommendations']
+    contextual_strategy_summary = data.get(
+        'contextual_strategy_summary',
+        'No contextual strategy data.'
+    )
+    population_state_summary = data.get(
+        'population_state_summary',
+        'No population state summary available.'
+    )
 
     current_mechanisms = data['current_mechanisms']
+    current_mechanisms_text = self.format_mechanisms_for_prompt(current_mechanisms)
     modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
     report = data['report']
     
     base_code = self.base_class_code
     
     """Analyze member data for strategic insights"""
-    previous_errors = self.execution_history['rounds'][-1]['errors']['analyze_code_errors'].get(member_id, {})
+    previous_errors = error_context
     analysis_prompt = f"""
     {previous_errors}
     
@@ -48,7 +62,7 @@ async def _analyze(self, member_id):
     - Be mindful of version requirements and dependencies
     - Consider how they can be combined strategically
     - Test interactions before relying on them critically
-    {current_mechanisms}
+    {current_mechanisms_text}
     
     [Current task]
     You are member_{member.id} in a society that you can help shape. Use plain text to describe your situation and propose strategies. All your words should be based on concrete facts and data below. You should also think about how to use the mechanisms defined in [Active Mechanisms Modifications] to make your strategies more effective. Strategies should be practical and effective, if you can't find any effective strategies, just say so. If your analysis and strategies are not fact-oriented, you will not be competitive and you will die.
@@ -66,6 +80,24 @@ async def _analyze(self, member_id):
 
     Code Memory and Previous Performance:
     {code_memory}
+
+    Strategy profile:
+    {strategy_profile}
+
+    Population strategy diversity snapshot:
+    {population_strategy_profile}
+
+    Population exploration signals:
+    {population_exploration_summary}
+
+    Strategy recommendations:
+    {strategy_recommendations}
+
+    Contextual strategy cues:
+    {contextual_strategy_summary}
+
+    Population state snapshot:
+    {population_state_summary}
     
     Analysis Memory:
     {analysis_memory}
@@ -75,6 +107,30 @@ async def _analyze(self, member_id):
     
     Previous Analysis of the game state:
     {report} 
+
+    [Communication Summary]
+    {communication_summary}
+
+    [Received Messages]
+    {message_context}
+
+    [Output Format]
+    Use plain text. Be concise and evidence-based.
+    Provide:
+    1) Situation summary (<=5 bullets, cite member IDs/metrics).
+    2) Risks & opportunities (<=5 bullets).
+    3) Strategy plan with two distinct action signatures:
+       - Baseline (safe): include action tags from
+         [attack, offer, offer_land, bear, expand, message, contracts, market, resources, businesses].
+       - Variation (bounded-risk): different tags or combinations.
+       - Guardrails / stop conditions.
+       - Success metrics using available deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance, delta_land).
+    4) Coordination asks (message drafts with opt-in roles).
+    5) Memory note (<=120 chars).
+    End with a JSON block in a ```json``` fence (required) using keys:
+    hypothesis, baseline_signature, variation_signature, success_metrics,
+    guardrails, coordination, memory_note, diversity_note, confidence.
+    Keep diversity: avoid monoculture or single-equilibrium recommendations.
     
     [Data-Driven Survival Framework]
     Collect and analyze ALL available game variables:
@@ -229,6 +285,10 @@ async def _analyze(self, member_id):
     # print(f"Analysis result: {result}")
     # Store analysis in execution history
     self.execution_history['rounds'][-1]['analysis'][member_id] = result
+    try:
+        self._record_analysis_card(member_id, result)
+    except Exception:
+        pass
     return result
     
     # try:

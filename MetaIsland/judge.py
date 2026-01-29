@@ -11,7 +11,7 @@ from MetaIsland.model_router import model_router
 class Judge:
     """Simple LLM judge for validating agent code"""
 
-    def __init__(self, model_name: str = "gpt-4"):
+    def __init__(self, model_name: str = "default"):
         self.client = ai.Client()
         self.provider, self.model_id = model_router(model_name)
         self.judgment_history = []

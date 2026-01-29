@@ -173,16 +173,10 @@ async def _agent_code_decision(self, member_id):
         member_id=member_id,
         island_ideology=self.island_ideology,
         error_context=data['error_context'],
-        current_mechanisms=data['current_mechanisms'],
+        current_mechanisms=self.format_mechanisms_for_prompt(data['current_mechanisms']),
+        strategy_profile=data['strategy_profile'],
         # ... etc
     )
-
-    # Add challenge questions
-    base = loader.get_base_prompts()
-    final_prompt += f"\n\n{base['challenge_questions']}"
-
-    # Add final instruction
-    final_prompt += f"\n\n{base['final_instruction_action']}"
 
     # Call LLM
     completion = client.chat.completions.create(...)
@@ -262,8 +256,8 @@ print("✓ All prompt loading tests passed!")
 - ✅ Created `MetaIsland/prompts/mechanism_templates.yaml`
 - ✅ Created `MetaIsland/prompt_loader.py`
 - ✅ Created `requirements.txt` with PyYAML dependency
-- ⏳ TODO: Update `agent_code_decision.py` to use prompt loader
-- ⏳ TODO: Update `agent_mechanism_proposal.py` to use prompt loader
+- ✅ Updated `agent_code_decision.py` to use prompt loader
+- ✅ Updated `agent_mechanism_proposal.py` to use prompt loader
 
 ## Next Steps
 
