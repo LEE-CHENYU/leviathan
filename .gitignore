@@ -1,14 +1,21 @@
 __pycache__
 .DS_Store
+codex_24h.log
+codex_24h.pid
+codex_24h.stop
 # test.py 
 # test.ipynb
 # \test*
 \data*
 **egg-info*
 Leviathan/api_key.py
+<<<<<<< Updated upstream
 Leviathan/Finance_gpt_agent_002.py
 Leviathan/decision_mechanism.py
 Leviathan/decision_mechanism_1.py
 Leviathan/local_notes.md
 *.wav
 *.png
+=======
+Leviathan/local_notes.md
+>>>>>>> Stashed changes
