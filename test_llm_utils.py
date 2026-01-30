@@ -3,7 +3,9 @@ import pytest
 from MetaIsland.analyze import _fallback_analysis_text
 from MetaIsland.llm_utils import (
     EmptyLLMResponseError,
+    build_code_stats,
     build_prompt_diagnostics,
+    describe_syntax_error,
     ensure_non_empty_response,
     extract_completion_metadata,
     extract_request_metadata,
@@ -27,6 +29,37 @@ def test_fallback_analysis_text_parses_strategy_card():
     assert card is not None
     assert card.get("baseline_signature")
     assert card.get("variation_signature")
+
+
+def test_extract_strategy_card_splits_plus_signatures():
+    text = "\n".join([
+        "```json",
+        "{",
+        "  \"hypothesis\": \"test\",",
+        "  \"baseline_signature\": \"expand + message + offer\",",
+        "  \"variation_signature\": [\"offer_land + expand\"],",
+        "  \"success_metrics\": [\"delta_survival\"]",
+        "}",
+        "```",
+    ])
+    engine = IslandExecution.__new__(IslandExecution)
+    card = IslandExecution._extract_strategy_card(engine, text)
+    assert card["baseline_signature"] == ["expand", "message", "offer"]
+    assert card["variation_signature"] == ["offer_land", "expand"]
+
+
+def test_strategy_memory_appendable_wraps_dict():
+    engine = IslandExecution.__new__(IslandExecution)
+
+    class DummyMember:
+        pass
+
+    member = DummyMember()
+    member.strategy_memory = {"auto_notes": ["x"]}
+    engine._ensure_strategy_memory_appendable(member)
+    member.strategy_memory.append("note")
+    assert member.strategy_memory["notes"][-1] == "note"
+    assert member.strategy_memory["auto_notes"] == ["x"]
 
 
 def test_extract_completion_metadata_handles_objects():
@@ -89,3 +122,35 @@ def test_merge_prompt_sections_flattens_breakdowns():
     assert merged["alpha"] == "a"
     assert merged["base_code_island"] == "ii"
     assert merged["base_code_member"] is None
+
+
+def test_describe_syntax_error_extracts_details():
+    with pytest.raises(SyntaxError) as exc_info:
+        compile("def broken(:\n  pass", "<test>", "exec")
+    details = describe_syntax_error(exc_info.value)
+    assert details["error_type"] == "SyntaxError"
+    assert details["error_line"] == 1
+    assert "def broken" in details.get("error_text", "")
+
+
+def test_describe_syntax_error_includes_context_lines():
+    code = "def ok():\n    return 1\n\ndef broken(:\n    return 2\n"
+    with pytest.raises(SyntaxError) as exc_info:
+        compile(code, "<test>", "exec")
+    details = describe_syntax_error(exc_info.value, code, context_lines=1, max_line_length=40)
+    context = details.get("error_context")
+    assert context is not None
+    assert context["start_line"] == 3
+    assert context["end_line"] == 5
+    assert any(
+        entry["line"] == 4 and "def broken" in entry["text"]
+        for entry in context["lines"]
+    )
+
+
+def test_build_code_stats_counts_lengths():
+    stats = build_code_stats("one\ntwo", "one\ntwo\n")
+    assert stats["raw_len"] == 7
+    assert stats["raw_lines"] == 2
+    assert stats["cleaned_len"] == 8
+    assert stats["cleaned_lines"] == 3

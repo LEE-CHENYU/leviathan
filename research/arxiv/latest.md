@@ -1,14 +1,14 @@
 # Latest arXiv relevance picks
 
-- **Interpreting Emergent Extreme Events in Multi-Agent Systems** (2601.20538v1, score 9.47)
-  - http://arxiv.org/abs/2601.20538v1
-- **Agentic Fog: A Policy-driven Framework for Distributed Intelligence in Fog Computing** (2601.20764v1, score 8.47)
-  - http://arxiv.org/abs/2601.20764v1
-- **PathWise: Planning through World Model for Automated Heuristic Design via Self-Evolving LLMs** (2601.20539v1, score 8.47)
-  - http://arxiv.org/abs/2601.20539v1
-- **Evolutionary Strategies lead to Catastrophic Forgetting in LLMs** (2601.20861v1, score 6.47)
-  - http://arxiv.org/abs/2601.20861v1
-- **SokoBench: Evaluating Long-Horizon Planning and Reasoning in Large Language Models** (2601.20856v1, score 5.47)
-  - http://arxiv.org/abs/2601.20856v1
-- **MemCtrl: Using MLLMs as Active Memory Controllers on Embodied Agents** (2601.20831v1, score 5.47)
-  - http://arxiv.org/abs/2601.20831v1
+- **AgenticSimLaw: A Juvenile Courtroom Multi-Agent Debate Simulation for Explainable High-Stakes Tabular Decision Making** (2601.21936v1, score 9.50)
+  - http://arxiv.org/abs/2601.21936v1
+- **JADE: Bridging the Strategic-Operational Gap in Dynamic Agentic RAG** (2601.21916v1, score 7.50)
+  - http://arxiv.org/abs/2601.21916v1
+- **CAR-bench: Evaluating the Consistency and Limit-Awareness of LLM Agents under Real-World Uncertainty** (2601.22027v1, score 6.50)
+  - http://arxiv.org/abs/2601.22027v1
+- **Post-Disaster Resource Redistribution and Cooperation Evolution Based on Two-Layer Network Evolutionary Games** (2601.22021v1, score 6.50)
+  - http://arxiv.org/abs/2601.22021v1
+- **Self-Compression of Chain-of-Thought via Multi-Agent Reinforcement Learning** (2601.21919v1, score 6.50)
+  - http://arxiv.org/abs/2601.21919v1
+- **Learning to Communicate Across Modalities: Perceptual Heterogeneity in Multi-Agent Systems** (2601.22041v1, score 5.50)
+  - http://arxiv.org/abs/2601.22041v1

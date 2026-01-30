@@ -8,7 +8,9 @@ from MetaIsland.prompt_loader import get_prompt_loader
 from MetaIsland.llm_utils import (
     build_chat_kwargs,
     build_prompt_diagnostics,
+    build_code_stats,
     classify_llm_error,
+    describe_syntax_error,
     ensure_non_empty_response,
     extract_completion_metadata,
     extract_request_metadata,
@@ -259,6 +261,7 @@ async def _agent_code_decision(self, member_id) -> None:
 
     base_code = self.base_class_code
     code_result = ""
+    raw_code = None
     completion_metadata = {}
     report_text = report if report else "No analysis available"
 
@@ -330,8 +333,9 @@ async def _agent_code_decision(self, member_id) -> None:
         completion_metadata = extract_completion_metadata(completion)
         completion_metadata.update(extract_request_metadata(chat_kwargs))
         completion_metadata.update(prompt_diag)
+        raw_code = completion.choices[0].message.content
         raw_code = ensure_non_empty_response(
-            completion.choices[0].message.content,
+            raw_code,
             context="agent_action",
         )
 
@@ -416,6 +420,17 @@ async def _agent_code_decision(self, member_id) -> None:
             'fallback_meta': fallback_meta,
             'fallback_code': fallback_code
         }
+        raw_code_for_error = locals().get("raw_code")
+        code_result_for_error = locals().get("code_result")
+        error_details = describe_syntax_error(
+            e,
+            code_result_for_error or raw_code_for_error,
+        )
+        if error_details:
+            error_info['error_details'] = error_details
+        code_stats = build_code_stats(raw_code, code_result)
+        if code_stats:
+            error_info['code_stats'] = code_stats
         self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
         print(f"Error generating code for member {member_id}:")
         print(traceback.format_exc())

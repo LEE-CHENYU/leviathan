@@ -152,6 +152,10 @@ mechanism_design_guardrails: |
   - Avoid hard-coded single equilibria; allow multiple roles and strategies to emerge.
   - Keep changes minimal and measurable; define success metrics and rollback triggers.
   - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
+  - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
+  - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
+  - Avoid self-dealing unless explicitly guarded with constraints.
+  - Only reference imports/objects you define or check with hasattr.
 
 game_mechanics: |
   [Core Game Mechanics & Parameters]
@@ -184,6 +188,7 @@ error_prevention: |
   [Error Prevention]
   - Use try-except when accessing new features
   - Check attribute existence before use
+  - When writing to inventory-like dicts, initialize with setdefault() before indexing
   - Maintain backward compatibility
   - Use version checks for existing systems:
 
@@ -224,4 +229,4 @@ final_instruction_action: |
   Using the above comprehensive prompt with all integrated constraints, produce a unique agent_action() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code.
 
 final_instruction_mechanism: |
-  Using the above comprehensive prompt with all integrated constraints, produce a unique propose_modification() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated methods to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively allow other symmetric agents interact with each other to achieve both individual and collective goals. Return only the code.
+  Using the above comprehensive prompt with all integrated constraints, produce a unique propose_modification() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated methods to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively allow other symmetric agents interact with each other to achieve both individual and collective goals. Keep it concise and fully implemented. Return only the code.

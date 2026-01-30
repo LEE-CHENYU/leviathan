@@ -25,9 +25,13 @@ class JudgeNode(ExecutionNode):
         # Get the current round's mechanism proposals
         if execution.execution_history['rounds']:
             current_round = execution.execution_history['rounds'][-1]
+            mods_record = current_round.get('mechanism_modifications')
             attempts = current_round.get('mechanism_modifications', {}).get('attempts', [])
+            judge_results = None
+            if isinstance(mods_record, dict):
+                judge_results = mods_record.setdefault('judge_results', [])
 
-            for proposal in attempts:
+            for idx, proposal in enumerate(attempts):
                 code = proposal.get('code', '')
                 member_id = proposal.get('member_id', -1)
 
@@ -38,6 +42,20 @@ class JudgeNode(ExecutionNode):
                 is_approved, reason = execution.judge.judge_proposal(
                     code, member_id, "mechanism"
                 )
+
+                judge_entry = {
+                    "member_id": member_id,
+                    "proposal_index": idx,
+                    "approved": bool(is_approved),
+                    "reason": reason,
+                }
+                if isinstance(proposal, dict):
+                    proposal["judge"] = {
+                        "approved": bool(is_approved),
+                        "reason": reason,
+                    }
+                if isinstance(judge_results, list):
+                    judge_results.append(judge_entry)
 
                 if is_approved:
                     approved.append(proposal)

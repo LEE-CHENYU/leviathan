@@ -43,6 +43,19 @@ from MetaIsland.model_router import model_router
 from MetaIsland.llm_utils import ensure_non_empty_response
 
 provider, model_id = model_router("default")
+
+
+class StrategyMemory(dict):
+    """Dict-backed strategy memory that supports list-style append."""
+
+    def append(self, item) -> None:
+        notes = self.get("notes")
+        if not isinstance(notes, list):
+            notes = []
+        notes.append(item)
+        self["notes"] = notes
+
+
 class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
@@ -275,20 +288,201 @@ class IslandExecution(Island):
 
     def clean_code_string(self, code_str: str) -> str:
         """Remove markdown code block markers and clean up the code string."""
-        # Remove ```python and ``` markers
-        code_str = code_str.replace('```python', '').replace('```', '').strip()
-        
+        if code_str is None:
+            return ""
+        code_str = str(code_str)
+
+        # Prefer the first fenced code block if present.
+        if "```" in code_str:
+            fenced_blocks = re.findall(r"```(?:[\w+-]+)?\s*\n(.*?)```", code_str, flags=re.DOTALL)
+            if fenced_blocks:
+                code_str = fenced_blocks[0]
+            else:
+                code_str = code_str.replace('```python', '').replace('```', '')
+
         # Remove any leading or trailing whitespace
         lines = code_str.split('\n')
         lines = [line.rstrip() for line in lines]
-        
+
         # Remove any empty lines at start/end while preserving internal empty lines
         while lines and not lines[0].strip():
             lines.pop(0)
         while lines and not lines[-1].strip():
             lines.pop()
-            
-        return '\n'.join(lines)
+
+        # Strip leading/trailing narrative lines that are not valid top-level Python.
+        def _looks_like_toplevel_code(line: str) -> bool:
+            stripped = line.strip()
+            if not stripped:
+                return False
+            if stripped[0] in ("\"", "'"):
+                return True
+            if stripped.startswith("#"):
+                return True
+            for prefix in (
+                "def ",
+                "class ",
+                "import ",
+                "from ",
+                "if ",
+                "for ",
+                "while ",
+                "with ",
+                "async ",
+                "@",
+                "try:",
+                "elif ",
+                "else:",
+                "except",
+                "finally:",
+                "pass",
+            ):
+                if stripped.startswith(prefix):
+                    return True
+            if re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=", stripped):
+                return True
+            return False
+
+        while lines:
+            line = lines[0]
+            if not line.strip():
+                lines.pop(0)
+                continue
+            if _looks_like_toplevel_code(line):
+                break
+            lines.pop(0)
+            while lines and not lines[0].strip():
+                lines.pop(0)
+
+        idx = len(lines) - 1
+        while idx >= 0:
+            line = lines[idx]
+            if not line.strip():
+                idx -= 1
+                continue
+            if line[: len(line) - len(line.lstrip())]:
+                break
+            if _looks_like_toplevel_code(line):
+                break
+            idx -= 1
+
+        if idx < len(lines) - 1:
+            lines = lines[: idx + 1]
+            while lines and not lines[-1].strip():
+                lines.pop()
+
+        cleaned = '\n'.join(lines)
+        if not cleaned:
+            return ""
+
+        def _attempt_parse(candidate: str):
+            try:
+                ast.parse(candidate)
+                return None
+            except SyntaxError as err:
+                return err
+
+        def _syntax_trim_candidate(err: SyntaxError, line_count: int) -> bool:
+            msg = getattr(err, "msg", "") or ""
+            lineno = getattr(err, "lineno", None)
+            tail_window = max(3, int(line_count * 0.1))
+            near_end = lineno is None or lineno >= max(1, line_count - tail_window)
+            eof_hint = (
+                "EOF while scanning" in msg
+                or "unexpected EOF" in msg
+                or "EOL while scanning" in msg
+            )
+            indent_hint = "expected an indented block" in msg
+            unterminated_hint = (
+                "unterminated string literal" in msg
+                or "triple-quoted string literal" in msg
+            )
+            return near_end or eof_hint or indent_hint or unterminated_hint
+
+        def _maybe_insert_missing_comma(source_lines, err):
+            msg = getattr(err, "msg", "") or ""
+            if "comma" not in msg.lower():
+                return None
+            lineno = getattr(err, "lineno", None)
+            if lineno is None:
+                return None
+
+            def _eligible(line: str) -> bool:
+                stripped = line.strip()
+                if not stripped or stripped.endswith(","):
+                    return False
+                if stripped.startswith(
+                    (
+                        "#",
+                        "def ",
+                        "class ",
+                        "if ",
+                        "for ",
+                        "while ",
+                        "with ",
+                        "try",
+                        "except",
+                        "finally",
+                        "return",
+                        "raise",
+                        "yield",
+                        "break",
+                        "continue",
+                        "import ",
+                        "from ",
+                        "pass",
+                    )
+                ):
+                    return False
+                if ":" in stripped:
+                    return True
+                if stripped.endswith((")", "]", "}", "\"", "'")):
+                    return True
+                return False
+
+            candidate_lines = list(source_lines)
+            for target in (lineno - 1, lineno - 2):
+                if target < 0 or target >= len(candidate_lines):
+                    continue
+                line = candidate_lines[target]
+                if not _eligible(line):
+                    continue
+                candidate_lines[target] = line + ","
+                candidate = "\n".join(candidate_lines)
+                if _attempt_parse(candidate) is None:
+                    return candidate
+                candidate_lines[target] = line
+            return None
+
+        def _trim_to_parseable(source_lines):
+            trimmed_lines = list(source_lines)
+            max_trim = len(trimmed_lines)
+            for _ in range(max_trim):
+                if not trimmed_lines:
+                    return ""
+                trimmed_lines.pop()
+                while trimmed_lines and not trimmed_lines[-1].strip():
+                    trimmed_lines.pop()
+                if not trimmed_lines:
+                    return ""
+                candidate = "\n".join(trimmed_lines)
+                if _attempt_parse(candidate) is None:
+                    return candidate
+            return ""
+
+        parse_err = _attempt_parse(cleaned)
+        if parse_err is None:
+            return cleaned
+
+        repaired = _maybe_insert_missing_comma(lines, parse_err)
+        if repaired is not None:
+            return repaired
+
+        if not _syntax_trim_candidate(parse_err, len(lines)):
+            return cleaned
+
+        trimmed = _trim_to_parseable(lines)
+        return trimmed or cleaned
 
     def _truncate_message(self, message: str, limit: int = 120) -> str:
         """Truncate messages for concise logging/memory."""
@@ -352,6 +546,19 @@ class IslandExecution(Island):
         if isinstance(member_ref, int) and member_ref in bucket:
             return bucket[member_ref]
         return None
+
+    def _ensure_strategy_memory_appendable(self, member) -> None:
+        """Ensure strategy_memory supports .append for agent-generated code."""
+        if member is None:
+            return
+        if not hasattr(member, "strategy_memory") or member.strategy_memory is None:
+            member.strategy_memory = StrategyMemory()
+            return
+        mem = member.strategy_memory
+        if isinstance(mem, StrategyMemory):
+            return
+        if isinstance(mem, dict):
+            member.strategy_memory = StrategyMemory(mem)
 
     def _auto_update_strategy_memory(
         self,
@@ -430,6 +637,21 @@ class IslandExecution(Island):
             items = [value]
         return [str(item).strip() for item in items if str(item).strip()]
 
+    def _coerce_card_signature(self, value) -> List[str]:
+        """Coerce a signature field into tag strings, splitting '+' delimited combos."""
+        items = self._coerce_card_list(value)
+        expanded: List[str] = []
+        for item in items:
+            text = str(item).strip()
+            if not text:
+                continue
+            if "+" in text:
+                parts = [part.strip() for part in text.split("+") if part.strip()]
+                expanded.extend(parts)
+            else:
+                expanded.append(text)
+        return expanded
+
     def _normalize_strategy_card(self, raw: dict) -> Optional[dict]:
         """Normalize strategy card keys to a consistent schema."""
         if not isinstance(raw, dict):
@@ -445,10 +667,10 @@ class IslandExecution(Island):
             "hypothesis": self._coerce_card_text(
                 pick("hypothesis", "hyp", "thesis")
             ),
-            "baseline_signature": self._coerce_card_list(
+            "baseline_signature": self._coerce_card_signature(
                 pick("baseline_signature", "baseline_tags", "baseline", "baseline_action")
             ),
-            "variation_signature": self._coerce_card_list(
+            "variation_signature": self._coerce_card_signature(
                 pick("variation_signature", "variation_tags", "variation", "variant_action")
             ),
             "success_metrics": self._coerce_card_list(
@@ -1104,17 +1326,54 @@ class IslandExecution(Island):
             "offerland": "offer_land",
             "offer-land": "offer_land",
         }
+        offer_land_pattern = re.compile(r"\boffer(?:[_\-\s]+)land\b")
+
+        def _extract_from_text(text: str) -> set:
+            if not text:
+                return set()
+            lowered = text.lower()
+            found = set()
+            offer_land_matches = list(offer_land_pattern.finditer(lowered))
+            if offer_land_matches:
+                found.add("offer_land")
+            tokens = re.findall(r"[a-z_]+", lowered)
+            for token in tokens:
+                token = token.strip("_")
+                if not token:
+                    continue
+                token = aliases.get(token, token)
+                if token in tag_order:
+                    found.add(token)
+            if "offer_land" in found and "offer" in found and offer_land_matches:
+                offer_matches = list(re.finditer(r"\boffer\b", lowered))
+                if offer_matches:
+                    inside = sum(
+                        1
+                        for match in offer_matches
+                        if any(
+                            land_match.start() <= match.start() < land_match.end()
+                            for land_match in offer_land_matches
+                        )
+                    )
+                    if inside == len(offer_matches):
+                        found.discard("offer")
+            return found
+
         seen = set()
         for raw in tags:
             if raw is None:
                 continue
-            text = str(raw).strip().lower()
-            if not text:
+            raw_text = str(raw).strip()
+            if not raw_text:
                 continue
-            text = text.replace(" ", "_")
-            text = aliases.get(text, text)
-            if text in tag_order:
-                seen.add(text)
+            normalized = raw_text.lower().replace(" ", "_")
+            normalized = aliases.get(normalized, normalized)
+            if normalized in tag_order:
+                seen.add(normalized)
+                continue
+            extracted = _extract_from_text(raw_text)
+            if extracted:
+                seen.update(extracted)
         if not seen:
             return tuple()
         return tuple([tag for tag in tag_order if tag in seen])
@@ -1453,6 +1712,11 @@ class IslandExecution(Island):
             "plan_feasible_tag_total": 0,
             "plan_ineligible_tag_count": 0,
             "plan_only_tag_count": 0,
+            "plan_missing_reason_counts": {
+                "missing_experiment": 0,
+                "missing_label": 0,
+                "missing_signature": 0,
+            },
         }
 
         round_record = None
@@ -1470,10 +1734,12 @@ class IslandExecution(Island):
                 experiment = mem.get("experiment")
                 if not experiment:
                     stats["plan_missing"] += 1
+                    stats["plan_missing_reason_counts"]["missing_experiment"] += 1
                     continue
                 label = experiment.get("label")
                 if label not in ("baseline", "variation"):
                     stats["plan_missing"] += 1
+                    stats["plan_missing_reason_counts"]["missing_label"] += 1
                     continue
                 if label == "baseline":
                     plan_sig = experiment.get("baseline_signature")
@@ -1483,6 +1749,7 @@ class IslandExecution(Island):
                 plan_tags = self._normalize_action_tags(plan_sig or [])
                 if not plan_tags:
                     stats["plan_missing"] += 1
+                    stats["plan_missing_reason_counts"]["missing_signature"] += 1
                     continue
 
                 stats["plan_samples"] += 1
@@ -3883,6 +4150,8 @@ class IslandExecution(Island):
             print(f"\nExecuting code for Member {member_key} (idx {member_index}):")
             # print(code_str)
 
+            self._ensure_strategy_memory_appendable(self.current_members[member_index])
+
             # Track old stats before executing
             old_survival = self.compute_survival_chance(self.current_members[member_index])
             old_relation_balance = self.compute_relation_balance(self.current_members[member_index])
@@ -3914,7 +4183,8 @@ class IslandExecution(Island):
                 self.send_message = tracked_send_message
                 local_env = {
                     'execution_engine': self,
-                    'send_message': tracked_send_message
+                    'send_message': tracked_send_message,
+                    'np': np,
                 }
 
                 # Execute the code in a way that makes the function accessible
@@ -4140,6 +4410,10 @@ class IslandExecution(Island):
             'plan_only_tag_count': plan_feasibility.get("plan_only_tag_count", 0),
             'plan_feasibility_samples': plan_feasibility.get("plan_samples", 0),
             'plan_feasibility_missing': plan_feasibility.get("plan_missing", 0),
+            'plan_feasibility_missing_reason_counts': plan_feasibility.get(
+                "plan_missing_reason_counts",
+                {},
+            ),
             'agent_code_error_count': error_stats.get("agent_code_error_count", 0),
             'agent_code_error_rate': (
                 error_stats.get("agent_code_error_count", 0) / len(round_deltas)
@@ -4703,19 +4977,29 @@ class IslandExecution(Island):
         connections = [
             ('new_round', 'analyze'),
             ('analyze', 'propose_mechanisms'),
-            ('propose_mechanisms', 'judge'),
-            ('judge', 'execute_mechanisms'),
+            ('propose_mechanisms', 'judge', 'proposals', 'proposals'),
+            ('judge', 'execute_mechanisms', 'approved', 'approved'),
             ('execute_mechanisms', 'agent_decisions'),
             ('agent_decisions', 'execute_actions'),
             ('execute_actions', 'contracts'),
             ('contracts', 'produce'),
             ('produce', 'consume'),
             ('consume', 'environment'),
-            ('environment', 'log_status')
+            ('environment', 'log_status'),
         ]
 
-        for from_name, to_name in connections:
-            self.graph.connect(from_name, to_name)
+        for connection in connections:
+            if len(connection) == 2:
+                from_name, to_name = connection
+                self.graph.connect(from_name, to_name)
+            else:
+                from_name, to_name, output_key, input_key = connection
+                self.graph.connect(
+                    from_name,
+                    to_name,
+                    output_key=output_key,
+                    input_key=input_key,
+                )
 
         print(f"\n[Graph] Initialized with {len(nodes)} nodes")
         print(self.graph.visualize())

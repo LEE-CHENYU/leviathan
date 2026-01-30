@@ -8,8 +8,10 @@ from MetaIsland.model_router import model_router
 from MetaIsland.prompt_loader import get_prompt_loader
 from MetaIsland.llm_utils import (
     build_chat_kwargs,
+    build_code_stats,
     build_prompt_diagnostics,
     classify_llm_error,
+    describe_syntax_error,
     ensure_non_empty_response,
     extract_completion_metadata,
     extract_request_metadata,
@@ -94,6 +96,7 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
 
     base_code = self.base_class_code
     code_result = ""
+    raw_code = None
     primary_llm_metadata = {}
     fallback_llm_metadata = {}
     report_text = report if report else "No analysis available"
@@ -179,10 +182,12 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
             primary_llm_metadata = extract_completion_metadata(completion)
             primary_llm_metadata.update(extract_request_metadata(chat_kwargs))
             primary_llm_metadata.update(prompt_diag)
-            code_result = ensure_non_empty_response(
-                completion.choices[0].message.content,
+            raw_code = completion.choices[0].message.content
+            raw_code = ensure_non_empty_response(
+                raw_code,
                 context="mechanism",
             )
+            code_result = raw_code
         except Exception as e:
             fallback_error = e
             fallback_traceback = traceback.format_exc()
@@ -199,10 +204,12 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
                 fallback_llm_metadata = extract_completion_metadata(completion)
                 fallback_llm_metadata.update(extract_request_metadata(fallback_kwargs))
                 fallback_llm_metadata.update(prompt_diag)
-                code_result = ensure_non_empty_response(
-                    completion.choices[0].message.content,
+                raw_code = completion.choices[0].message.content
+                raw_code = ensure_non_empty_response(
+                    raw_code,
                     context="mechanism_offline",
                 )
+                code_result = raw_code
             else:
                 raise
 
@@ -267,6 +274,17 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
             }
             if fallback_used and primary_llm_metadata and fallback_llm_metadata:
                 error_info['llm_metadata_primary'] = primary_llm_metadata
+            raw_code_for_error = locals().get("raw_code")
+            code_result_for_error = locals().get("code_result")
+            error_details = describe_syntax_error(
+                fallback_error,
+                code_result_for_error or raw_code_for_error,
+            )
+            if error_details:
+                error_info['error_details'] = error_details
+            code_stats = build_code_stats(raw_code, code_result)
+            if code_stats:
+                error_info['code_stats'] = code_stats
             self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
 
         return code_result
@@ -286,6 +304,17 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
         }
         if fallback_used and primary_llm_metadata and fallback_llm_metadata:
             error_info['llm_metadata_primary'] = primary_llm_metadata
+        raw_code_for_error = locals().get("raw_code")
+        code_result_for_error = locals().get("code_result")
+        error_details = describe_syntax_error(
+            e,
+            code_result_for_error or raw_code_for_error,
+        )
+        if error_details:
+            error_info['error_details'] = error_details
+        code_stats = build_code_stats(raw_code, code_result)
+        if code_stats:
+            error_info['code_stats'] = code_stats
         self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
         print(f"Error generating code for member {member_id}:")
         print(traceback.format_exc())

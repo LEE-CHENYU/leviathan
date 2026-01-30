@@ -497,6 +497,59 @@ def _compute_coverage(expected, metrics):
     return missing, coverage
 
 
+def _safe_float(value: object) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _compute_gini(values: list[float]) -> Optional[float]:
+    if not values:
+        return None
+    cleaned = [v for v in values if v is not None]
+    if not cleaned:
+        return None
+    sorted_vals = sorted(cleaned)
+    total = float(sum(sorted_vals))
+    if total <= 0:
+        return 0.0
+    cumulative = 0.0
+    weighted_sum = 0.0
+    for idx, value in enumerate(sorted_vals, start=1):
+        cumulative += value
+        weighted_sum += cumulative
+    n = len(sorted_vals)
+    gini = (n + 1 - 2 * weighted_sum / total) / n
+    return max(0.0, min(1.0, float(gini)))
+
+
+def _derive_round_context_from_snapshot(snapshot: dict) -> dict:
+    if not isinstance(snapshot, dict) or not snapshot:
+        return {}
+    cargo_vals: list[float] = []
+    land_vals: list[float] = []
+    wealth_vals: list[float] = []
+    for entry in snapshot.values():
+        if not isinstance(entry, dict):
+            continue
+        cargo = _safe_float(entry.get("cargo"))
+        land = _safe_float(entry.get("land"))
+        if cargo is not None:
+            cargo_vals.append(cargo)
+        if land is not None:
+            land_vals.append(land)
+        if cargo is not None and land is not None:
+            wealth_vals.append(cargo + land)
+    return {
+        "gini_cargo": _compute_gini(cargo_vals),
+        "gini_land": _compute_gini(land_vals),
+        "gini_wealth": _compute_gini(wealth_vals),
+    }
+
+
 def _collect_llm_error_counts(metrics_list) -> Tuple[dict, int]:
     counts: dict = {}
     for metrics in metrics_list:
@@ -514,7 +567,10 @@ def _collect_llm_error_counts(metrics_list) -> Tuple[dict, int]:
                     count_value = int(count)
                 except Exception:
                     count_value = 1
-                counts[tag] = counts.get(tag, 0) + count_value
+                if tag in counts:
+                    counts[tag] = max(counts[tag], count_value)
+                else:
+                    counts[tag] = count_value
     return counts, sum(counts.values())
 
 
@@ -643,6 +699,18 @@ async def run(
     round_record = exec.execution_history['rounds'][-1] if exec.execution_history.get('rounds') else {}
     round_metrics = round_record.get('round_metrics') or {}
     round_end_metrics = round_record.get('round_end_metrics') or {}
+    round_context = round_record.get("round_context") or {}
+    round_context_source = "round_record" if round_context else None
+    if not round_context:
+        end_snapshot = round_record.get("round_end_snapshot") or {}
+        if end_snapshot:
+            round_context = _derive_round_context_from_snapshot(end_snapshot)
+            round_context_source = "round_end_snapshot"
+        else:
+            start_snapshot = round_record.get("round_start_snapshot") or {}
+            if start_snapshot:
+                round_context = _derive_round_context_from_snapshot(start_snapshot)
+                round_context_source = "round_start_snapshot"
     contract_stats = round_record.get('contract_stats')
     physics_stats = round_record.get('physics_stats')
     contract_partner_counts = round_record.get('contract_partner_counts')
@@ -658,6 +726,11 @@ async def run(
             exec_history_file = str(files[-1])
 
     expected_round_metrics = EXPECTED_ROUND_METRICS
+    expected_round_context = [
+        "gini_cargo",
+        "gini_land",
+        "gini_wealth",
+    ]
     expected_contract_stats = [
         "total_contracts",
         "pending",
@@ -680,6 +753,10 @@ async def run(
     )
     llm_error_tag_counts, llm_error_total = _collect_llm_error_counts(
         [round_metrics, derived_metrics]
+    )
+    round_context_missing, round_context_coverage = _compute_coverage(
+        expected_round_context,
+        round_context,
     )
     contract_stats_missing, contract_stats_coverage = _compute_coverage(
         expected_contract_stats,
@@ -715,6 +792,11 @@ async def run(
         "round_metrics_missing": missing_metrics,
         "round_metrics_expected": expected_round_metrics,
         "round_metrics_coverage": coverage,
+        "round_context": round_context,
+        "round_context_source": round_context_source,
+        "round_context_missing": round_context_missing,
+        "round_context_expected": expected_round_context,
+        "round_context_coverage": round_context_coverage,
         "llm_error_tag_counts": llm_error_tag_counts,
         "llm_error_total": llm_error_total,
         "llm_preflight": preflight or {},

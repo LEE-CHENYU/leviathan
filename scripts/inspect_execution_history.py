@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -9,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils import eval_metrics
 from utils.eval_metrics import (
     combine_round_metrics,
     EXPECTED_ROUND_METRICS,
@@ -41,6 +44,9 @@ METRIC_KEYS = [
     "llm_completion_at_request_cap_rate",
     "llm_prompt_tokens_avg",
     "llm_completion_tokens_avg",
+    "llm_prompt_char_count_avg",
+    "llm_prompt_char_count_min",
+    "llm_prompt_char_count_max",
     "memory_active_coverage",
     "memory_missing_count",
     "memory_orphan_count",
@@ -48,6 +54,9 @@ METRIC_KEYS = [
     "mechanism_approved_count",
     "mechanism_executed_count",
     "mechanism_error_count",
+    "mechanism_judge_approved_count",
+    "mechanism_judge_rejected_count",
+    "mechanism_judge_missing_count",
     "contract_total",
     "contract_pending",
     "contract_active",
@@ -60,6 +69,12 @@ METRIC_KEYS = [
 ]
 
 DOMINANCE_THRESHOLD = 0.60
+PROMPT_SECTION_TOP_N = 6
+PROMPT_SECTION_BASE_TOP_N = 4
+ANALYSIS_TAG_TOP_N = 5
+
+_ANALYSIS_TAG_TOKEN_RE = re.compile(r"[^a-z0-9_]+")
+_ANALYSIS_TAG_ARG_RE = re.compile(r"\b[a-z_]+\([^)]*\)")
 
 GUARDRAILS = {
     "round_end_population_avg_survival_delta": ("min", -0.02),
@@ -113,6 +128,121 @@ def _extract_prompts(round_record: dict) -> List[str]:
                 prompts.append(prompt)
 
     return prompts
+
+
+def _iter_error_entries(round_record: dict) -> Iterable[Tuple[str, dict]]:
+    errors = round_record.get("errors") or {}
+    if not isinstance(errors, dict):
+        return []
+    for key in ("agent_code_errors", "mechanism_errors", "analyze_code_errors"):
+        entries = errors.get(key) or []
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict):
+                yield key, entry
+
+
+def _iter_analysis_card_tags(round_record: dict) -> Iterable[Tuple[object, str, str]]:
+    cards = round_record.get("analysis_cards")
+    if not isinstance(cards, dict) or not cards:
+        return
+    for card_id, card in cards.items():
+        if not isinstance(card, dict):
+            continue
+        for key in ("baseline_signature", "variation_signature"):
+            for raw in eval_metrics._coerce_card_tags(card.get(key)):
+                if raw:
+                    yield card_id, key, raw
+
+
+def _is_syntax_error_entry(entry: dict) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("error_category") == "llm_syntax_error":
+        return True
+    details = entry.get("error_details")
+    if isinstance(details, dict) and details.get("error_type") == "SyntaxError":
+        return True
+    msg = ""
+    if isinstance(details, dict):
+        msg = str(details.get("error_msg") or "")
+    else:
+        msg = str(entry.get("error") or "")
+    msg = msg.lower()
+    return any(token in msg for token in ("syntax", "unterminated", "unexpected eof", "eof while scanning"))
+
+
+def _syntax_error_category(entry: dict) -> str:
+    details = entry.get("error_details") if isinstance(entry, dict) else None
+    error_text = None
+    error_line = None
+    if isinstance(details, dict):
+        error_text = details.get("error_text")
+        error_line = details.get("error_line")
+    if eval_metrics._is_js_comment_line(error_text):
+        return "js_comment"
+    if eval_metrics._is_missing_in_operator_line(error_text):
+        return "missing_in"
+    if error_line == 1 and eval_metrics._is_non_code_prefix_line(error_text):
+        return "non_code_prefix"
+    if error_text:
+        return "other"
+    return "unknown"
+
+
+def _analysis_tag_status(raw: object) -> Tuple[str, Optional[str], Optional[str]]:
+    strict = eval_metrics._normalize_action_tag(raw, strip_punct=False)
+    if strict:
+        return "valid", strict, strict
+    lenient = eval_metrics._normalize_action_tag(raw, strip_punct=True)
+    if lenient:
+        return "recoverable", None, lenient
+    return "invalid", None, None
+
+
+def _suggest_action_tag(raw: object) -> Optional[str]:
+    if raw is None:
+        return None
+    text = str(raw).strip().lower()
+    if not text:
+        return None
+    for token in _ANALYSIS_TAG_TOKEN_RE.split(text):
+        if not token:
+            continue
+        candidate = eval_metrics._normalize_action_tag(token, strip_punct=True)
+        if candidate:
+            return candidate
+    text_norm = _ANALYSIS_TAG_TOKEN_RE.sub("_", text).strip("_")
+    for tag in eval_metrics.SIGNATURE_TAG_ORDER:
+        pattern = rf"(?:^|_){re.escape(tag)}(?:_|$)"
+        if re.search(pattern, text_norm):
+            return tag
+    return None
+
+
+def _trim_text(text: Optional[str], limit: int = 160) -> str:
+    if not text:
+        return ""
+    cleaned = " ".join(str(text).strip().split())
+    if limit and len(cleaned) > limit:
+        return cleaned[: max(0, limit - 3)] + "..."
+    return cleaned
+
+
+def _format_syntax_example(round_id: object, source: str, entry: dict) -> str:
+    member_id = entry.get("member_id")
+    if member_id is None:
+        member_id = entry.get("member_index")
+    details = entry.get("error_details") if isinstance(entry, dict) else None
+    text = None
+    if isinstance(details, dict):
+        text = details.get("error_text") or details.get("error_msg")
+    if not text:
+        text = entry.get("error")
+    text = _trim_text(text)
+    member_text = f" member={member_id}" if member_id is not None else ""
+    return f"round={round_id} source={source}{member_text} text={text}"
 
 
 def _count_diversity_adjustments(prompts: Iterable[str]) -> int:
@@ -177,7 +307,16 @@ def _format_value(value: Optional[float]) -> str:
     return f"{value:.3f}"
 
 
-def _summarize_file(path: Path, round_limit: Optional[int], baseline_window: int, show_rounds: bool) -> None:
+def _summarize_file(
+    path: Path,
+    round_limit: Optional[int],
+    baseline_window: int,
+    show_rounds: bool,
+    show_syntax_examples: bool,
+    syntax_example_limit: int,
+    show_analysis_tag_examples: bool,
+    analysis_tag_example_limit: int,
+) -> None:
     data = json.loads(path.read_text())
     rounds = data.get("rounds") or []
     if round_limit:
@@ -200,6 +339,19 @@ def _summarize_file(path: Path, round_limit: Optional[int], baseline_window: int
     coverage_values: List[float] = []
     legacy_rounds = 0
     mechanism_overruns: List[Tuple[object, float, float]] = []
+    prompt_section_totals: Dict[str, float] = {}
+    prompt_section_counts: Dict[str, int] = {}
+    prompt_section_max: Dict[str, float] = {}
+    prompt_top_key_counts: Dict[str, int] = {}
+    prompt_top_base_key_counts: Dict[str, int] = {}
+    syntax_counts: Counter = Counter()
+    syntax_examples: Dict[str, List[str]] = defaultdict(list)
+    analysis_tag_counts: Counter = Counter()
+    analysis_invalid_counts: Counter = Counter()
+    analysis_invalid_pattern_counts: Counter = Counter()
+    analysis_invalid_suggestions: Counter = Counter()
+    analysis_invalid_examples: List[str] = []
+    analysis_recoverable_examples: List[str] = []
 
     for idx, round_record in enumerate(rounds, start=1):
         combined_metrics, derived_metrics, derived_sources, missing_metrics, coverage = (
@@ -220,6 +372,25 @@ def _summarize_file(path: Path, round_limit: Optional[int], baseline_window: int
         if mech_executed is not None and mech_approved is not None and mech_executed > mech_approved:
             round_id = round_record.get("round_number", idx)
             mechanism_overruns.append((round_id, mech_executed, mech_approved))
+
+        section_avgs = combined_metrics.get("llm_prompt_section_chars_avg")
+        if isinstance(section_avgs, dict):
+            for section_key, section_val in section_avgs.items():
+                val = safe_float(section_val)
+                if val is None:
+                    continue
+                prompt_section_totals[section_key] = prompt_section_totals.get(section_key, 0.0) + val
+                prompt_section_counts[section_key] = prompt_section_counts.get(section_key, 0) + 1
+                current_max = prompt_section_max.get(section_key)
+                if current_max is None or val > current_max:
+                    prompt_section_max[section_key] = val
+
+        top_key = combined_metrics.get("llm_prompt_section_top_avg_key")
+        if isinstance(top_key, str) and top_key:
+            prompt_top_key_counts[top_key] = prompt_top_key_counts.get(top_key, 0) + 1
+        top_base_key = combined_metrics.get("llm_prompt_section_top_base_code_key")
+        if isinstance(top_base_key, str) and top_base_key:
+            prompt_top_base_key_counts[top_base_key] = prompt_top_base_key_counts.get(top_base_key, 0) + 1
 
         if show_rounds:
             print(f"  Round {round_record.get('round_number', idx)}: prompts={len(prompts)}, diversity_adjustments={diversity_hits}")
@@ -242,6 +413,48 @@ def _summarize_file(path: Path, round_limit: Optional[int], baseline_window: int
                 source = derived_sources.get(key)
                 if source:
                     derived_metric_sources[key].add(source)
+
+        if show_syntax_examples:
+            round_id = round_record.get("round_number", idx)
+            for source, entry in _iter_error_entries(round_record):
+                if not _is_syntax_error_entry(entry):
+                    continue
+                category = _syntax_error_category(entry)
+                syntax_counts[category] += 1
+                if syntax_example_limit > 0 and len(syntax_examples[category]) < syntax_example_limit:
+                    syntax_examples[category].append(_format_syntax_example(round_id, source, entry))
+
+        if show_analysis_tag_examples:
+            round_id = round_record.get("round_number", idx)
+            for card_id, field, raw in _iter_analysis_card_tags(round_record):
+                category, _, lenient = _analysis_tag_status(raw)
+                analysis_tag_counts[category] += 1
+                raw_text = _trim_text(raw)
+                if category == "invalid":
+                    raw_str = str(raw).strip()
+                    analysis_invalid_counts[raw_str] += 1
+                    if _ANALYSIS_TAG_ARG_RE.search(raw_str):
+                        analysis_invalid_pattern_counts["arguments"] += 1
+                    if "+" in raw_str:
+                        analysis_invalid_pattern_counts["compound_plus"] += 1
+                    if " " in raw_str:
+                        analysis_invalid_pattern_counts["whitespace"] += 1
+                    if "," in raw_str:
+                        analysis_invalid_pattern_counts["comma"] += 1
+                    suggestion = _suggest_action_tag(raw)
+                    if suggestion:
+                        analysis_invalid_suggestions[suggestion] += 1
+                    if analysis_tag_example_limit > 0 and len(analysis_invalid_examples) < analysis_tag_example_limit:
+                        example = f"round={round_id} card={card_id} field={field} raw={raw_text}"
+                        if suggestion:
+                            example += f" suggested={suggestion}"
+                        analysis_invalid_examples.append(example)
+                elif category == "recoverable":
+                    if analysis_tag_example_limit > 0 and len(analysis_recoverable_examples) < analysis_tag_example_limit:
+                        example = f"round={round_id} card={card_id} field={field} raw={raw_text}"
+                        if lenient:
+                            example += f" normalized={lenient}"
+                        analysis_recoverable_examples.append(example)
 
     if prompt_total:
         rate = prompt_diversity / prompt_total
@@ -301,6 +514,86 @@ def _summarize_file(path: Path, round_limit: Optional[int], baseline_window: int
         if avg_val is None:
             continue
         print(f"  {key}: {_format_value(avg_val)}")
+
+    prompt_char_avg = _avg(metric_values.get("llm_prompt_char_count_avg", []))
+    if prompt_section_totals:
+        section_avgs = {
+            key: prompt_section_totals[key] / prompt_section_counts[key]
+            for key in prompt_section_totals
+            if prompt_section_counts.get(key)
+        }
+        top_sections = sorted(section_avgs.items(), key=lambda item: item[1], reverse=True)[:PROMPT_SECTION_TOP_N]
+        if top_sections:
+            print("Prompt section averages (chars per prompt):")
+            for section_key, section_val in top_sections:
+                if prompt_char_avg:
+                    ratio = section_val / prompt_char_avg
+                    ratio_text = f"{ratio:.1%}"
+                else:
+                    ratio_text = "n/a"
+                print(f"  {section_key}: {section_val:.1f} ({ratio_text} of prompt avg)")
+
+        base_code_total = section_avgs.get("base_code")
+        base_sections = {
+            key: val
+            for key, val in section_avgs.items()
+            if key.startswith("base_code_") and key != "base_code"
+        }
+        top_base_sections = sorted(base_sections.items(), key=lambda item: item[1], reverse=True)[:PROMPT_SECTION_BASE_TOP_N]
+        if top_base_sections:
+            print("Base-code breakdown (avg chars per prompt):")
+            for section_key, section_val in top_base_sections:
+                if base_code_total:
+                    ratio = section_val / base_code_total
+                    ratio_text = f"{ratio:.1%} of base_code"
+                else:
+                    ratio_text = "n/a"
+                print(f"  {section_key}: {section_val:.1f} ({ratio_text})")
+
+        if prompt_top_key_counts:
+            top_key, top_count = sorted(prompt_top_key_counts.items(), key=lambda item: item[1], reverse=True)[0]
+            print(f"Top prompt section per round: {top_key} ({top_count}/{total_rounds})")
+        if prompt_top_base_key_counts:
+            top_base_key, top_base_count = sorted(prompt_top_base_key_counts.items(), key=lambda item: item[1], reverse=True)[0]
+            print(f"Top base-code section per round: {top_base_key} ({top_base_count}/{total_rounds})")
+
+    if show_syntax_examples:
+        total_syntax = sum(syntax_counts.values())
+        print(f"Syntax errors found: {total_syntax}")
+        if total_syntax:
+            for category, count in sorted(syntax_counts.items(), key=lambda item: item[1], reverse=True):
+                print(f"  {category}: {count}")
+                for example in syntax_examples.get(category, []):
+                    print(f"    {example}")
+
+    if show_analysis_tag_examples:
+        total_tags = sum(analysis_tag_counts.values())
+        print(f"Analysis card tags: {total_tags}")
+        if total_tags:
+            valid_count = analysis_tag_counts.get("valid", 0)
+            recoverable_count = analysis_tag_counts.get("recoverable", 0)
+            invalid_count = analysis_tag_counts.get("invalid", 0)
+            print(f"  valid: {valid_count} | recoverable: {recoverable_count} | invalid: {invalid_count}")
+        if analysis_invalid_counts:
+            print("Top invalid analysis tags:")
+            for raw, count in analysis_invalid_counts.most_common(ANALYSIS_TAG_TOP_N):
+                print(f"  {count}x {_trim_text(raw)}")
+        if analysis_invalid_pattern_counts:
+            print("Invalid analysis tag patterns:")
+            for pattern, count in analysis_invalid_pattern_counts.most_common():
+                print(f"  {pattern}: {count}")
+        if analysis_invalid_suggestions:
+            print("Suggested tags from invalid entries:")
+            for tag, count in analysis_invalid_suggestions.most_common(ANALYSIS_TAG_TOP_N):
+                print(f"  {tag}: {count}")
+        if analysis_recoverable_examples:
+            print("Recoverable analysis tag examples:")
+            for example in analysis_recoverable_examples:
+                print(f"  {example}")
+        if analysis_invalid_examples:
+            print("Invalid analysis tag examples:")
+            for example in analysis_invalid_examples:
+                print(f"  {example}")
 
     baseline_rounds, last_round = _baseline_rounds(rounds, baseline_window)
     if not baseline_rounds or last_round is None:
@@ -368,6 +661,28 @@ def main() -> int:
         action="store_true",
         help="Show per-round prompt counts",
     )
+    parser.add_argument(
+        "--show-syntax-examples",
+        action="store_true",
+        help="Show sample LLM syntax error lines (non-code prefixes, JS comments, missing 'in').",
+    )
+    parser.add_argument(
+        "--syntax-example-limit",
+        type=int,
+        default=3,
+        help="Maximum examples per syntax error category.",
+    )
+    parser.add_argument(
+        "--show-analysis-tag-examples",
+        action="store_true",
+        help="Show sample invalid/recoverable analysis card signature tags.",
+    )
+    parser.add_argument(
+        "--analysis-tag-example-limit",
+        type=int,
+        default=3,
+        help="Maximum examples per analysis tag category.",
+    )
     args = parser.parse_args()
 
     files = _history_files(args.path, args.all)
@@ -376,7 +691,16 @@ def main() -> int:
         return 1
 
     for file_path in files:
-        _summarize_file(file_path, args.rounds, args.baseline_window, args.show_rounds)
+        _summarize_file(
+            file_path,
+            args.rounds,
+            args.baseline_window,
+            args.show_rounds,
+            args.show_syntax_examples,
+            args.syntax_example_limit,
+            args.show_analysis_tag_examples,
+            args.analysis_tag_example_limit,
+        )
 
     return 0
 

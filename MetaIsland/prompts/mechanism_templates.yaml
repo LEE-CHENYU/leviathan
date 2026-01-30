@@ -17,6 +17,7 @@ introduction: |
      - Your code will be validated for realism
      - No free resources or exploits allowed
      - Must follow conservation laws
+     - When writing to inventories, use setdefault() before indexing
 
 contract_templates:
   - name: "Resource Definition & Extraction"
@@ -92,8 +93,9 @@ contract_templates:
 
           # Check both parties have resources
           if hasattr(execution_engine, 'resources'):
-              inv_a = execution_engine.resources.inventories.get(party_a, {})
-              inv_b = execution_engine.resources.inventories.get(party_b, {})
+              inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
 
               if inv_a.get(resource_a['type'], 0) >= resource_a['quantity'] and \
                  inv_b.get(resource_b['type'], 0) >= resource_b['quantity']:
@@ -131,15 +133,17 @@ contract_templates:
 
           if hasattr(execution_engine, 'resources'):
               inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
               give_a = terms.get('party_a_gives', {'type': 'food', 'quantity': 3})
               give_b = terms.get('party_b_gives', {'type': 'materials', 'quantity': 2})
 
-              if inv.get(party_a, {}).get(give_a['type'], 0) >= give_a['quantity'] and \\
-                 inv.get(party_b, {}).get(give_b['type'], 0) >= give_b['quantity']:
-                  inv[party_a][give_a['type']] -= give_a['quantity']
-                  inv[party_b][give_b['type']] -= give_b['quantity']
-                  inv[party_a][give_b['type']] = inv[party_a].get(give_b['type'], 0) + give_b['quantity']
-                  inv[party_b][give_a['type']] = inv[party_b].get(give_a['type'], 0) + give_a['quantity']
+              if inv_a.get(give_a['type'], 0) >= give_a['quantity'] and \
+                 inv_b.get(give_b['type'], 0) >= give_b['quantity']:
+                  inv_a[give_a['type']] -= give_a['quantity']
+                  inv_b[give_b['type']] -= give_b['quantity']
+                  inv_a[give_b['type']] = inv_a.get(give_b['type'], 0) + give_b['quantity']
+                  inv_b[give_a['type']] = inv_b.get(give_a['type'], 0) + give_a['quantity']
 
                   if contract.get('execution_count', 0) >= max_exec - 1:
                       execution_engine.contracts.complete_contract(contract['id'], reason='trial_complete')
@@ -235,7 +239,7 @@ contract_templates:
                       # Collect contributions
                       for partner_id, contrib in business['contributions'].items():
                           if hasattr(execution_engine, 'resources'):
-                              inv = execution_engine.resources.inventories.get(partner_id, {})
+                              inv = execution_engine.resources.inventories.setdefault(partner_id, {})
                               for resource, qty in contrib.items():
                                   if inv.get(resource, 0) >= qty:
                                       inv[resource] -= qty
@@ -446,15 +450,17 @@ physics_templates:
                                           inv = execution_engine.resources.inventories
                                           buyer = buy_order['member_id']
                                           seller = sell_order['member_id']
+                                          inv_buyer = inv.setdefault(buyer, {})
+                                          inv_seller = inv.setdefault(seller, {})
                                           price = (buy_order['price'] + sell_order['price']) / 2
 
                                           # Execute transfer
-                                          if seller in inv and inv[seller].get(resource_type, 0) >= trade_qty:
-                                              inv[seller][resource_type] -= trade_qty
-                                              inv[buyer][resource_type] = inv[buyer].get(resource_type, 0) + trade_qty
+                                          if inv_seller.get(resource_type, 0) >= trade_qty:
+                                              inv_seller[resource_type] -= trade_qty
+                                              inv_buyer[resource_type] = inv_buyer.get(resource_type, 0) + trade_qty
 
-                                              inv[buyer]['currency'] = inv[buyer].get('currency', 100) - price * trade_qty
-                                              inv[seller]['currency'] = inv[seller].get('currency', 100) + price * trade_qty
+                                              inv_buyer['currency'] = inv_buyer.get('currency', 100) - price * trade_qty
+                                              inv_seller['currency'] = inv_seller.get('currency', 100) + price * trade_qty
 
                                               buy_order['filled'] += trade_qty
                                               sell_order['filled'] += trade_qty

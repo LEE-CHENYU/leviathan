@@ -19,13 +19,15 @@ SANDBOX_MODE="${SANDBOX_MODE:-danger-full-access}"
 STAGE3_PROMPT="Stage 3 (end-to-end, source of truth): run every iteration unless it is impossible to run (missing keys/network/downstream outage).
   Command: 'python scripts/run_e2e_smoke.py'
   Use the e2e summary at execution_histories/e2e_smoke/latest_summary.json as the primary feedback for evaluation and iteration decisions.
-  If Stage 3 can't run, do NOT change behavior; instead improve the test/instrumentation so Stage 3 can run.
+  If Stage 3 can't run due to critical infra/LLM failures (DNS/auth/rate-limit), do NOT change behavior; instead improve the test/instrumentation so Stage 3 can run.
+  Minor file/log issues (e.g., missing/empty log files) are non-blocking; you may proceed with behavior changes but must note the issue and keep a Stage 3 rerun on the next step list.
   When Stage 3 is skipped, say 'Stage 3 skipped (not run): <reason>' instead of 'API unavailable'."
 if [ "$RUN_E2E_OUTSIDE_CODEX" = "1" ]; then
   STAGE3_PROMPT="Stage 3 (end-to-end, source of truth): already executed outside Codex in this iteration via $E2E_SCRIPT.
   Do NOT run 'python scripts/run_e2e_smoke.py' inside Codex.
   Read execution_histories/e2e_smoke/latest_summary.json and use it as the primary feedback for evaluation and iteration decisions.
-  If the summary is missing or clearly stale, report that and request a rerun outside Codex."
+  If the summary is missing or clearly stale, report that and request a rerun outside Codex.
+  Minor file/log issues (e.g., missing/empty log files) are non-blocking; you may proceed with behavior changes but must note the issue and keep a Stage 3 rerun on the next step list."
 fi
 
 if [ -f "$ENV_FILE" ]; then

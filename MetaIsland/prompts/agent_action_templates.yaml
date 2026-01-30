@@ -13,6 +13,7 @@ introduction: |
   - Prefer small trials and diverse partners to preserve strategy diversity.
   - If you construct custom action dicts in contracts, pass them through
     execution_engine.physics.apply_constraints(...) before applying state changes.
+  - When writing to inventories, use setdefault() to avoid missing-key errors.
 
 action_templates:
   - name: "Propose Trade Contract"
@@ -43,14 +44,15 @@ action_templates:
 
           if hasattr(execution_engine, 'resources'):
               inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
 
               # I give food, get materials
-              if inv.get(party_a, {}).get('food', 0) >= 10 and \\
-                 inv.get(party_b, {}).get('materials', 0) >= 5:
-                  inv[party_a]['food'] -= 10
-                  inv[party_b]['materials'] -= 5
-                  inv[party_a]['materials'] = inv[party_a].get('materials', 0) + 5
-                  inv[party_b]['food'] = inv[party_b].get('food', 0) + 10
+              if inv_a.get('food', 0) >= 10 and inv_b.get('materials', 0) >= 5:
+                  inv_a['food'] -= 10
+                  inv_b['materials'] -= 5
+                  inv_a['materials'] = inv_a.get('materials', 0) + 5
+                  inv_b['food'] = inv_b.get('food', 0) + 10
                   return {"status": "success"}
           return {"status": "failed"}
       '''
@@ -138,12 +140,13 @@ action_templates:
 
           if hasattr(execution_engine, 'resources'):
               inv = execution_engine.resources.inventories
-              if inv.get(party_a, {}).get('food', 0) >= 4 and \\
-                 inv.get(party_b, {}).get('materials', 0) >= 3:
-                  inv[party_a]['food'] -= 4
-                  inv[party_b]['materials'] -= 3
-                  inv[party_a]['materials'] = inv[party_a].get('materials', 0) + 3
-                  inv[party_b]['food'] = inv[party_b].get('food', 0) + 4
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
+              if inv_a.get('food', 0) >= 4 and inv_b.get('materials', 0) >= 3:
+                  inv_a['food'] -= 4
+                  inv_b['materials'] -= 3
+                  inv_a['materials'] = inv_a.get('materials', 0) + 3
+                  inv_b['food'] = inv_b.get('food', 0) + 4
 
                   # Auto-complete after 3 executions to keep it reversible
                   if contract.get('execution_count', 0) >= 2:
@@ -409,16 +412,18 @@ action_templates:
 
           if hasattr(execution_engine, 'resources'):
               inv = execution_engine.resources.inventories
+              inv_supplier = inv.setdefault(supplier, {})
+              inv_buyer = inv.setdefault(buyer, {})
 
               # Deliver materials
-              if inv.get(supplier, {}).get('materials', 0) >= 5:
-                  inv[supplier]['materials'] -= 5
-                  inv[buyer]['materials'] = inv[buyer].get('materials', 0) + 5
+              if inv_supplier.get('materials', 0) >= 5:
+                  inv_supplier['materials'] -= 5
+                  inv_buyer['materials'] = inv_buyer.get('materials', 0) + 5
 
                   # Payment
-                  if inv[buyer].get('currency', 0) >= 20:
-                      inv[buyer]['currency'] -= 20
-                      inv[supplier]['currency'] = inv[supplier].get('currency', 0) + 20
+                  if inv_buyer.get('currency', 0) >= 20:
+                      inv_buyer['currency'] -= 20
+                      inv_supplier['currency'] = inv_supplier.get('currency', 0) + 20
 
                   return {"status": "success", "delivered": 5}
           return {"status": "failed"}

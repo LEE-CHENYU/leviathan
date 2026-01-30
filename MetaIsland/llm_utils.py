@@ -108,6 +108,83 @@ def extract_completion_metadata(completion: Any) -> Dict[str, Any]:
     return {key: value for key, value in metadata.items() if value is not None}
 
 
+def _trim_context_line(text: str, max_length: int) -> str:
+    if max_length and len(text) > max_length:
+        return text[:max_length] + "..."
+    return text
+
+
+def describe_syntax_error(
+    error: Exception,
+    code: Optional[str] = None,
+    context_lines: int = 2,
+    max_line_length: int = 200,
+) -> Dict[str, Any]:
+    """Describe syntax errors with line/offset context when available."""
+    if not isinstance(error, SyntaxError):
+        return {}
+    details: Dict[str, Any] = {"error_type": type(error).__name__}
+    if error.lineno is not None:
+        details["error_line"] = error.lineno
+    if error.offset is not None:
+        details["error_offset"] = error.offset
+    text = getattr(error, "text", None)
+    if text:
+        details["error_text"] = text.strip()
+    msg = getattr(error, "msg", None)
+    if msg:
+        details["error_msg"] = msg
+
+    if code and error.lineno is not None:
+        try:
+            lines = str(code).splitlines()
+        except Exception:
+            lines = []
+        if lines:
+            line_index = error.lineno - 1
+            if line_index < 0 or line_index >= len(lines):
+                details["error_line_out_of_range"] = True
+                line_index = min(max(line_index, 0), len(lines) - 1)
+            span = max(0, context_lines)
+            start = max(0, line_index - span)
+            end = min(len(lines), line_index + span + 1)
+            context_entries = []
+            for idx in range(start, end):
+                line_text = lines[idx]
+                if not isinstance(line_text, str):
+                    line_text = str(line_text)
+                context_entries.append(
+                    {
+                        "line": idx + 1,
+                        "text": _trim_context_line(line_text, max_line_length),
+                    }
+                )
+            details["error_context"] = {
+                "start_line": start + 1,
+                "end_line": end,
+                "lines": context_entries,
+            }
+            details["code_line_count"] = len(lines)
+
+    return {key: value for key, value in details.items() if value is not None}
+
+
+def build_code_stats(raw_code: Optional[str], cleaned_code: Optional[str] = None) -> Dict[str, int]:
+    """Build lightweight code length diagnostics for logging."""
+    stats: Dict[str, int] = {}
+    if raw_code is not None:
+        raw_text = str(raw_code)
+        stats["raw_len"] = len(raw_text) if raw_text else 0
+        stats["raw_lines"] = raw_text.count("\n") + 1 if raw_text else 0
+    if cleaned_code is None and raw_code is not None:
+        cleaned_code = raw_code
+    if cleaned_code is not None:
+        cleaned_text = str(cleaned_code)
+        stats["cleaned_len"] = len(cleaned_text) if cleaned_text else 0
+        stats["cleaned_lines"] = cleaned_text.count("\n") + 1 if cleaned_text else 0
+    return stats
+
+
 def build_prompt_diagnostics(
     prompt: Optional[str],
     sections: Optional[Dict[str, Any]] = None,
@@ -167,6 +244,8 @@ def classify_llm_error(error: Exception) -> str:
         return "llm_unknown"
     if isinstance(error, EmptyLLMResponseError):
         return "llm_empty_response"
+    if isinstance(error, SyntaxError):
+        return "llm_syntax_error"
     message = str(error)
     type_name = error.__class__.__name__ if hasattr(error, "__class__") else ""
     text = f"{type_name} {message}".lower()
@@ -175,6 +254,14 @@ def classify_llm_error(error: Exception) -> str:
         return "llm_unknown"
     if "empty_response" in text or "empty response" in text:
         return "llm_empty_response"
+    if (
+        "syntaxerror" in text
+        or "invalid syntax" in text
+        or "unterminated" in text
+        or "unexpected eof" in text
+        or "eof while scanning" in text
+    ):
+        return "llm_syntax_error"
 
     if "rate limit" in text or "429" in text:
         return "llm_rate_limit"

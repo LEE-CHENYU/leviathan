@@ -154,6 +154,62 @@ def test_round_metrics_include_plan_feasibility(tmp_path):
     assert metrics.get('plan_feasibility_samples') == 1
     assert metrics.get('plan_ineligible_tag_rate') == pytest.approx(0.5)
     assert metrics.get('plan_only_tag_rate') == pytest.approx(0.0)
+    missing_reasons = metrics.get('plan_feasibility_missing_reason_counts') or {}
+    assert missing_reasons == {
+        "missing_experiment": 0,
+        "missing_label": 0,
+        "missing_signature": 0,
+    }
+
+
+def test_plan_feasibility_parses_signature_strings(tmp_path):
+    exec_engine = IslandExecution(2, (3, 3), str(tmp_path), random_seed=6)
+    exec_engine.new_round()
+
+    analysis_text = textwrap.dedent(
+        """
+        Strategy update.
+        ```json
+        {
+          "hypothesis": "parse tags from signature strings",
+          "baseline_signature": [
+            "expand -> offer(member_2, 5) -> message(member_1, 'truce')"
+          ],
+          "variation_signature": [
+            "offer(member_2, 15) -> bear(member_2) -> contract(member_2, 'defensive_pact')"
+          ],
+          "success_metrics": ["delta_survival"],
+          "guardrails": ["avoid death"],
+          "coordination": ["message ally"],
+          "memory_note": "signature parsing test",
+          "diversity_note": "avoid monoculture",
+          "confidence": 0.5
+        }
+        ```
+        """
+    ).strip()
+    exec_engine._record_analysis_card(0, analysis_text)
+
+    code = _dedent(
+        """
+        def agent_action(execution_engine, member_id):
+            execution_engine.send_message(member_id, 1, "hi")
+        """
+    )
+    exec_engine.agent_code_by_member = {0: code}
+    exec_engine.execute_code_actions()
+
+    metrics = exec_engine.execution_history['rounds'][-1].get('round_metrics') or {}
+    assert metrics.get('plan_feasibility_samples') == 1
+    assert metrics.get('plan_tag_total') == 3
+    assert metrics.get('plan_ineligible_tag_count') == 0
+    assert metrics.get('plan_only_tag_count') == 2
+    missing_reasons = metrics.get('plan_feasibility_missing_reason_counts') or {}
+    assert missing_reasons == {
+        "missing_experiment": 0,
+        "missing_label": 0,
+        "missing_signature": 0,
+    }
 
 
 def test_round_metrics_include_agent_error_tags(tmp_path):
