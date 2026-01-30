@@ -30,14 +30,15 @@ contract_templates:
 
           if not hasattr(execution_engine, 'resources'):
               class ResourceSystem:
-                  def __init__(self):
+                  def __init__(self, execution_engine):
+                      self.execution_engine = execution_engine
                       self.resource_types = {}
                       self.inventories = {}  # {member_id: {resource: quantity}}
 
                   def define_resource(self, name, extraction_params):
                       self.resource_types[name] = extraction_params
 
-                  def extract(self, member_id, land_location, resource_type):
+                  def extract(self, member_id, land_location, resource_type, execution_engine=None):
                       if resource_type not in self.resource_types:
                           return 0
 
@@ -45,18 +46,30 @@ contract_templates:
                       # Apply extraction constraints
                       base_yield = params.get('base_yield', 1.0)
                       land_quality = params.get('land_quality_factor', 1.0)
+                      extraction_cost = params.get('extraction_cost_vitality', 0)
+
+                      exec_engine = execution_engine or self.execution_engine
+                      member = None
+                      if (exec_engine is not None and hasattr(exec_engine, 'current_members') and
+                              member_id is not None and member_id < len(exec_engine.current_members)):
+                          member = exec_engine.current_members[member_id]
+
+                      if member is not None:
+                          if member.vitality < extraction_cost:
+                              return 0
+                          member.vitality = max(0.0, member.vitality - extraction_cost)
 
                       extracted = base_yield * land_quality
+                      if extracted <= 0:
+                          return 0
 
                       # Update inventory
-                      if member_id not in self.inventories:
-                          self.inventories[member_id] = {}
-                      self.inventories[member_id][resource_type] = \
-                          self.inventories[member_id].get(resource_type, 0) + extracted
+                      inv = self.inventories.setdefault(member_id, {})
+                      inv[resource_type] = inv.get(resource_type, 0) + extracted
 
                       return extracted
 
-              execution_engine.resources = ResourceSystem()
+              execution_engine.resources = ResourceSystem(execution_engine)
 
               # Define initial resources
               execution_engine.resources.define_resource('food', {
@@ -187,12 +200,14 @@ contract_templates:
                                   extracted = execution_engine.resources.extract(
                                       service['provider'], None, 'food'
                                   )
-                                  # Transfer to client
+                                  # Transfer from provider inventory (conserved)
                                   inv = execution_engine.resources.inventories
-                                  if service['client'] not in inv:
-                                      inv[service['client']] = {}
-                                  inv[service['client']]['food'] = \
-                                      inv[service['client']].get('food', 0) + extracted * 0.8
+                                  inv_provider = inv.setdefault(service['provider'], {})
+                                  inv_client = inv.setdefault(service['client'], {})
+                                  transfer_qty = extracted * 0.8
+                                  if inv_provider.get('food', 0) >= transfer_qty and transfer_qty > 0:
+                                      inv_provider['food'] -= transfer_qty
+                                      inv_client['food'] = inv_client.get('food', 0) + transfer_qty
 
                           # Client pays provider
                           if hasattr(execution_engine, 'resources'):
@@ -528,6 +543,7 @@ usage_guidelines:
     - "Judge will reject unrealistic physics (free resources, no costs)"
     - "No unilateral transfers or member-specific bonuses; use opt-in contracts"
     - "Do not default currency balances; require explicit funding and balance checks"
+    - "Avoid minting credits/currency unless strictly tied to resource burn and conserved supply"
     - "Contracts must be mutually beneficial to be signed"
     - "Build systems that help ALL agents, not just you"
     - "Focus on creating realistic, sustainable economics"

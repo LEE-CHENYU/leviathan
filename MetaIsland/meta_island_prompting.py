@@ -124,6 +124,25 @@ class IslandExecutionPromptingMixin:
             if code:
                 lines.append(self._summarize_mechanism_code(code))
 
+            judge = attempt.get('judge')
+            if isinstance(judge, dict):
+                approved = judge.get('approved')
+                reason = judge.get('reason')
+                if approved is True:
+                    judge_status = "APPROVED"
+                elif approved is False:
+                    judge_status = "REJECTED"
+                else:
+                    judge_status = "UNKNOWN"
+                if reason:
+                    reason_text = str(reason).strip()
+                    max_reason_chars = 600
+                    if len(reason_text) > max_reason_chars:
+                        reason_text = reason_text[: max_reason_chars - 14].rstrip() + " ...[truncated]"
+                    lines.append(f"Judge: {judge_status} - {reason_text}")
+                else:
+                    lines.append(f"Judge: {judge_status}")
+
             error = attempt.get('error')
             if error:
                 lines.append(f"Error: {error}")

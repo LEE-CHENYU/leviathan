@@ -25,6 +25,19 @@ class IslandExecutionPopulationMixin:
             return 0.0
         return self._get_latest_total(totals.get(key, 0.0))
 
+    def _get_latest_round_end_metrics(self) -> Optional[dict]:
+        """Return the most recent round_end_metrics entry, if any."""
+        rounds = []
+        if hasattr(self, "execution_history"):
+            rounds = self.execution_history.get("rounds", []) or []
+        if not rounds:
+            return None
+        for record in reversed(rounds):
+            metrics = record.get("round_end_metrics")
+            if isinstance(metrics, dict) and metrics:
+                return metrics
+        return None
+
     def _compute_gini(self, values: list) -> float:
         """Compute Gini coefficient for a list of values."""
         if not values:
@@ -653,6 +666,7 @@ class IslandExecutionPopulationMixin:
         signature_counts = Counter()
         perf_by_sig = {}
         novelty_by_sig = {}
+        cargo_by_sig = {}
         for mem in recent:
             sig = mem.get('signature')
             if sig is None:
@@ -660,13 +674,19 @@ class IslandExecutionPopulationMixin:
             sig = tuple(sig) if sig else tuple()
             signature_counts[sig] += 1
             perf_by_sig.setdefault(sig, []).append(self._get_memory_performance(mem))
+            metrics = mem.get("metrics") or {}
+            cargo_delta = metrics.get("round_delta_cargo", metrics.get("delta_cargo"))
+            if cargo_delta is not None:
+                try:
+                    cargo_by_sig.setdefault(sig, []).append(float(cargo_delta))
+                except (TypeError, ValueError):
+                    pass
             novelty = mem.get('signature_novelty')
             if novelty is not None:
                 try:
                     novelty_by_sig.setdefault(sig, []).append(float(novelty))
                 except (TypeError, ValueError):
                     pass
-
         total = len(recent)
         recent_unique = len(signature_counts)
         personal_diversity = recent_unique / total if total else 0.0
@@ -706,6 +726,7 @@ class IslandExecutionPopulationMixin:
         risk_budget = 0.7
         survival_tag = current_tags.get("survival") if current_tags else None
         relation_tag = current_tags.get("relations") if current_tags else None
+        cargo_tag = current_tags.get("cargo") if current_tags else None
         if survival_tag == "fragile":
             risk_budget = 0.45
         elif survival_tag == "dominant":
@@ -714,13 +735,133 @@ class IslandExecutionPopulationMixin:
             risk_budget -= 0.1
         elif relation_tag == "friendly":
             risk_budget += 0.05
+        if cargo_tag == "cargo_low":
+            risk_budget -= 0.1
+        elif cargo_tag == "cargo_high":
+            risk_budget += 0.05
         risk_budget = min(1.0, max(0.35, risk_budget))
+        recent_perfs = [self._get_memory_performance(mem) for mem in recent]
+        recent_perf_avg = 0.0
+        recent_perf_abs_avg = 0.0
+        performance_drag = None
+        if recent_perfs:
+            recent_perf_avg = sum(recent_perfs) / len(recent_perfs)
+            recent_perf_abs_avg = sum(abs(perf) for perf in recent_perfs) / len(recent_perfs)
+        if (
+            len(recent_perfs) >= min_samples
+            and recent_perf_abs_avg > 0.0
+            and recent_perf_avg < 0.0
+        ):
+            drag_ratio = abs(recent_perf_avg) / recent_perf_abs_avg
+            if drag_ratio >= 0.5:
+                performance_drag = {
+                    "avg": recent_perf_avg,
+                    "abs_avg": recent_perf_abs_avg,
+                    "ratio": drag_ratio,
+                }
+                risk_budget = max(0.35, risk_budget - 0.1)
+        production = self._get_latest_total(getattr(self, "record_total_production", 0.0))
+        consumption = self._get_latest_total(getattr(self, "record_total_consumption", 0.0))
+        net_production = production - consumption
+        recent_round_cargo = []
+        recent_action_cargo = []
+        for mem in recent:
+            metrics = mem.get("metrics") or {}
+            if "round_delta_cargo" in metrics:
+                try:
+                    recent_round_cargo.append(float(metrics["round_delta_cargo"]))
+                except (TypeError, ValueError):
+                    pass
+            if "delta_cargo" in metrics:
+                try:
+                    recent_action_cargo.append(float(metrics["delta_cargo"]))
+                except (TypeError, ValueError):
+                    pass
+        cargo_samples = recent_round_cargo or recent_action_cargo
+        cargo_drag = None
+        if cargo_samples:
+            cargo_avg = sum(cargo_samples) / len(cargo_samples)
+            cargo_abs_avg = sum(abs(val) for val in cargo_samples) / len(cargo_samples)
+            if cargo_abs_avg > 0.0 and cargo_avg < 0.0:
+                cargo_ratio = abs(cargo_avg) / cargo_abs_avg
+                if cargo_ratio >= 0.5:
+                    cargo_drag = {
+                        "avg": cargo_avg,
+                        "abs_avg": cargo_abs_avg,
+                        "ratio": cargo_ratio,
+                    }
+                    risk_budget = max(0.35, risk_budget - 0.05)
+        resource_pressure = False
+        if net_production < 0.0:
+            resource_pressure = True
+        if cargo_drag is not None:
+            resource_pressure = True
+        round_end_metrics = self._get_latest_round_end_metrics()
+        round_end_survival = None
+        round_end_cargo = None
+        round_end_member_count = None
+        round_end_pressure = False
+        round_end_small_sample = False
+        round_end_notes = []
+        round_end_severity = 0.0
+
+        def _to_float(val):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return None
+        if round_end_metrics:
+            round_end_survival = _to_float(
+                round_end_metrics.get("round_end_population_avg_survival_delta")
+            )
+            round_end_cargo = _to_float(
+                round_end_metrics.get("round_end_population_avg_cargo_delta")
+            )
+            round_end_member_count = round_end_metrics.get("round_end_member_count")
+            try:
+                round_end_member_count = int(round_end_member_count)
+            except (TypeError, ValueError):
+                round_end_member_count = None
+            if round_end_member_count is not None and round_end_member_count < min_samples:
+                round_end_small_sample = True
+            if round_end_survival is not None and round_end_survival < 0.0:
+                round_end_notes.append(f"survival {round_end_survival:.2f}")
+                if not round_end_small_sample:
+                    round_end_pressure = True
+                    if round_end_survival <= -5.0:
+                        risk_budget = max(0.35, risk_budget - 0.08)
+                    else:
+                        risk_budget = max(0.35, risk_budget - 0.04)
+            if round_end_cargo is not None and round_end_cargo < 0.0:
+                round_end_notes.append(f"cargo {round_end_cargo:.2f}")
+                if not round_end_small_sample:
+                    round_end_pressure = True
+                    if round_end_cargo <= -5.0:
+                        risk_budget = max(0.35, risk_budget - 0.05)
+                    else:
+                        risk_budget = max(0.35, risk_budget - 0.03)
+                    resource_pressure = True
+        if round_end_survival is not None and round_end_survival < 0.0:
+            round_end_severity = max(
+                round_end_severity,
+                min(1.0, abs(round_end_survival) / 12.0),
+            )
+        if round_end_cargo is not None and round_end_cargo < 0.0:
+            round_end_severity = max(
+                round_end_severity,
+                min(1.0, abs(round_end_cargo) / 25.0),
+            )
+        if round_end_pressure and round_end_severity >= 0.7:
+            risk_budget = max(0.35, risk_budget - 0.04 * round_end_severity)
         if risk_budget >= 0.85:
             risk_label = "high"
         elif risk_budget <= 0.55:
             risk_label = "low"
         else:
             risk_label = "medium"
+        sig_cargo_avg = {
+            sig: sum(values) / len(values) for sig, values in cargo_by_sig.items() if values
+        }
 
         recent_context_keys = []
         missing_context = 0
@@ -738,7 +879,6 @@ class IslandExecutionPopulationMixin:
         if context_counts:
             dominant_context, dominant_count = context_counts.most_common(1)[0]
             dominant_context_share = dominant_count / context_total if context_total else 0.0
-
         avg_sorted = sorted(
             [(sum(perfs) / len(perfs), len(perfs), sig) for sig, perfs in perf_by_sig.items()],
             key=lambda x: (x[0], x[1]),
@@ -751,7 +891,6 @@ class IslandExecutionPopulationMixin:
                 break
         if best_by_avg is None and avg_sorted:
             best_by_avg = avg_sorted[0]
-
         sig_perf_stats = []
         for sig, perfs in perf_by_sig.items():
             count = len(perfs)
@@ -772,7 +911,6 @@ class IslandExecutionPopulationMixin:
         if sig_perf_stats:
             std_values = sorted(stat[1] for stat in sig_perf_stats)
             std_cutoff = std_values[len(std_values) // 2]
-
         baseline_candidate = None
         baseline_reason = "stable"
         stable_candidates = [
@@ -790,14 +928,12 @@ class IslandExecutionPopulationMixin:
                 key=lambda x: (x[0], -x[1], x[2])
             )
             baseline_reason = "average"
-
         baseline_sig = None
         if baseline_candidate:
             baseline_sig = baseline_candidate[-1]
         elif best_by_avg is not None:
             baseline_sig = best_by_avg[2]
             baseline_reason = "average"
-
         if context_candidate is not None:
             ctx_avg, _ctx_weight, _ctx_count, _ctx_sim, ctx_sig = context_candidate
             baseline_avg = None
@@ -806,13 +942,11 @@ class IslandExecutionPopulationMixin:
             if baseline_sig is None or baseline_avg is None or ctx_avg >= (baseline_avg - 0.02):
                 baseline_sig = ctx_sig
                 baseline_reason = "context"
-
         dominant_sig = None
         dominant_share = 0.0
         if signature_counts:
             dominant_sig, dominant_count = signature_counts.most_common(1)[0]
             dominant_share = dominant_count / total if total else 0.0
-
         negative = sorted(
             [(avg, count, sig) for avg, count, sig in avg_sorted if count >= min_samples and avg < 0.0],
             key=lambda x: x[0]
@@ -825,7 +959,6 @@ class IslandExecutionPopulationMixin:
                 sig = self._extract_action_signature(mem.get('code', ''))
             if sig:
                 member_tag_counts.update(sig)
-
         member_signature_shares = []
         dominant_share_hits = 0
         for mem in recent:
@@ -840,7 +973,6 @@ class IslandExecutionPopulationMixin:
             member_signature_shares.append(share_val)
             if share_val >= 0.5:
                 dominant_share_hits += 1
-
         known_tags = [
             "attack",
             "offer",
@@ -854,7 +986,6 @@ class IslandExecutionPopulationMixin:
             "businesses",
         ]
         member_underuse_threshold = max(1, int(0.2 * total))
-
         pop_entries = []
         min_round = None
         current_round = len(self.execution_history.get('rounds', []))
@@ -872,7 +1003,6 @@ class IslandExecutionPopulationMixin:
                     sig = tuple(sig) if sig else tuple()
                     perf = self._get_memory_performance(mem)
                     pop_entries.append((sig, perf))
-
         pop_signature_counts = Counter(sig for sig, _ in pop_entries)
         pop_total = len(pop_entries)
         pop_unique = len(pop_signature_counts)
@@ -893,17 +1023,23 @@ class IslandExecutionPopulationMixin:
             pop_entropy_norm = pop_entropy / max_entropy if max_entropy > 0 else 0.0
 
         diversity_override = None
+        diversity_risk_floor = 0.55 if performance_drag is None else 0.6
         if (
             baseline_sig is not None
             and pop_total
             and pop_dominant_sig is not None
             and baseline_sig == pop_dominant_sig
             and pop_dominant_share >= 0.6
-            and risk_budget >= 0.6
+            and risk_budget >= diversity_risk_floor
         ):
             base_stats = sig_perf_lookup.get(baseline_sig)
             baseline_avg = base_stats[0] if base_stats else None
-            perf_floor = baseline_avg - 0.03 if baseline_avg is not None else None
+            if baseline_avg is not None:
+                perf_floor = baseline_avg - 0.03
+                if baseline_avg < 0.0:
+                    perf_floor = baseline_avg
+            else:
+                perf_floor = None
             max_share = max(0.45, pop_dominant_share - 0.15)
             candidates = []
             for avg, _std, count, _novelty_avg, sig in sig_perf_stats:
@@ -977,6 +1113,19 @@ class IslandExecutionPopulationMixin:
             if dominant_ratio >= 0.5 and avg_signature_share >= 0.45:
                 exploration_pressure += 0.1
                 pressure_reasons.append("own signature dominance")
+        if performance_drag is not None:
+            exploration_pressure -= 0.05
+            pressure_reasons.append("recent losses")
+        if resource_pressure:
+            exploration_pressure -= 0.05
+            pressure_reasons.append("resource pressure")
+        if round_end_pressure:
+            extra_pull = 0.05 * round_end_severity if round_end_severity else 0.0
+            exploration_pressure -= 0.05 + extra_pull
+            reason = "round-end losses"
+            if round_end_severity:
+                reason += f" (severity {round_end_severity:.2f})"
+            pressure_reasons.append(reason)
         if pop_total:
             diversity_adjustment, diversity_error = self._update_diversity_controller(
                 pop_diversity_ratio,
@@ -989,6 +1138,10 @@ class IslandExecutionPopulationMixin:
                     f"diversity α={alpha:.2f} err={diversity_error:.2f}"
                 )
         exploration_bonus = max(0.25, base_exploration_bonus * risk_budget) + exploration_pressure
+        safety_bias = 0.0
+        if round_end_pressure and round_end_severity >= 0.7:
+            safety_bias = 0.12 * round_end_severity
+        high_risk_tags = {"attack", "expand"}
 
         def _blend_with_context(avg_value: float, sig: tuple) -> Tuple[float, float]:
             info = context_stats.get(sig) if context_stats else None
@@ -1027,7 +1180,21 @@ class IslandExecutionPopulationMixin:
                 if pop_dominant_sig is not None and pop_dominant_share >= 0.6:
                     if sig == pop_dominant_sig:
                         dominance_penalty = 0.15 + 0.15 * pop_dominant_share
-                adjusted = ucb - distance_penalty - dominance_penalty
+                safety_penalty = 0.0
+                if safety_bias and sig and any(tag in high_risk_tags for tag in sig):
+                    safety_penalty = safety_bias
+                resource_adjustment = 0.0
+                if sig_cargo_avg and (resource_pressure or round_end_pressure):
+                    cargo_avg = sig_cargo_avg.get(sig)
+                    if cargo_avg:
+                        base_scale = 0.06 if cargo_avg < 0.0 else 0.04
+                        scale = base_scale + (
+                            base_scale * round_end_severity if round_end_pressure else 0.0
+                        )
+                        resource_adjustment = math.copysign(
+                            min(scale, abs(cargo_avg) / 20.0 * scale), cargo_avg
+                        )
+                adjusted = ucb - distance_penalty - dominance_penalty - safety_penalty + resource_adjustment
                 scored.append(
                     (
                         adjusted,
@@ -1038,6 +1205,8 @@ class IslandExecutionPopulationMixin:
                         sig,
                         overlap,
                         dominance_penalty,
+                        safety_penalty,
+                        resource_adjustment,
                         ctx_weight,
                     )
                 )
@@ -1105,6 +1274,46 @@ class IslandExecutionPopulationMixin:
             f"- Risk posture: {risk_label} (budget {risk_budget:.2f})"
             + (f"; context {self._format_context_tags(current_tags)}" if current_tags else "")
         )
+        if performance_drag is not None:
+            lines.append(
+                f"- Recent performance drag: avg {recent_perf_avg:.2f}, "
+                f"abs avg {recent_perf_abs_avg:.2f}"
+            )
+        if net_production < 0.0 or cargo_drag is not None:
+            details = []
+            if net_production < 0.0:
+                details.append(
+                    f"net production {net_production:.1f} "
+                    f"(prod {production:.1f}, cons {consumption:.1f})"
+                )
+            if cargo_drag is not None:
+                details.append(
+                    f"cargo drag avg {cargo_drag['avg']:.2f} "
+                    f"(abs {cargo_drag['abs_avg']:.2f})"
+                )
+            if details:
+                lines.append(
+                    "- Resource pressure: " + "; ".join(details) + "; "
+                    "favor resource-positive moves or reversible trades."
+                )
+        if round_end_notes:
+            suffix = " (low sample)" if round_end_small_sample else ""
+            lines.append(
+                "- Round-end deltas: " + ", ".join(round_end_notes) + suffix
+                + "; buffer survival/cargo before large expansions."
+            )
+            if round_end_pressure and round_end_severity >= 0.7:
+                lines.append(
+                    "- Safety priority: severe round-end losses; favor low-cost "
+                    "resource recovery, defensive positioning, and reversible "
+                    "coordination; keep variations close to baseline."
+                )
+            elif round_end_pressure:
+                lines.append(
+                    "- Safety priority: round-end losses; bias toward "
+                    "resource-positive, reversible moves and avoid large "
+                    "expansion/attack spikes."
+                )
         if context_total:
             lines.append(
                 f"- Recent context mix: {context_unique} contexts; "
@@ -1211,6 +1420,8 @@ class IslandExecutionPopulationMixin:
                 sig,
                 overlap,
                 dominance_penalty,
+                safety_penalty,
+                resource_adjustment,
                 ctx_weight,
             ) = variation_candidate
             detail_bits = [
@@ -1225,6 +1436,10 @@ class IslandExecutionPopulationMixin:
                 detail_bits.append(f"overlap {overlap:.2f}")
             if dominance_penalty > 0:
                 detail_bits.append(f"pop-penalty {dominance_penalty:.2f}")
+            if safety_penalty > 0:
+                detail_bits.append(f"safety -{safety_penalty:.2f}")
+            if abs(resource_adjustment) > 1e-6:
+                detail_bits.append(f"resource {resource_adjustment:+.2f}")
             lines.append(
                 f"- Risk-adjusted variation: {self._format_signature(sig)} "
                 f"({', '.join(detail_bits)})"
@@ -1283,5 +1498,3 @@ class IslandExecutionPopulationMixin:
             )
 
         return "\n".join(lines)
-
-

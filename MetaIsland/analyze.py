@@ -173,6 +173,8 @@ async def _analyze(self, member_id):
        - Baseline (safe): include action tags from
          [attack, offer, offer_land, bear, expand, message, contracts, market, resources, businesses].
        - Variation (bounded-risk): different tags or combinations.
+       - Use only the exact lowercase tags listed above; no extra words.
+       - If combining tags, list them separately (not "expand+message").
        - Guardrails / stop conditions.
        - Success metrics using available deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance, delta_land).
     4) Coordination asks (message drafts with opt-in roles).
@@ -180,6 +182,10 @@ async def _analyze(self, member_id):
     End with a JSON block in a ```json``` fence (required) using keys:
     hypothesis, baseline_signature, variation_signature, success_metrics,
     guardrails, coordination, memory_note, diversity_note, confidence.
+    In the JSON block, baseline_signature and variation_signature must be JSON arrays
+    of tag strings, each string exactly one of the allowed tags above (no punctuation,
+    no sentences, no "+" combos). If you want to avoid a tag, omit it and explain
+    in guardrails instead.
     Keep diversity: avoid monoculture or single-equilibrium recommendations.
     
     [Data-Driven Survival Framework]

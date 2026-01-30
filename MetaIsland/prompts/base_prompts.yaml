@@ -155,8 +155,11 @@ mechanism_design_guardrails: |
   - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
   - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
   - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
+  - Any production or payout must show explicit input costs (vitality, consumed inputs, or finite pool draw); if you cannot enforce costs, omit the feature.
   - Avoid self-dealing or member-specific bonuses; do not hard-code member IDs. If incentives differ, define symmetric eligibility rules and compensating tradeoffs.
   - If introducing currency/credits, define a conservation-respecting source and sink, and require balance checks before any transfer (no default balances).
+  - Avoid mint/credit-creation helpers unless strictly coupled to resource burns and total supply accounting.
+  - Before returning code, scan for undefined names or mismatched identifiers (e.g., contract_id vs share_id).
   - Only reference imports/objects you define or check with hasattr.
 
 game_mechanics: |
