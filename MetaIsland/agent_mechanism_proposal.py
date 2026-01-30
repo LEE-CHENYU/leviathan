@@ -3,10 +3,10 @@ import ast
 
 from dotenv import load_dotenv
 
-from MetaIsland.llm_client import get_llm_client
+from MetaIsland.llm_client import get_llm_client, get_offline_client
 from MetaIsland.model_router import model_router
 from MetaIsland.prompt_loader import get_prompt_loader
-from MetaIsland.llm_utils import build_chat_kwargs
+from MetaIsland.llm_utils import build_chat_kwargs, classify_llm_error, should_use_offline_fallback
 
 load_dotenv()
 
@@ -111,12 +111,32 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
             base_code=base_code
         )
 
-        completion = client.chat.completions.create(
-            model=f'{provider}:{model_id}',
-            messages=[{"role": "user", "content": prompt}],
-            **build_chat_kwargs()
-        )
-        code_result = completion.choices[0].message.content.strip()
+        fallback_used = False
+        fallback_error = None
+        fallback_traceback = None
+        fallback_source = None
+        try:
+            completion = client.chat.completions.create(
+                model=f'{provider}:{model_id}',
+                messages=[{"role": "user", "content": prompt}],
+                **build_chat_kwargs()
+            )
+            code_result = completion.choices[0].message.content.strip()
+        except Exception as e:
+            fallback_error = e
+            fallback_traceback = traceback.format_exc()
+            if should_use_offline_fallback(e):
+                fallback_used = True
+                fallback_source = "offline_stub"
+                offline_client = get_offline_client()
+                completion = offline_client.chat.completions.create(
+                    model=f'{provider}:{model_id}',
+                    messages=[{"role": "user", "content": prompt}],
+                    **build_chat_kwargs()
+                )
+                code_result = completion.choices[0].message.content.strip()
+            else:
+                raise
 
         # Clean and store the code
         code_result = self.clean_code_string(code_result)
@@ -144,6 +164,21 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
                 class_dict = {'__module__': '__main__'}
                 make_class_picklable(node.name, class_dict)
 
+        if fallback_used and fallback_error is not None:
+            error_info = {
+                'round': len(self.execution_history['rounds']),
+                'member_id': stable_id if stable_id is not None else member_id,
+                'member_index': member_id,
+                'type': 'propose_modification',
+                'error': str(fallback_error),
+                'error_category': classify_llm_error(fallback_error),
+                'traceback': fallback_traceback,
+                'code': code_result,
+                'fallback_used': True,
+                'fallback_source': fallback_source,
+            }
+            self.execution_history['rounds'][-1]['errors']['mechanism_errors'].append(error_info)
+
         return code_result
 
     except Exception as e:
@@ -154,6 +189,7 @@ async def _agent_mechanism_proposal(self, member_id) -> None:
             'member_index': member_id,
             'type': 'propose_modification',
             'error': str(e),
+            'error_category': classify_llm_error(e),
             'traceback': traceback.format_exc(),
             'code': code_result
         }

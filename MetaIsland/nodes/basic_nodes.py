@@ -107,4 +107,6 @@ class LogStatusNode(ExecutionNode):
             print(f"  Member {member.id}: Vitality={member.vitality:.2f}, "
                   f"Cargo={member.cargo:.2f}, Survival={survival_chance:.2f}")
 
+        execution.save_execution_history()
+
         return {"status_logged": True}

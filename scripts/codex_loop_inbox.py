@@ -21,6 +21,8 @@ RESUME = ROOT / "codex_resume.md"
 OBJECTIVE_FILE = Path(os.environ.get("OBJECTIVE_FILE", str(ROOT / "codex_objective.txt")))
 
 CLAW = ROOT / "scripts" / "clawdbot_env.sh"
+ARXIV_SCRIPT = ROOT / "scripts" / "arxiv_research.py"
+ARXIV_LATEST = ROOT / "research" / "arxiv" / "latest.md"
 
 DEFAULT_CHANNELS = "whatsapp,telegram"
 
@@ -43,6 +45,14 @@ def load_env(path: Path) -> None:
 def run_cmd(args: List[str]) -> Tuple[int, str, str]:
     proc = subprocess.run(args, capture_output=True, text=True)
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def run_cmd_timeout(args: List[str], timeout: int) -> Tuple[int, str, str]:
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        return proc.returncode, proc.stdout, proc.stderr
+    except subprocess.TimeoutExpired as exc:
+        return 124, exc.stdout or "", exc.stderr or "timeout"
 
 
 def read_messages(channel: str, target: str, after_id: Optional[str]) -> List[Dict[str, Any]]:
@@ -218,6 +228,36 @@ def parse_command(text: str) -> Optional[Tuple[str, str]]:
     return None
 
 
+def parse_arxiv_command(text: str) -> Optional[Tuple[str, str]]:
+    raw = text.strip()
+    low = raw.lower()
+    prefixes = ("/arxiv", "!arxiv", "arxiv")
+    rest = None
+    for p in prefixes:
+        if low.startswith(p):
+            rest = raw[len(p):].lstrip(" :")
+            break
+
+    if rest is None:
+        return None
+    if not rest:
+        return ("help", "")
+
+    low_rest = rest.lower()
+    if low_rest.startswith("topic"):
+        payload = rest[len("topic"):].strip(" :")
+        return ("topic", payload)
+
+    parts = rest.split(None, 1)
+    cmd = parts[0].lower()
+    payload = parts[1] if len(parts) > 1 else ""
+    if cmd in ("topic", "run", "search"):
+        return ("topic", payload)
+    if cmd in ("help", "status"):
+        return (cmd, payload)
+    return ("help", "")
+
+
 def send(channel: str, target: str, message: str) -> None:
     if not target:
         return
@@ -243,6 +283,33 @@ def handle_command(cmd: str, payload: str) -> str:
         "/codex objective <text>\n"
         "/codex start | stop | restart\n"
         "/codex resume"
+    )
+
+
+def handle_arxiv_command(cmd: str, payload: str) -> str:
+    if cmd == "status":
+        if ARXIV_LATEST.exists():
+            return ARXIV_LATEST.read_text()[:1200]
+        return "No arXiv summaries yet."
+    if cmd == "topic":
+        topic = payload.strip()
+        if not topic:
+            return "Usage: /arxiv topic <research topic>"
+        if not ARXIV_SCRIPT.exists():
+            return "arXiv script missing: scripts/arxiv_research.py"
+        args = [sys.executable, str(ARXIV_SCRIPT), "--once", "--topic", topic]
+        code, out, err = run_cmd_timeout(args, timeout=1800)
+        if code != 0:
+            snippet = (err or out).strip()[:1200]
+            return f"arXiv run failed (code {code}).\n{snippet}"
+        if ARXIV_LATEST.exists():
+            text = ARXIV_LATEST.read_text()
+            return text[:2000]
+        return "arXiv run completed, but latest.md is missing."
+    return (
+        "Commands:\n"
+        "/arxiv topic <text>\n"
+        "/arxiv status"
     )
 
 
@@ -278,6 +345,14 @@ def main() -> int:
             text = extract_text(msg)
             if not text:
                 continue
+            parsed_arxiv = parse_arxiv_command(text)
+            if parsed_arxiv:
+                cmd, payload = parsed_arxiv
+                response = handle_arxiv_command(cmd, payload)
+                send(channel, target, response)
+                updated = True
+                continue
+
             parsed = parse_command(text)
             if not parsed:
                 continue

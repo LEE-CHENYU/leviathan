@@ -12,6 +12,21 @@ OBJECTIVE_FILE="${OBJECTIVE_FILE:-$ROOT/codex_objective.txt}"
 OBJECTIVE_DEFAULT="Meaningful behavior = self-improving strategy design without collapsing agent/environment diversity; only do performance optimizations/refactors when the gain is large and measurable."
 OBJECTIVE="${OBJECTIVE:-$OBJECTIVE_DEFAULT}"
 REQUIRE_OPENAI_API_KEY="${REQUIRE_OPENAI_API_KEY:-1}"
+RUN_E2E_OUTSIDE_CODEX="${RUN_E2E_OUTSIDE_CODEX:-1}"
+E2E_SCRIPT="${E2E_SCRIPT:-$ROOT/scripts/run_e2e_stage3.sh}"
+SANDBOX_MODE="${SANDBOX_MODE:-danger-full-access}"
+
+STAGE3_PROMPT="Stage 3 (end-to-end, source of truth): run every iteration unless it is impossible to run (missing keys/network/downstream outage).
+  Command: 'python scripts/run_e2e_smoke.py'
+  Use the e2e summary at execution_histories/e2e_smoke/latest_summary.json as the primary feedback for evaluation and iteration decisions.
+  If Stage 3 can't run, do NOT change behavior; instead improve the test/instrumentation so Stage 3 can run.
+  When Stage 3 is skipped, say 'Stage 3 skipped (not run): <reason>' instead of 'API unavailable'."
+if [ "$RUN_E2E_OUTSIDE_CODEX" = "1" ]; then
+  STAGE3_PROMPT="Stage 3 (end-to-end, source of truth): already executed outside Codex in this iteration via $E2E_SCRIPT.
+  Do NOT run 'python scripts/run_e2e_smoke.py' inside Codex.
+  Read execution_histories/e2e_smoke/latest_summary.json and use it as the primary feedback for evaluation and iteration decisions.
+  If the summary is missing or clearly stale, report that and request a rerun outside Codex."
+fi
 
 if [ -f "$ENV_FILE" ]; then
   set -a
@@ -54,8 +69,17 @@ while [ "$(date +%s)" -lt "$end_ts" ]; do
       exit 1
     fi
     echo "objective: $objective" >> "$LOG"
+    if [ "$RUN_E2E_OUTSIDE_CODEX" = "1" ] && [ -x "$E2E_SCRIPT" ]; then
+      echo "--- stage3 external start: $(date) ---" >> "$LOG"
+      if "$E2E_SCRIPT" >> "$LOG" 2>&1; then
+        echo "--- stage3 external ok ---" >> "$LOG"
+      else
+        code=$?
+        echo "--- stage3 external failed (exit $code) ---" >> "$LOG"
+      fi
+    fi
     cd "$ROOT"
-    codex exec --sandbox workspace-write --full-auto \
+    codex exec --sandbox "$SANDBOX_MODE" --full-auto \
       "You are improving the repository at $ROOT.
 Direction:
 - Focus on meaningful behavior. $objective
@@ -68,14 +92,11 @@ Evidence-first rule:
 Size constraint (script length):
 - Keep any individual script file you create or modify at ~1500 lines or fewer; do NOT exceed 2000 lines.
 - If a target script is already large or would exceed the limit, you must refactor into smaller files/modules.
-Testing (stage-gated):
+Testing (stage-gated, but bias toward running):
+- Run Stage 1/2/3 early in the iteration (before proposing code changes) to establish a baseline.
 - Stage 1 (always): run 'python test_graph_system.py' if it exists and is fast.
-- Stage 2 (conditional): if Stage 1 passes AND changes touch core behavior/learning/planning logic, run 'pytest -q'.
-- Stage 3 (end-to-end, source of truth): if you changed core behavior or reward/memory dynamics, run:
-  'python scripts/run_e2e_smoke.py'
-  Use the e2e summary at execution_histories/e2e_smoke/latest_summary.json as the primary feedback for evaluation and iteration decisions.
-  If Stage 3 can't run, do NOT change behavior; instead improve the test/instrumentation so Stage 3 can run.
-  When Stage 3 is skipped, say 'Stage 3 skipped (not run): <reason>' instead of 'API unavailable'.
+- Stage 2 (prefer to run): after Stage 1, run 'pytest -q' unless it is clearly broken/missing deps; report failures explicitly.
+- ${STAGE3_PROMPT}
 Evaluation design (explicit + iterative):
 - Maintain or update a concise evaluation plan (e.g., EVAL_PLAN.md) with: metrics, baselines, thresholds, and expected deltas.
 - Stage eval scale: small (few agents, 1–3 runs) → medium (more agents, 3–5 runs) → large only if gains look real.
@@ -87,6 +108,7 @@ Rules (lightweight safety):
 - Avoid large binary edits (.DS_Store, images, big notebooks) unless necessary.
 Continuity:
 - Read 'codex_resume.md' at the start of each iteration for context.
+- Read any recent research summaries in 'research/arxiv/latest.md' if present for idea feed.
 - Update 'codex_resume.md' before finishing with: current focus, recent changes, tests/evals, results, next step, and risks.
 Output a brief summary of changes and tests (run cheap tests if available, otherwise say what you'd run)."
   ) >> "$LOG" 2>&1

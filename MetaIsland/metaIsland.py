@@ -13,6 +13,8 @@ import inspect
 import openai
 import asyncio
 
+from utils.error_tags import classify_error_tag
+
 from MetaIsland.base_island import Island
 
 from MetaIsland.agent_code_decision import _agent_code_decision
@@ -1525,6 +1527,7 @@ class IslandExecution(Island):
         stats = {
             "agent_code_error_count": 0,
             "agent_code_error_tag_counts": {},
+            "agent_code_error_type_counts": {},
         }
         round_record = None
         if self.execution_history.get("rounds"):
@@ -1537,18 +1540,28 @@ class IslandExecution(Island):
             return stats
 
         tag_counts = Counter()
+        type_counts = Counter()
         for error_info in errors:
             code_str = error_info.get("code", "") if isinstance(error_info, dict) else ""
+            error_category = None
+            if isinstance(error_info, dict):
+                error_category = error_info.get("error_category")
+            if error_category:
+                type_counts[error_category] += 1
+            else:
+                type_counts["unknown"] += 1
             signature = self._extract_action_signature(code_str)
             signature = tuple(signature) if signature else tuple()
             if signature:
                 for tag in signature:
                     tag_counts[tag] += 1
-            else:
-                tag_counts["unknown"] += 1
+                continue
+            error_tag = classify_error_tag(error_info)
+            tag_counts[error_tag or "unknown"] += 1
 
         stats["agent_code_error_count"] = len(errors)
         stats["agent_code_error_tag_counts"] = dict(tag_counts)
+        stats["agent_code_error_type_counts"] = dict(type_counts)
         return stats
 
     def _signature_overlap(self, sig_a: tuple, sig_b: tuple) -> float:
@@ -3907,6 +3920,7 @@ class IslandExecution(Island):
                     'member_index': member_index,
                     'code': code_str,
                     'error': str(e),
+                    'error_category': 'agent_execution',
                     'traceback': traceback.format_exc()
                 }
                 self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
@@ -4106,6 +4120,7 @@ class IslandExecution(Island):
                 else None
             ),
             'agent_code_error_tag_counts': error_stats.get("agent_code_error_tag_counts", {}),
+            'agent_code_error_type_counts': error_stats.get("agent_code_error_type_counts", {}),
         }
 
         active_ids = {member.id for member in self.current_members}
@@ -4131,11 +4146,24 @@ class IslandExecution(Island):
         if approved_count is None:
             approved_count = len(mods_record.get('approved_ids') or [])
         errors = round_record.get('errors', {}).get('mechanism_errors') or []
+        mechanism_error_type_counts = {}
+        if isinstance(errors, list) and errors:
+            type_counts = Counter()
+            for error_info in errors:
+                error_category = None
+                if isinstance(error_info, dict):
+                    error_category = error_info.get("error_category")
+                if error_category:
+                    type_counts[error_category] += 1
+                else:
+                    type_counts["unknown"] += 1
+            mechanism_error_type_counts = dict(type_counts)
         self.execution_history['rounds'][-1]['round_metrics'].update({
             'mechanism_attempted_count': len(attempts) if isinstance(attempts, list) else 0,
             'mechanism_approved_count': int(approved_count or 0),
             'mechanism_executed_count': len(executed) if isinstance(executed, list) else 0,
             'mechanism_error_count': len(errors) if isinstance(errors, list) else 0,
+            'mechanism_error_type_counts': mechanism_error_type_counts,
         })
 
         action_totals = {
@@ -4570,6 +4598,7 @@ class IslandExecution(Island):
                 'round': current_round,
                 'type': 'execute_mechanism_modifications', 
                 'error': str(e),
+                'error_category': 'mechanism_execution',
                 'traceback': traceback.format_exc(),
                 'code': mod.get('code'),
                 'member_id': member_id

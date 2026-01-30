@@ -5,13 +5,195 @@ from dotenv import load_dotenv
 from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
 from MetaIsland.prompt_loader import get_prompt_loader
-from MetaIsland.llm_utils import build_chat_kwargs
+from MetaIsland.llm_utils import build_chat_kwargs, classify_llm_error
 
 load_dotenv()
 
 client = get_llm_client()
 
 provider, model_id = model_router("default")
+
+
+DEFAULT_FALLBACK_CODE = """def agent_action(execution_engine, member_id):
+    \"\"\"Fallback strategy when LLM output is unavailable.\"\"\"
+    members = getattr(execution_engine, "current_members", [])
+    if not members or member_id >= len(members):
+        return
+    me = members[member_id]
+    history = getattr(execution_engine, "execution_history", {})
+    round_num = 0
+    if isinstance(history, dict):
+        round_num = len(history.get("rounds", []))
+    policy = (member_id + round_num) % 3
+    partner = None
+    if len(members) > 1:
+        partner_idx = (member_id + 1) % len(members)
+        if partner_idx == member_id:
+            partner_idx = (member_id - 1) % len(members)
+        partner = members[partner_idx]
+    if policy == 0 and partner is not None and getattr(me, "cargo", 0) > 0:
+        if hasattr(execution_engine, "offer"):
+            execution_engine.offer(me, partner)
+            return
+    if policy == 1 and partner is not None and hasattr(execution_engine, "attack"):
+        execution_engine.attack(me, partner)
+        return
+    if hasattr(execution_engine, "expand"):
+        execution_engine.expand(me)
+"""
+
+
+FALLBACK_TEMPLATES = [
+    {
+        "name": "expander",
+        "code": """def agent_action(execution_engine, member_id):
+    \"\"\"Fallback strategy: expand bias.\"\"\"
+    members = getattr(execution_engine, "current_members", [])
+    if not members or member_id >= len(members):
+        return
+    me = members[member_id]
+    if hasattr(execution_engine, "expand"):
+        execution_engine.expand(me)
+""",
+    },
+    {
+        "name": "diplomat",
+        "code": """def agent_action(execution_engine, member_id):
+    \"\"\"Fallback strategy: cooperative trade.\"\"\"
+    members = getattr(execution_engine, "current_members", [])
+    if not members or member_id >= len(members):
+        return
+    me = members[member_id]
+    partner = None
+    if len(members) > 1:
+        partner = members[(member_id + 1) % len(members)]
+    if partner is not None and hasattr(execution_engine, "offer"):
+        execution_engine.offer(me, partner)
+    sender_id = getattr(me, "id", member_id)
+    recipient_id = getattr(partner, "id", None) if partner is not None else None
+    if recipient_id is not None and hasattr(execution_engine, "send_message"):
+        execution_engine.send_message(sender_id, recipient_id, "Open to trade or alliance.")
+    if hasattr(execution_engine, "expand"):
+        execution_engine.expand(me)
+""",
+    },
+    {
+        "name": "raider",
+        "code": """def agent_action(execution_engine, member_id):
+    \"\"\"Fallback strategy: aggressive pressure.\"\"\"
+    members = getattr(execution_engine, "current_members", [])
+    if not members or member_id >= len(members):
+        return
+    me = members[member_id]
+    target = None
+    if len(members) > 1:
+        target = members[(member_id + 1) % len(members)]
+    if target is not None and hasattr(execution_engine, "attack"):
+        execution_engine.attack(me, target)
+    elif target is not None and hasattr(execution_engine, "bear"):
+        execution_engine.bear(me, target)
+    if hasattr(execution_engine, "expand"):
+        execution_engine.expand(me)
+""",
+    },
+    {
+        "name": "broker",
+        "code": """def agent_action(execution_engine, member_id):
+    \"\"\"Fallback strategy: land broker.\"\"\"
+    members = getattr(execution_engine, "current_members", [])
+    if not members or member_id >= len(members):
+        return
+    me = members[member_id]
+    partner = None
+    if len(members) > 1:
+        partner = members[(member_id + 1) % len(members)]
+    if partner is not None and hasattr(execution_engine, "offer_land"):
+        execution_engine.offer_land(me, partner)
+    if partner is not None and hasattr(execution_engine, "offer"):
+        execution_engine.offer(me, partner)
+    if hasattr(execution_engine, "expand"):
+        execution_engine.expand(me)
+""",
+    },
+]
+
+
+def _select_fallback_code(self, member_id):
+    """Select a fallback action implementation from memory if possible."""
+    try:
+        _, memory = self._get_member_history(self.code_memory, member_id)
+    except Exception:
+        return None, {}
+    if not memory:
+        return None, {}
+    candidates = []
+    for mem in memory:
+        if not isinstance(mem, dict):
+            continue
+        code = mem.get("code")
+        if code:
+            candidates.append(mem)
+    if not candidates:
+        return None, {}
+    clean_candidates = [mem for mem in candidates if not mem.get("error")]
+    if clean_candidates:
+        candidates = clean_candidates
+
+    current_tags = {}
+    try:
+        current_tags = self._get_member_context_tags(member_id)
+    except Exception:
+        current_tags = {}
+    match_idx, match_score = None, 0.0
+    try:
+        match_idx, match_score = self._find_contextual_memory_match(candidates, current_tags)
+    except Exception:
+        match_idx, match_score = None, 0.0
+
+    if match_idx is not None and match_score > 0:
+        mem = candidates[match_idx]
+        return mem.get("code"), {
+            "source": "memory_context_match",
+            "match_score": match_score,
+            "memory_round": mem.get("context", {}).get("round"),
+        }
+
+    best_mem = max(
+        candidates,
+        key=lambda mem: (
+            self._get_memory_performance(mem),
+            mem.get("context", {}).get("round", -1),
+        ),
+    )
+    return best_mem.get("code"), {
+        "source": "memory_best_performance",
+        "memory_round": best_mem.get("context", {}).get("round"),
+    }
+
+
+def _select_fallback_template(self, member_id):
+    """Select a deterministic fallback template to preserve diversity."""
+    if not FALLBACK_TEMPLATES:
+        return None, {}
+    round_num = 0
+    try:
+        round_num = len(self.execution_history.get("rounds", []))
+    except Exception:
+        round_num = 0
+    stable_id = None
+    try:
+        stable_id = self._resolve_member_stable_id(member_id)
+    except Exception:
+        stable_id = None
+    selector = (stable_id if stable_id is not None else member_id) + round_num
+    template_idx = selector % len(FALLBACK_TEMPLATES)
+    template = FALLBACK_TEMPLATES[template_idx]
+    return template.get("code"), {
+        "source": "template_variant",
+        "variant": template.get("name"),
+        "template_index": template_idx,
+        "round": round_num,
+    }
 
 
 async def _agent_code_decision(self, member_id) -> None:
@@ -129,16 +311,54 @@ async def _agent_code_decision(self, member_id) -> None:
             stable_id = self._resolve_member_stable_id(member_id)
         except Exception:
             stable_id = None
+        fallback_code, fallback_meta = _select_fallback_code(self, member_id)
+        if not fallback_code:
+            fallback_code, fallback_meta = _select_fallback_template(self, member_id)
+        if not fallback_code:
+            fallback_code = DEFAULT_FALLBACK_CODE
+            fallback_meta = {"source": "template_default"}
+        try:
+            fallback_code = self.clean_code_string(fallback_code)
+        except Exception:
+            pass
+
+        if not hasattr(self, 'agent_code_by_member'):
+            self.agent_code_by_member = {}
+        self.agent_code_by_member[member_id] = fallback_code
+
+        try:
+            features_payload = features.to_dict('records')
+        except Exception:
+            features_payload = features
+
+        round_record = self.execution_history['rounds'][-1]
+        if not isinstance(round_record.get('generated_code'), dict):
+            round_record['generated_code'] = {}
+        round_record['generated_code'][member_id] = {
+            'code': fallback_code,
+            'features_at_generation': features_payload,
+            'relationships_at_generation': relations,
+            'final_prompt': None,
+            'fallback': fallback_meta
+        }
+
         error_info = {
             'round': len(self.execution_history['rounds']),
             'member_id': stable_id if stable_id is not None else member_id,
             'member_index': member_id,
             'type': 'agent_action',
             'error': str(e),
+            'error_category': classify_llm_error(e),
             'traceback': traceback.format_exc(),
-            'code': code_result
+            'code': code_result,
+            'fallback_used': True,
+            'fallback_source': fallback_meta.get('source'),
+            'fallback_meta': fallback_meta,
+            'fallback_code': fallback_code
         }
         self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
         print(f"Error generating code for member {member_id}:")
         print(traceback.format_exc())
+        print(f"Using fallback code for member {member_id}: {fallback_meta.get('source')}")
         self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")
+        return fallback_code

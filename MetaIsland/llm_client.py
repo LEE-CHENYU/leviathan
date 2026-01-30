@@ -1,40 +1,121 @@
+import json
 import os
+import re
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Iterable
 
 import aisuite as ai
 
-_TRUTHY = {"1", "true", "yes", "y", "on"}
+_TRUTHY = {"1", "true", "yes", "on"}
 
 
-def _is_truthy(value: Optional[str]) -> bool:
-    if value is None:
-        return False
-    return str(value).strip().lower() in _TRUTHY
+def _env_flag_enabled(keys: Iterable[str]) -> bool:
+    for key in keys:
+        value = os.getenv(key)
+        if value is None:
+            continue
+        if value.strip().lower() in _TRUTHY:
+            return True
+    return False
 
 
-def offline_mode_enabled() -> bool:
-    """Return True when the repo should avoid real LLM calls."""
-    if _is_truthy(os.getenv("LLM_OFFLINE")):
-        return True
-    if _is_truthy(os.getenv("E2E_OFFLINE")):
-        return True
-    provider = os.getenv("E2E_PROVIDER", "").strip().lower()
-    return provider in {"offline", "mock", "stub"}
+def _offline_enabled() -> bool:
+    return _env_flag_enabled(("LLM_OFFLINE", "E2E_OFFLINE"))
 
 
-def get_llm_client() -> Any:
-    """Return the real LLM client unless offline mode is enabled."""
-    if offline_mode_enabled():
-        return OfflineClient()
-    return ai.Client()
+def _extract_member_id(prompt: str) -> int:
+    if not prompt:
+        return 0
+    match = re.search(r"member[_\s]?(\d+)", prompt, flags=re.IGNORECASE)
+    if match:
+        try:
+            return int(match.group(1))
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
-class OfflineClient:
-    """Minimal offline client that mimics aisuite's chat completion shape."""
+def _offline_action_code(member_id: int) -> str:
+    action = "expand" if member_id % 2 == 0 else "offer"
+    lines = [
+        "def agent_action(execution_engine, member_id):",
+        "    members = execution_engine.current_members",
+        "    if not members:",
+        "        return",
+        "    me = members[member_id]",
+        "    target = members[(member_id + 1) % len(members)]",
+    ]
+    if action == "expand":
+        lines.append("    execution_engine.expand(me)")
+    else:
+        lines.append("    execution_engine.offer(me, target)")
+    return "\n".join(lines)
 
-    def __init__(self) -> None:
-        self.chat = _OfflineChat()
+
+def _offline_mechanism_code() -> str:
+    return "\n".join([
+        "def propose_modification(execution_engine):",
+        "    # Offline stub: no changes to mechanics.",
+        "    return None",
+    ])
+
+
+def _offline_analysis_text(member_id: int) -> str:
+    baseline = ["expand"] if member_id % 2 == 0 else ["offer"]
+    variation = ["offer"] if member_id % 2 == 0 else ["expand"]
+    card = {
+        "hypothesis": "Offline stub: simple action tags keep pipeline metrics populated.",
+        "baseline_signature": baseline,
+        "variation_signature": variation,
+        "success_metrics": ["delta_survival", "delta_vitality"],
+        "guardrails": ["avoid negative survival deltas"],
+        "coordination": [],
+        "memory_note": f"offline_stub_{member_id}",
+        "diversity_note": "Rotate tags across members to avoid monoculture.",
+        "confidence": 0.2,
+    }
+    return "\n".join([
+        "Situation summary:",
+        "- Offline analysis stub (no external LLM call).",
+        "Risks & opportunities:",
+        "- Treat results as pipeline validation only.",
+        "Strategy plan:",
+        f"- Baseline tags: {', '.join(baseline)}",
+        f"- Variation tags: {', '.join(variation)}",
+        "Coordination asks: none.",
+        "Memory note: offline stub.",
+        "```json",
+        json.dumps(card, indent=2),
+        "```",
+    ])
+
+
+def _offline_response_for_prompt(prompt: str) -> str:
+    if not prompt:
+        return "OK"
+    lowered = prompt.lower()
+    member_id = _extract_member_id(prompt)
+
+    if "reply with only one of" in lowered and "approve" in lowered:
+        return "APPROVE: offline stub"
+    if "agent_action" in lowered:
+        return _offline_action_code(member_id)
+    if "propose_modification" in lowered:
+        return _offline_mechanism_code()
+    if "output format" in lowered and "json" in lowered and "strategy plan" in lowered:
+        return _offline_analysis_text(member_id)
+    return "OK"
+
+
+class _OfflineCompletions:
+    def create(self, model: str, messages: list, **kwargs) -> Any:
+        prompt = ""
+        if messages:
+            prompt = messages[-1].get("content", "") if isinstance(messages[-1], dict) else str(messages[-1])
+        content = _offline_response_for_prompt(prompt)
+        message = SimpleNamespace(content=content)
+        choice = SimpleNamespace(message=message)
+        return SimpleNamespace(choices=[choice])
 
 
 class _OfflineChat:
@@ -42,93 +123,18 @@ class _OfflineChat:
         self.completions = _OfflineCompletions()
 
 
-class _OfflineCompletions:
-    def create(self, model: Optional[str] = None, messages: Optional[Iterable[Dict[str, Any]]] = None, **kwargs: Any) -> Any:
-        prompt = ""
-        if messages:
-            for message in reversed(list(messages)):
-                if isinstance(message, dict) and "content" in message:
-                    prompt = str(message["content"])
-                    break
-        content = _offline_response(prompt)
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-        )
+class OfflineClient:
+    def __init__(self) -> None:
+        self.chat = _OfflineChat()
 
 
-def _offline_response(prompt: str) -> str:
-    lower = prompt.lower() if prompt else ""
-    if "reply with only one of" in lower and ("approve" in lower or "reject" in lower):
-        return "APPROVE: offline stub approval"
-    if "agent_action" in lower:
-        return _offline_agent_action_code()
-    if "propose_modification" in lower or "mechanism proposal" in lower:
-        return _offline_mechanism_code()
-    if "output format" in lower and "json" in lower:
-        return _offline_analysis_text()
-    if "analysis" in lower and "strategy plan" in lower:
-        return _offline_analysis_text()
-    return "Offline stub response."
+def get_offline_client() -> Any:
+    """Return offline stub client regardless of environment flags."""
+    return OfflineClient()
 
 
-def _offline_agent_action_code() -> str:
-    return (
-        "def agent_action(execution_engine, member_id):\n"
-        "    \"\"\"Offline stub action for smoke tests.\"\"\"\n"
-        "    members = getattr(execution_engine, 'current_members', None)\n"
-        "    if not members:\n"
-        "        return\n"
-        "    if member_id < 0 or member_id >= len(members):\n"
-        "        return\n"
-        "    me = members[member_id]\n"
-        "    if member_id % 2 == 0:\n"
-        "        execution_engine.expand(me)\n"
-        "    else:\n"
-        "        target_index = (member_id + 1) % len(members)\n"
-        "        target = members[target_index].id\n"
-        "        execution_engine.send_message(me.id, target, 'offline stub: coordinating')\n"
-    )
-
-
-def _offline_mechanism_code() -> str:
-    return (
-        "def propose_modification(self):\n"
-        "    \"\"\"Offline stub: no-op mechanism change.\"\"\"\n"
-        "    return None\n"
-    )
-
-
-def _offline_analysis_text() -> str:
-    return (
-        "Situation summary:\n"
-        "- Offline stub active; skipping detailed analysis.\n"
-        "- Use minimal baseline/variation actions to keep experiments interpretable.\n"
-        "\n"
-        "Risks & opportunities:\n"
-        "- Risk: strategy quality degraded without LLM guidance.\n"
-        "- Opportunity: validate pipeline without API access.\n"
-        "\n"
-        "Strategy plan:\n"
-        "- Baseline (safe): expand.\n"
-        "- Variation (bounded-risk): message.\n"
-        "- Guardrails: avoid attack/offer in offline mode.\n"
-        "\n"
-        "Coordination asks:\n"
-        "- Send a brief status ping to a neighbor.\n"
-        "\n"
-        "Memory note: offline stub.\n"
-        "\n"
-        "```json\n"
-        "{\n"
-        "  \"hypothesis\": \"Offline stub run; maintain minimal actions.\",\n"
-        "  \"baseline_signature\": [\"expand\"],\n"
-        "  \"variation_signature\": [\"message\"],\n"
-        "  \"success_metrics\": [\"delta_survival>=0\"],\n"
-        "  \"guardrails\": [\"avoid attack in offline mode\"],\n"
-        "  \"coordination\": [\"send status ping\"],\n"
-        "  \"memory_note\": \"offline stub\",\n"
-        "  \"diversity_note\": \"alternate expand/message by member_id\",\n"
-        "  \"confidence\": 0.05\n"
-        "}\n"
-        "```\n"
-    )
+def get_llm_client() -> Any:
+    """Return offline stub client when requested, otherwise the real LLM client."""
+    if _offline_enabled():
+        return OfflineClient()
+    return ai.Client()

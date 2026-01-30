@@ -7,7 +7,11 @@ Source of truth (end-to-end)
 - Primary feedback comes from the end-to-end smoke run: `python scripts/run_e2e_smoke.py`.
 - The latest summary is written to `execution_histories/e2e_smoke/latest_summary.json`.
 - When iteration decisions conflict with unit tests, prefer the e2e summary.
-- If `LLM_OFFLINE` / `E2E_OFFLINE` is enabled, treat metrics as pipeline-validation only (not comparable to baseline performance).
+- If the e2e run cannot execute due to missing credentials or provider issues, fix the provider configuration and rerun. Do not use mock or stubbed LLMs for evaluation.
+- If `LLM_OFFLINE` / `E2E_OFFLINE` is set or `llm_error_total > 0`, treat the run as invalid and rerun with a working provider.
+- The e2e summary now includes `round_metrics_derived` plus `round_metrics_combined`/`round_metrics_coverage` so guardrails can still be inspected when raw `round_metrics` are missing.
+- The e2e summary also reports coverage for `contract_stats`, `physics_stats`, and contract partner stats to surface missing instrumentation.
+- `llm_preflight` reports whether a live LLM check succeeded before the run; use it to confirm connectivity.
 
 Metrics (tracked per round)
 - Population survival (end-of-round): `round_end_population_avg_survival_delta`, `round_end_population_std_survival_delta`.
@@ -19,7 +23,12 @@ Metrics (tracked per round)
 - Experiment outcomes: baseline vs variation avg `delta_survival` (from experiment summaries).
 - Execution reliability: plan/execution alignment rate via `round_metrics.plan_alignment_rate` (planned signature equals executed signature) and plan coverage via `round_metrics.plan_alignment_plan_coverage`.
 - Feasibility follow-through: `round_metrics.plan_ineligible_tag_rate` (planned tags infeasible), `round_metrics.plan_only_tag_rate` (feasible planned tags not executed), plus `round_metrics.plan_feasibility_samples`.
-- Agent code errors: `round_metrics.agent_code_error_count`, `round_metrics.agent_code_error_rate`, and `round_metrics.agent_code_error_tag_counts` (to spot recurring failure tags).
+- Agent code errors: `round_metrics.agent_code_error_count`, `round_metrics.agent_code_error_rate`, and `round_metrics.agent_code_error_tag_counts` (to spot recurring failure tags; treat `llm_connection_error`, `llm_auth_error`, `llm_rate_limit`, `llm_timeout` as infra signals).
+- LLM availability: `llm_error_total` and `llm_error_tag_counts` (should be zero for valid e2e results); `llm_preflight.ok` should be true when enabled.
+- Fallback usage: count `errors.agent_code_errors[*].fallback_used` and inspect `fallback_source` to confirm memory reuse vs template default when LLM calls fail.
+- Mechanism fallback usage: check `errors.mechanism_errors[*].fallback_used`/`fallback_source`; if non-zero due to infra tags, treat metrics as pipeline-validation only.
+- Analysis fallback usage: inspect `errors.analyze_code_errors[*].fallback_used` and confirm plan metrics (`plan_alignment_*`, `plan_ineligible_tag_rate`, `plan_only_tag_rate`) are populated even when LLM calls fail.
+- Error categories: `round_metrics.agent_code_error_type_counts` and `round_metrics.mechanism_error_type_counts` to separate LLM connectivity/auth issues from execution faults.
 - Contextual fit: average balanced score for entries with context similarity >= 0.35 vs overall average.
 - Identity continuity: `memory_active_coverage`, `memory_missing_count`, and `memory_orphan_count` from round metrics (active ids vs code_memory keys).
 - Contract activity: `contract_stats.pending`, `contract_stats.active`, `contract_stats.completed`, `contract_stats.failed`.
@@ -27,7 +36,7 @@ Metrics (tracked per round)
 - Physics coverage: `physics_stats.active_constraints`, `physics_stats.domains`.
 - Recommendation diversity adjustments: count of strategy recommendations containing "Diversity adjustment" when `population_signature_dominant_share >= 0.60`. Use `python scripts/inspect_execution_history.py` to auto-scan prompts in execution histories (generated_code + mechanism prompts).
 - Mechanism gating: `round_metrics.mechanism_attempted_count`, `round_metrics.mechanism_approved_count`, `round_metrics.mechanism_executed_count`, `round_metrics.mechanism_error_count` (cross-check with `mechanism_modifications` and `errors.mechanism_errors`).
-- Legacy histories without `round_metrics`: `scripts/inspect_execution_history.py` derives survival deltas, `agent_code_error_rate`, and population signature diversity stats from `agent_actions`/`actions` + `errors` and action code as approximate fallbacks.
+- Legacy histories without `round_metrics`: `scripts/inspect_execution_history.py` derives survival deltas (avg/std), agent code error count/rate/tag counts, plan action totals, mechanism/contract/physics counts (when present), and population signature diversity stats from `agent_actions`/`actions` + `errors` and action code as approximate fallbacks.
 
 Baselines
 - Use the last 3 completed rounds from `execution_history` as baseline (or first run if none).
@@ -43,7 +52,9 @@ Thresholds (guardrails)
 - Experiments: at least 40% of recent actions should match a baseline or variation plan.
 - Execution reliability: plan/execution alignment rate should not drop by >0.05 vs baseline.
 - Feasibility: `plan_ineligible_tag_rate` and `plan_only_tag_rate` should not exceed baseline by >0.05.
-- Agent code errors: `agent_code_error_rate` should not exceed baseline by >0.05; scan `agent_code_error_tag_counts` for recurring high-error tags.
+- Agent code errors: `agent_code_error_rate` should not exceed baseline by >0.05; scan `agent_code_error_tag_counts` for recurring high-error tags. If infra tags dominate, rerun with a working provider before judging behavior.
+- LLM infra errors (`llm_error_total > 0`) invalidate the run; rerun with a working provider before judging behavior.
+- Fallback usage should be 0 with a healthy LLM provider; if >0, treat metrics as invalid and rerun with a working provider.
 - Identity: `memory_active_coverage` should not drop by >0.05 vs baseline; `memory_missing_count` should be 0 after action rounds; track `memory_orphan_count` (expected to rise with deaths).
 
 Expected deltas (small wins)

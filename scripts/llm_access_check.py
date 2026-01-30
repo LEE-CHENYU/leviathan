@@ -3,10 +3,73 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from dotenv import load_dotenv
 
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "models.yaml"
+
 load_dotenv()
+
+
+def _load_model_config() -> dict:
+    try:
+        import yaml
+    except Exception:
+        return {}
+    if not CONFIG_PATH.exists():
+        return {}
+    try:
+        config = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+    except Exception:
+        return {}
+    return config if isinstance(config, dict) else {}
+
+
+def _coerce_base_url(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _config_base_url_for(provider: str):
+    provider = (provider or "").strip().lower()
+    if not provider:
+        return None
+    config = _load_model_config()
+    if not isinstance(config, dict):
+        return None
+    default = config.get("default", {}) if isinstance(config.get("default", {}), dict) else {}
+    if isinstance(default, dict):
+        default_provider = (default.get("provider") or "").strip().lower()
+        if default_provider == provider:
+            base_url = _coerce_base_url(default.get("base_url"))
+            if base_url:
+                return base_url
+    if provider == "openai":
+        benchmark = config.get("benchmark", {}) if isinstance(config.get("benchmark", {}), dict) else {}
+        if isinstance(benchmark, dict):
+            benchmark_provider = (benchmark.get("provider") or "").strip().lower()
+            if benchmark_provider == provider:
+                base_url = _coerce_base_url(benchmark.get("base_url"))
+                if base_url:
+                    return base_url
+    return None
+
+
+def _normalize_base_url(base_url, fallback):
+    base_url = (base_url or "").strip()
+    if not base_url:
+        return fallback
+    if not base_url.startswith(("http://", "https://")):
+        base_url = f"https://{base_url.lstrip('/')}"
+    return base_url.rstrip("/")
+
+
+def _resolve_base_url(provider: str, env_var: str, fallback: str):
+    base_url = os.getenv(env_var) or _config_base_url_for(provider)
+    return _normalize_base_url(base_url, fallback)
 
 
 def _post(url, headers, payload):
@@ -40,8 +103,9 @@ def check_openai():
     key = os.getenv("OPENAI_API_KEY", "")
     if not key:
         return False, "OPENAI_API_KEY missing"
+    base_url = _resolve_base_url("openai", "OPENAI_BASE_URL", "https://api.openai.com/v1")
     ok, code, body = _post(
-        "https://api.openai.com/v1/chat/completions",
+        f"{base_url}/chat/completions",
         {
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
@@ -65,8 +129,9 @@ def check_openrouter():
     key = os.getenv("OPENROUTER_API_KEY", "")
     if not key:
         return False, "OPENROUTER_API_KEY missing"
+    base_url = _resolve_base_url("openrouter", "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     ok, code, body = _post(
-        "https://openrouter.ai/api/v1/chat/completions",
+        f"{base_url}/chat/completions",
         {
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",

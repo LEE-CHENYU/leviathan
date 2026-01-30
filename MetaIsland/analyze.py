@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import openai
 import traceback
@@ -6,13 +7,43 @@ from dotenv import load_dotenv
 
 from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
-from MetaIsland.llm_utils import build_chat_kwargs
+from MetaIsland.llm_utils import build_chat_kwargs, classify_llm_error
 
 load_dotenv()
 
 client = get_llm_client()
 
 provider, model_id = model_router("default")
+
+
+def _fallback_analysis_text(member_id: int) -> str:
+    baseline = ["expand"] if member_id % 2 == 0 else ["offer"]
+    variation = ["offer"] if member_id % 2 == 0 else ["expand"]
+    card = {
+        "hypothesis": "Fallback analysis: keep plan tags available when LLM is unavailable.",
+        "baseline_signature": baseline,
+        "variation_signature": variation,
+        "success_metrics": ["delta_survival", "delta_vitality"],
+        "guardrails": ["avoid negative survival deltas"],
+        "coordination": [],
+        "memory_note": f"fallback_stub_{member_id}",
+        "diversity_note": "Rotate tags across members to avoid monoculture.",
+        "confidence": 0.2,
+    }
+    return "\n".join([
+        "Situation summary:",
+        "- Fallback analysis stub (no external LLM call).",
+        "Risks & opportunities:",
+        "- Treat results as pipeline validation only.",
+        "Strategy plan:",
+        f"- Baseline tags: {', '.join(baseline)}",
+        f"- Variation tags: {', '.join(variation)}",
+        "Coordination asks: none.",
+        "Memory note: fallback stub.",
+        "```json",
+        json.dumps(card, indent=2),
+        "```",
+    ])
 
 async def _analyze(self, member_id):
     """
@@ -50,7 +81,14 @@ async def _analyze(self, member_id):
 
     current_mechanisms = data['current_mechanisms']
     current_mechanisms_text = self.format_mechanisms_for_prompt(current_mechanisms)
-    modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
+    modification_attempts = []
+    modification_attempts_map = data.get('modification_attempts') or {}
+    if modification_attempts_map:
+        try:
+            latest_round = max(modification_attempts_map.keys())
+            modification_attempts = modification_attempts_map.get(latest_round, [])
+        except Exception:
+            modification_attempts = []
     report = data['report']
     
     base_code = self.base_class_code
@@ -274,12 +312,47 @@ async def _analyze(self, member_id):
     # # Append a final instruction to generate the code function
     # final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
-    completion = client.chat.completions.create(
-                model=f'{provider}:{model_id}', 
-                messages=[{"role": "user", "content": analysis_prompt}],
-                **build_chat_kwargs()
-            )
-    result = completion.choices[0].message.content.strip()
+    stable_id = None
+    try:
+        stable_id = self._resolve_member_stable_id(member_id)
+    except Exception:
+        stable_id = None
+
+    try:
+        completion = client.chat.completions.create(
+                    model=f'{provider}:{model_id}',
+                    messages=[{"role": "user", "content": analysis_prompt}],
+                    **build_chat_kwargs()
+                )
+        result = completion.choices[0].message.content.strip()
+    except Exception as e:
+        fallback_member_id = stable_id if stable_id is not None else member_id
+        try:
+            fallback_member_id = int(fallback_member_id)
+        except (TypeError, ValueError):
+            fallback_member_id = member_id
+        result = _fallback_analysis_text(fallback_member_id)
+        analysis_key = stable_id if stable_id is not None else member_id
+        error_info = {
+            'round': len(self.execution_history['rounds']),
+            'member_id': analysis_key,
+            'member_index': member_id,
+            'type': 'analysis',
+            'error': str(e),
+            'error_category': classify_llm_error(e),
+            'traceback': traceback.format_exc(),
+            'code': "",
+            'fallback_used': True,
+            'fallback_source': 'analysis_stub'
+        }
+        self.execution_history['rounds'][-1]['errors']['analyze_code_errors'][analysis_key] = error_info
+        print(f"Error generating analysis for member {member_id}:")
+        print(traceback.format_exc())
+        if hasattr(self, "_logger"):
+            try:
+                self._logger.error(f"Analysis generation error (member {member_id}): {e}")
+            except Exception:
+                pass
     # analysis_code = self.clean_code_string(analysis_code)
     
     # print(f"\nStrategic Analysis Code:\n{analysis_code}")
@@ -293,11 +366,6 @@ async def _analyze(self, member_id):
 
     # print(f"Analysis result: {result}")
     # Store analysis in execution history using stable member id when possible
-    stable_id = None
-    try:
-        stable_id = self._resolve_member_stable_id(member_id)
-    except Exception:
-        stable_id = None
     analysis_key = stable_id if stable_id is not None else member_id
     self.execution_history['rounds'][-1]['analysis'][analysis_key] = result
     try:

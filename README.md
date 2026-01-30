@@ -184,6 +184,38 @@ This project explores the formation of social order through mechanisms including
 - 依赖库: numpy, pandas, matplotlib
 - 高级功能依赖: openai, aisuite
 
+## E2E Smoke Test (LLM required)
+
+The end-to-end smoke test (`python scripts/run_e2e_smoke.py`) requires a live LLM.
+Offline stubs are not supported for evaluation.
+
+OpenRouter example:
+
+```bash
+export OPENROUTER_API_KEY="..."
+export E2E_PROVIDER=openrouter
+export E2E_MODEL="minimax/minimax-m2.1"  # optional override
+python scripts/run_e2e_smoke.py
+```
+
+OpenAI-compatible gateway or OpenAI example:
+
+```bash
+export OPENAI_API_KEY="..."
+export E2E_PROVIDER=openai
+export OPENAI_BASE_URL="https://api.openai.com/v1"  # or your gateway, e.g. http://localhost:8000/v1
+export E2E_MODEL="gpt-5.2"  # optional override
+python scripts/run_e2e_smoke.py
+```
+
+If you prefer repo config over env vars, you can set `base_url` under `default` (for the
+default provider) or `benchmark` (for OpenAI fallback) in `config/models.yaml`. The e2e
+smoke runner and `scripts/llm_access_check.py` will use it when `OPENAI_BASE_URL` /
+`OPENROUTER_BASE_URL` are not set.
+
+If preflight fails, check the diagnostics in
+`execution_histories/e2e_smoke/latest_preflight.json` along with the stderr hints.
+
 ## 详细文档 (Detailed Documentation)
 
 更详细的文档可查看以下目录：

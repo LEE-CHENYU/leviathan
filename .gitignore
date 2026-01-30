@@ -23,3 +23,8 @@ Leviathan/local_notes.md
 codex_resume.md
 codex_objective.txt
 execution_histories/e2e_smoke/
+research/arxiv/pdfs/
+research/arxiv/state.json
+arxiv_24h.log
+arxiv_24h.pid
+arxiv_24h.stop
