@@ -149,6 +149,27 @@ def _load_base_url_for(provider: str) -> Optional[str]:
     return None
 
 
+def _detect_base_url_source(provider: str, pre_env: dict, cli_overrides: dict) -> str:
+    provider = (provider or "").strip().lower()
+    if provider == "openrouter":
+        if _coerce_base_url(cli_overrides.get("openrouter")):
+            return "cli"
+        if _coerce_base_url(pre_env.get("OPENROUTER_BASE_URL")):
+            return "env"
+        if _load_base_url_for("openrouter"):
+            return "config"
+        return "default"
+    if provider == "openai":
+        if _coerce_base_url(cli_overrides.get("openai")):
+            return "cli"
+        if _coerce_base_url(pre_env.get("OPENAI_BASE_URL")):
+            return "env"
+        if _load_base_url_for("openai"):
+            return "config"
+        return "default"
+    return "unknown"
+
+
 def _apply_config_base_url(provider: str) -> None:
     base_url = _load_base_url_for(provider)
     if not base_url:
@@ -303,6 +324,7 @@ def _configure_e2e_provider() -> Tuple[str, str, str, Optional[str], Optional[st
         os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         "https://api.openai.com/v1",
     )
+    os.environ.setdefault("LLM_USE_MAX_COMPLETION_TOKENS", "1")
     os.environ.setdefault("MODEL_ROUTE_DEFAULT_PROVIDER", "openai")
     os.environ.setdefault("MODEL_ROUTE_DEFAULT_MODEL_ID", e2e_model or "gpt-5.2")
     os.environ.setdefault("MODEL_ROUTE_DEEPSEEK_PROVIDER", "openai")
@@ -325,6 +347,7 @@ def _configure_openai_fallback(
         openrouter_base_url,
     )
     os.environ["OPENAI_BASE_URL"] = _normalize_base_url(base_url, "https://api.openai.com/v1")
+    os.environ.setdefault("LLM_USE_MAX_COMPLETION_TOKENS", "1")
     os.environ["MODEL_ROUTE_DEFAULT_PROVIDER"] = "openai"
     os.environ["MODEL_ROUTE_DEFAULT_MODEL_ID"] = model_id
     os.environ["MODEL_ROUTE_DEEPSEEK_PROVIDER"] = "openai"
@@ -408,7 +431,7 @@ def _preflight_llm(provider: str, model_id: str) -> Tuple[bool, str, str]:
             {
                 "model": model_id,
                 "messages": [{"role": "user", "content": "Return the single word PONG."}],
-                "max_tokens": 32,
+                "max_tokens": 128,
                 "temperature": 0,
             },
         )
@@ -514,6 +537,7 @@ def _preflight_snapshot(preflight: dict) -> dict:
         "model_id": preflight.get("model_id"),
         "provider_reason": preflight.get("provider_reason"),
         "base_url": base_url,
+        "base_url_source": preflight.get("base_url_source"),
         "message": preflight.get("message"),
         "fallback": fallback,
         "env": _preflight_env_snapshot(),
@@ -737,6 +761,14 @@ def main() -> int:
 
     _configure_writable_cache(args.output_dir)
     load_dotenv()
+    pre_env = {
+        "OPENROUTER_BASE_URL": os.environ.get("OPENROUTER_BASE_URL"),
+        "OPENAI_BASE_URL": os.environ.get("OPENAI_BASE_URL"),
+    }
+    cli_base_urls = {
+        "openrouter": args.openrouter_base_url,
+        "openai": args.openai_base_url,
+    }
     if args.openai_base_url:
         os.environ["OPENAI_BASE_URL"] = args.openai_base_url
     if args.openrouter_base_url:
@@ -753,11 +785,13 @@ def main() -> int:
     preflight_enabled = _bool_env("E2E_PREFLIGHT", default=not _is_offline())
     preflight_result = {"enabled": preflight_enabled}
     if provider:
+        base_url_source = _detect_base_url_source(provider, pre_env, cli_base_urls)
         preflight_result.update(
             {
                 "provider": provider,
                 "model_id": model_id,
                 "provider_reason": provider_reason,
+                "base_url_source": base_url_source,
             }
         )
     if preflight_enabled and provider:
@@ -806,6 +840,7 @@ def main() -> int:
                         "ok": True,
                         "message": f"fallback ok: {fallback_msg}",
                         "base_url": fallback_base,
+                        "base_url_source": fallback_base_source,
                     }
                 )
                 ok = True

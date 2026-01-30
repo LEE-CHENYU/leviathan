@@ -45,6 +45,10 @@ EXPECTED_ROUND_METRICS = [
     "agent_code_error_count",
     "agent_code_error_tag_counts",
     "agent_code_error_type_counts",
+    "llm_finish_reason_counts",
+    "llm_finish_reason_total",
+    "llm_finish_reason_length_count",
+    "llm_finish_reason_missing_count",
     "memory_active_coverage",
     "memory_missing_count",
     "memory_orphan_count",
@@ -75,6 +79,34 @@ def safe_float(value: object) -> Optional[float]:
     if math.isnan(val) or math.isinf(val):
         return None
     return val
+
+
+def _collect_llm_metadata(round_record: dict) -> List[dict]:
+    metadata_entries: List[dict] = []
+
+    def add_metadata(meta: object) -> None:
+        if isinstance(meta, dict) and meta:
+            metadata_entries.append(meta)
+
+    def add_entry(entry: object) -> None:
+        if not isinstance(entry, dict):
+            return
+        add_metadata(entry.get("llm_metadata"))
+        add_metadata(entry.get("llm_metadata_primary"))
+
+    generated = round_record.get("generated_code") or {}
+    if isinstance(generated, dict):
+        for entry in generated.values():
+            add_entry(entry)
+
+    mods_record = round_record.get("mechanism_modifications")
+    if isinstance(mods_record, dict):
+        attempts = mods_record.get("attempts") or []
+        if isinstance(attempts, list):
+            for attempt in attempts:
+                add_entry(attempt)
+
+    return metadata_entries
 
 
 def collect_action_records(round_record: dict) -> Tuple[List[dict], Optional[str]]:
@@ -337,6 +369,89 @@ def fallback_metrics(round_record: dict) -> Tuple[Dict[str, float], Dict[str, st
             error_rate = len(errors) / denominator
             metrics["agent_code_error_rate"] = error_rate
             sources["agent_code_error_rate"] = f"errors/{action_source or delta_source or 'agent_actions'}"
+
+    llm_metadata_entries = _collect_llm_metadata(round_record)
+    if llm_metadata_entries:
+        finish_reason_counts = Counter()
+        finish_reason_missing = 0
+        request_caps: List[float] = []
+        request_cap_sources = Counter()
+        prompt_tokens: List[float] = []
+        completion_tokens: List[float] = []
+        completion_at_cap = 0
+        completion_cap_pairs = 0
+        for meta in llm_metadata_entries:
+            finish_reason = meta.get("finish_reason") if isinstance(meta, dict) else None
+            if finish_reason is None or finish_reason == "":
+                finish_reason_missing += 1
+            else:
+                finish_reason_counts[str(finish_reason)] += 1
+            if not isinstance(meta, dict):
+                continue
+            cap = None
+            cap_source = None
+            if "request_max_completion_tokens" in meta:
+                cap = safe_float(meta.get("request_max_completion_tokens"))
+                cap_source = "max_completion_tokens"
+            if cap is None and "request_max_tokens" in meta:
+                cap = safe_float(meta.get("request_max_tokens"))
+                cap_source = "max_tokens"
+            if cap is not None:
+                request_caps.append(cap)
+                if cap_source:
+                    request_cap_sources[cap_source] += 1
+            prompt_val = safe_float(meta.get("prompt_tokens"))
+            if prompt_val is not None:
+                prompt_tokens.append(prompt_val)
+            completion_val = safe_float(meta.get("completion_tokens"))
+            if completion_val is not None:
+                completion_tokens.append(completion_val)
+            if cap is not None and completion_val is not None:
+                completion_cap_pairs += 1
+                if completion_val >= cap:
+                    completion_at_cap += 1
+        metrics["llm_finish_reason_counts"] = dict(finish_reason_counts)
+        metrics["llm_finish_reason_total"] = len(llm_metadata_entries)
+        metrics["llm_finish_reason_length_count"] = finish_reason_counts.get("length", 0)
+        metrics["llm_finish_reason_missing_count"] = finish_reason_missing
+        source_label = "generated_code/llm_metadata+mechanism_modifications/attempts"
+        sources["llm_finish_reason_counts"] = source_label
+        sources["llm_finish_reason_total"] = source_label
+        sources["llm_finish_reason_length_count"] = source_label
+        sources["llm_finish_reason_missing_count"] = source_label
+        metrics["llm_request_cap_count"] = len(request_caps)
+        sources["llm_request_cap_count"] = source_label
+        if request_cap_sources:
+            metrics["llm_request_cap_source_counts"] = dict(request_cap_sources)
+            sources["llm_request_cap_source_counts"] = source_label
+        if request_caps:
+            metrics["llm_request_cap_min"] = min(request_caps)
+            metrics["llm_request_cap_max"] = max(request_caps)
+            metrics["llm_request_cap_avg"] = sum(request_caps) / len(request_caps)
+            sources["llm_request_cap_min"] = source_label
+            sources["llm_request_cap_max"] = source_label
+            sources["llm_request_cap_avg"] = source_label
+        if prompt_tokens:
+            metrics["llm_prompt_tokens_avg"] = sum(prompt_tokens) / len(prompt_tokens)
+            metrics["llm_prompt_tokens_min"] = min(prompt_tokens)
+            metrics["llm_prompt_tokens_max"] = max(prompt_tokens)
+            sources["llm_prompt_tokens_avg"] = source_label
+            sources["llm_prompt_tokens_min"] = source_label
+            sources["llm_prompt_tokens_max"] = source_label
+        if completion_tokens:
+            metrics["llm_completion_tokens_avg"] = sum(completion_tokens) / len(completion_tokens)
+            metrics["llm_completion_tokens_min"] = min(completion_tokens)
+            metrics["llm_completion_tokens_max"] = max(completion_tokens)
+            sources["llm_completion_tokens_avg"] = source_label
+            sources["llm_completion_tokens_min"] = source_label
+            sources["llm_completion_tokens_max"] = source_label
+        if completion_cap_pairs:
+            metrics["llm_completion_at_request_cap_count"] = completion_at_cap
+            metrics["llm_completion_at_request_cap_rate"] = (
+                completion_at_cap / completion_cap_pairs
+            )
+            sources["llm_completion_at_request_cap_count"] = source_label
+            sources["llm_completion_at_request_cap_rate"] = source_label
 
     signature_map, signature_source = collect_action_signatures(round_record)
     if signature_map:

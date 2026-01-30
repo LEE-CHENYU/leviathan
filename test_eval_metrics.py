@@ -110,3 +110,84 @@ def test_fallback_metrics_mechanism_implicit_approvals():
     assert metrics.get("mechanism_approved_count") == 2
     assert metrics.get("mechanism_executed_count") == 1
     assert sources.get("mechanism_approved_count", "").startswith("mechanism_modifications:implicit")
+
+
+def test_fallback_metrics_llm_finish_reason_counts():
+    round_record = {
+        "generated_code": {
+            "member_0": {"llm_metadata": {"finish_reason": "length"}},
+            "member_1": {"llm_metadata": {"finish_reason": "stop"}},
+        },
+        "mechanism_modifications": {
+            "attempts": [
+                {"llm_metadata": {"finish_reason": "stop"}},
+                {"llm_metadata_primary": {"finish_reason": "length"}},
+                {"llm_metadata": {"model": "test-model"}},
+            ]
+        },
+    }
+
+    metrics, sources = fallback_metrics(round_record)
+
+    counts = metrics.get("llm_finish_reason_counts") or {}
+    assert counts.get("length") == 2
+    assert counts.get("stop") == 2
+    assert metrics.get("llm_finish_reason_total") == 5
+    assert metrics.get("llm_finish_reason_length_count") == 2
+    assert metrics.get("llm_finish_reason_missing_count") == 1
+    assert sources.get("llm_finish_reason_total") == (
+        "generated_code/llm_metadata+mechanism_modifications/attempts"
+    )
+
+
+def test_fallback_metrics_llm_token_caps():
+    round_record = {
+        "generated_code": {
+            "member_0": {
+                "llm_metadata": {
+                    "finish_reason": "length",
+                    "request_max_tokens": 1200,
+                    "prompt_tokens": 300,
+                    "completion_tokens": 1200,
+                }
+            },
+            "member_1": {
+                "llm_metadata": {
+                    "finish_reason": "stop",
+                    "request_max_tokens": 800,
+                    "prompt_tokens": 200,
+                    "completion_tokens": 500,
+                }
+            },
+        },
+        "mechanism_modifications": {
+            "attempts": [
+                {
+                    "llm_metadata": {
+                        "finish_reason": "length",
+                        "request_max_completion_tokens": 600,
+                        "prompt_tokens": 100,
+                        "completion_tokens": 600,
+                    }
+                }
+            ]
+        },
+    }
+
+    metrics, sources = fallback_metrics(round_record)
+
+    assert metrics.get("llm_request_cap_count") == 3
+    assert metrics.get("llm_request_cap_min") == 600
+    assert metrics.get("llm_request_cap_max") == 1200
+    assert metrics.get("llm_request_cap_avg") == pytest.approx((1200 + 800 + 600) / 3)
+    assert metrics.get("llm_request_cap_source_counts") == {
+        "max_tokens": 2,
+        "max_completion_tokens": 1,
+    }
+    assert metrics.get("llm_prompt_tokens_avg") == pytest.approx((300 + 200 + 100) / 3)
+    assert metrics.get("llm_completion_tokens_avg") == pytest.approx((1200 + 500 + 600) / 3)
+    assert metrics.get("llm_completion_at_request_cap_count") == 2
+    assert metrics.get("llm_completion_at_request_cap_rate") == pytest.approx(2 / 3)
+    assert sources.get("llm_request_cap_avg") == (
+        "generated_code/llm_metadata+mechanism_modifications/attempts"
+    )

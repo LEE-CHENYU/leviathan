@@ -5,7 +5,15 @@ from dotenv import load_dotenv
 from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
 from MetaIsland.prompt_loader import get_prompt_loader
-from MetaIsland.llm_utils import build_chat_kwargs, classify_llm_error
+from MetaIsland.llm_utils import (
+    build_chat_kwargs,
+    build_prompt_diagnostics,
+    classify_llm_error,
+    ensure_non_empty_response,
+    extract_completion_metadata,
+    extract_request_metadata,
+    merge_prompt_sections,
+)
 
 load_dotenv()
 
@@ -224,12 +232,35 @@ async def _agent_code_decision(self, member_id) -> None:
         'contract_summary',
         'Contract activity: unavailable.'
     )
+    analysis_card_summary = data.get(
+        'analysis_card_summary',
+        'No analysis cards available.'
+    )
+    experiment_summary = data.get(
+        'experiment_summary',
+        'No experiment outcomes available.'
+    )
+    strategy_profile = data.get('strategy_profile', 'No strategy profile available.')
+    population_strategy_profile = data.get(
+        'population_strategy_profile',
+        'No population strategy data.'
+    )
+    population_exploration_summary = data.get(
+        'population_exploration_summary',
+        'No population exploration data.'
+    )
+    strategy_recommendations = data.get(
+        'strategy_recommendations',
+        'No strategy recommendations available.'
+    )
 
     current_mechanisms = data['current_mechanisms']
     report = data['report']
 
     base_code = self.base_class_code
     code_result = ""
+    completion_metadata = {}
+    report_text = report if report else "No analysis available"
 
     try:
         loader = get_prompt_loader()
@@ -240,33 +271,18 @@ async def _agent_code_decision(self, member_id) -> None:
             island_ideology=self.island_ideology,
             error_context=error_context,
             current_mechanisms=current_mechanisms_text,
-            report=report if report else "No analysis available",
+            report=report_text,
             features=features,
             relations=relations,
             code_memory=code_memory,
             past_performance=past_performance,
             analysis_memory=analysis_memory,
-            analysis_card_summary=data.get(
-                'analysis_card_summary',
-                'No analysis cards available.'
-            ),
-            experiment_summary=data.get(
-                'experiment_summary',
-                'No experiment outcomes available.'
-            ),
-            strategy_profile=data.get('strategy_profile', 'No strategy profile available.'),
-            population_strategy_profile=data.get(
-                'population_strategy_profile',
-                'No population strategy data.'
-            ),
-            population_exploration_summary=data.get(
-                'population_exploration_summary',
-                'No population exploration data.'
-            ),
-            strategy_recommendations=data.get(
-                'strategy_recommendations',
-                'No strategy recommendations available.'
-            ),
+            analysis_card_summary=analysis_card_summary,
+            experiment_summary=experiment_summary,
+            strategy_profile=strategy_profile,
+            population_strategy_profile=population_strategy_profile,
+            population_exploration_summary=population_exploration_summary,
+            strategy_recommendations=strategy_recommendations,
             contextual_strategy_summary=contextual_strategy_summary,
             message_context=message_context,
             communication_summary=communication_summary,
@@ -274,16 +290,57 @@ async def _agent_code_decision(self, member_id) -> None:
             population_state_summary=population_state_summary,
             contract_summary=contract_summary
         )
+        prompt_sections = {
+            "base_code": base_code,
+            "current_mechanisms": current_mechanisms_text,
+            "error_context": error_context,
+            "report": report_text,
+            "features": features,
+            "relations": relations,
+            "code_memory": code_memory,
+            "past_performance": past_performance,
+            "analysis_memory": analysis_memory,
+            "analysis_card_summary": analysis_card_summary,
+            "experiment_summary": experiment_summary,
+            "strategy_profile": strategy_profile,
+            "population_strategy_profile": population_strategy_profile,
+            "population_exploration_summary": population_exploration_summary,
+            "strategy_recommendations": strategy_recommendations,
+            "contextual_strategy_summary": contextual_strategy_summary,
+            "message_context": message_context,
+            "communication_summary": communication_summary,
+            "population_state_summary": population_state_summary,
+            "contract_summary": contract_summary,
+            "island_ideology": self.island_ideology,
+        }
+        prompt_sections = merge_prompt_sections(
+            prompt_sections,
+            getattr(self, "base_code", None),
+            "base_code_",
+        )
+        prompt_diag = build_prompt_diagnostics(prompt, prompt_sections)
+        completion_metadata.update(prompt_diag)
 
+        chat_kwargs = build_chat_kwargs()
         completion = client.chat.completions.create(
             model=f'{provider}:{model_id}',
             messages=[{"role": "user", "content": prompt}],
-            **build_chat_kwargs()
+            **chat_kwargs
         )
-        code_result = completion.choices[0].message.content.strip()
+        completion_metadata = extract_completion_metadata(completion)
+        completion_metadata.update(extract_request_metadata(chat_kwargs))
+        completion_metadata.update(prompt_diag)
+        raw_code = ensure_non_empty_response(
+            completion.choices[0].message.content,
+            context="agent_action",
+        )
 
         # Clean and store the code
-        code_result = self.clean_code_string(code_result)
+        code_result = self.clean_code_string(raw_code)
+        code_result = ensure_non_empty_response(
+            code_result,
+            context="agent_action_cleaned",
+        )
 
         # Log the generated code
         round_num = len(self.execution_history['rounds'])
@@ -294,7 +351,8 @@ async def _agent_code_decision(self, member_id) -> None:
             'code': code_result,
             'features_at_generation': features.to_dict('records'),
             'relationships_at_generation': relations,
-            'final_prompt': prompt
+            'final_prompt': prompt,
+            'llm_metadata': completion_metadata,
         }
 
         print(f"\nGenerated code for Member {member_id}:")
@@ -339,7 +397,8 @@ async def _agent_code_decision(self, member_id) -> None:
             'features_at_generation': features_payload,
             'relationships_at_generation': relations,
             'final_prompt': None,
-            'fallback': fallback_meta
+            'fallback': fallback_meta,
+            'llm_metadata': completion_metadata,
         }
 
         error_info = {
@@ -351,6 +410,7 @@ async def _agent_code_decision(self, member_id) -> None:
             'error_category': classify_llm_error(e),
             'traceback': traceback.format_exc(),
             'code': code_result,
+            'llm_metadata': completion_metadata,
             'fallback_used': True,
             'fallback_source': fallback_meta.get('source'),
             'fallback_meta': fallback_meta,

@@ -110,7 +110,20 @@ Continuity:
 - Read 'codex_resume.md' at the start of each iteration for context.
 - Read any recent research summaries in 'research/arxiv/latest.md' if present for idea feed.
 - Update 'codex_resume.md' before finishing with: current focus, recent changes, tests/evals, results, next step, and risks.
+Commit hygiene:
+- If you make code changes and tests pass, make a Git commit before finishing.
+- Use this message format: codex(iter ${iter}): <short, specific change summary>.
+- If no code changes were made, state 'No commit (no code changes)'.
 Output a brief summary of changes and tests (run cheap tests if available, otherwise say what you'd run)."
+  ) >> "$LOG" 2>&1
+
+  (
+    echo "=== Commit instructions ==="
+    echo "After changes are made and tests pass, commit with a clear message in this format:"
+    echo "  git add -A"
+    echo "  git commit -m \"codex(iter ${iter}): <short, specific change summary>\""
+    echo "If no code changes were made, skip committing and say so explicitly."
+    echo "=== End commit instructions ==="
   ) >> "$LOG" 2>&1
 
   {

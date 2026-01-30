@@ -7,7 +7,11 @@ from dotenv import load_dotenv
 
 from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
-from MetaIsland.llm_utils import build_chat_kwargs, classify_llm_error
+from MetaIsland.llm_utils import (
+    build_chat_kwargs,
+    classify_llm_error,
+    ensure_non_empty_response,
+)
 
 load_dotenv()
 
@@ -320,11 +324,14 @@ async def _analyze(self, member_id):
 
     try:
         completion = client.chat.completions.create(
-                    model=f'{provider}:{model_id}',
-                    messages=[{"role": "user", "content": analysis_prompt}],
-                    **build_chat_kwargs()
-                )
-        result = completion.choices[0].message.content.strip()
+            model=f'{provider}:{model_id}',
+            messages=[{"role": "user", "content": analysis_prompt}],
+            **build_chat_kwargs()
+        )
+        result = ensure_non_empty_response(
+            completion.choices[0].message.content,
+            context="analysis",
+        )
     except Exception as e:
         fallback_member_id = stable_id if stable_id is not None else member_id
         try:

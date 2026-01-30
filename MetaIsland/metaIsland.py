@@ -40,6 +40,7 @@ from MetaIsland.llm_client import get_llm_client
 client = get_llm_client()
 
 from MetaIsland.model_router import model_router
+from MetaIsland.llm_utils import ensure_non_empty_response
 
 provider, model_id = model_router("default")
 class IslandExecution(Island):
@@ -1563,6 +1564,24 @@ class IslandExecution(Island):
         stats["agent_code_error_tag_counts"] = dict(tag_counts)
         stats["agent_code_error_type_counts"] = dict(type_counts)
         return stats
+
+    def _classify_agent_execution_error(self, error: Exception) -> str:
+        """Classify agent execution errors into coarse categories."""
+        if isinstance(error, IndentationError):
+            return "agent_execution_indent"
+        if isinstance(error, SyntaxError):
+            return "agent_execution_syntax"
+        return "agent_execution"
+
+    def _describe_execution_error(self, error: Exception) -> dict:
+        """Extract lightweight error details for diagnostics."""
+        details = {"error_type": type(error).__name__ if error is not None else None}
+        if isinstance(error, SyntaxError):
+            details["error_line"] = error.lineno
+            details["error_offset"] = error.offset
+            if error.text:
+                details["error_text"] = error.text.strip()
+        return {key: value for key, value in details.items() if value is not None}
 
     def _signature_overlap(self, sig_a: tuple, sig_b: tuple) -> float:
         """Compute Jaccard overlap between two action signatures."""
@@ -3899,7 +3918,13 @@ class IslandExecution(Island):
                 }
 
                 # Execute the code in a way that makes the function accessible
+                code_stats = {
+                    "raw_len": len(code_str) if code_str else 0,
+                    "raw_lines": code_str.count("\n") + 1 if code_str else 0,
+                }
                 cleaned_code = self.clean_code_string(code_str)
+                code_stats["cleaned_len"] = len(cleaned_code) if cleaned_code else 0
+                code_stats["cleaned_lines"] = cleaned_code.count("\n") + 1 if cleaned_code else 0
                 exec(cleaned_code, local_env)
 
                 if 'agent_action' in local_env and callable(local_env['agent_action']):
@@ -3920,7 +3945,9 @@ class IslandExecution(Island):
                     'member_index': member_index,
                     'code': code_str,
                     'error': str(e),
-                    'error_category': 'agent_execution',
+                    'error_category': self._classify_agent_execution_error(e),
+                    'error_details': self._describe_execution_error(e),
+                    'code_stats': code_stats,
                     'traceback': traceback.format_exc()
                 }
                 self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
@@ -4532,8 +4559,10 @@ class IslandExecution(Island):
                     model=f'{provider}:{model_id}',
                     messages=[{"role": "user", "content": prompt}]
                 )
-                
-                aggregated_code = completion.choices[0].message.content.strip()
+                aggregated_code = ensure_non_empty_response(
+                    completion.choices[0].message.content,
+                    context="mechanism_aggregate",
+                )
                 code_result = self.clean_code_string(aggregated_code)
                 
                 self.save_generated_code(code_result, '-1', 'aggregated_mechanism')

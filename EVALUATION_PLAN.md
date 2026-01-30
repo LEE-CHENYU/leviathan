@@ -24,6 +24,12 @@ Metrics (tracked per round)
 - Execution reliability: plan/execution alignment rate via `round_metrics.plan_alignment_rate` (planned signature equals executed signature) and plan coverage via `round_metrics.plan_alignment_plan_coverage`.
 - Feasibility follow-through: `round_metrics.plan_ineligible_tag_rate` (planned tags infeasible), `round_metrics.plan_only_tag_rate` (feasible planned tags not executed), plus `round_metrics.plan_feasibility_samples`.
 - Agent code errors: `round_metrics.agent_code_error_count`, `round_metrics.agent_code_error_rate`, and `round_metrics.agent_code_error_tag_counts` (to spot recurring failure tags; treat `llm_connection_error`, `llm_auth_error`, `llm_rate_limit`, `llm_timeout` as infra signals).
+- LLM truncation diagnostics: inspect `generated_code[*].llm_metadata.finish_reason` (e.g., `length`) plus `errors.agent_code_errors[*].code_stats`/`error_details` to confirm syntax errors correlate with truncated outputs.
+- LLM finish_reason counts: `round_metrics.llm_finish_reason_counts`, `round_metrics.llm_finish_reason_total`, `round_metrics.llm_finish_reason_length_count`, and `round_metrics.llm_finish_reason_missing_count` to quantify truncation signals across agent + mechanism LLM calls.
+- LLM request limits: inspect `generated_code[*].llm_metadata.request_max_tokens` / `request_max_completion_tokens` alongside `completion_tokens` to confirm whether truncation aligns with requested caps.
+- LLM cap diagnostics (derived): `round_metrics.llm_request_cap_avg`/`min`/`max`, `llm_request_cap_count`, `llm_completion_at_request_cap_count`, `llm_completion_at_request_cap_rate`, plus `llm_prompt_tokens_avg` and `llm_completion_tokens_avg` to spot prompt pressure and cap saturation in one place.
+- Prompt size diagnostics (per attempt): `llm_metadata.prompt_char_count`, `llm_metadata.prompt_section_chars`, `llm_metadata.prompt_dynamic_char_total`, `llm_metadata.prompt_dynamic_char_ratio` to identify which prompt sections dominate when truncation occurs (target those sections for trimming before changing behavior). The base-class section now includes per-class breakdowns (e.g., `base_code_base_island`, `base_code_base_land`, `base_code_base_member`) so the largest code block can be isolated before pruning.
+- Empty cleaned outputs: `llm_empty_response` in `agent_code_error_type_counts` or `mechanism_error_type_counts` indicates the LLM returned non-code or code stripped to empty; treat as invalid for behavior evaluation and inspect prompt compliance.
 - LLM availability: `llm_error_total` and `llm_error_tag_counts` (should be zero for valid e2e results); `llm_preflight.ok` should be true when enabled.
 - Fallback usage: count `errors.agent_code_errors[*].fallback_used` and inspect `fallback_source` to confirm memory reuse vs template default when LLM calls fail.
 - Mechanism fallback usage: check `errors.mechanism_errors[*].fallback_used`/`fallback_source`; if non-zero due to infra tags, treat metrics as pipeline-validation only.
@@ -53,7 +59,9 @@ Thresholds (guardrails)
 - Execution reliability: plan/execution alignment rate should not drop by >0.05 vs baseline.
 - Feasibility: `plan_ineligible_tag_rate` and `plan_only_tag_rate` should not exceed baseline by >0.05.
 - Agent code errors: `agent_code_error_rate` should not exceed baseline by >0.05; scan `agent_code_error_tag_counts` for recurring high-error tags. If infra tags dominate, rerun with a working provider before judging behavior.
-- LLM infra errors (`llm_error_total > 0`) invalidate the run; rerun with a working provider before judging behavior.
+- LLM infra errors (`llm_error_total > 0`, including `llm_empty_response`) invalidate the run; rerun with a working provider before judging behavior.
+- LLM truncation: `llm_finish_reason_length_count` should be 0; if >0, treat behavior metrics as invalid and rerun with higher max tokens or trimmed prompts.
+- LLM cap saturation: if `llm_completion_at_request_cap_rate` is elevated in the same run as `llm_finish_reason_length_count > 0`, prioritize increasing `LLM_MAX_TOKENS`/`LLM_MAX_COMPLETION_TOKENS` and rerun before judging behavior.
 - Fallback usage should be 0 with a healthy LLM provider; if >0, treat metrics as invalid and rerun with a working provider.
 - Identity: `memory_active_coverage` should not drop by >0.05 vs baseline; `memory_missing_count` should be 0 after action rounds; track `memory_orphan_count` (expected to rise with deaths).
 
