@@ -148,13 +148,15 @@ coordination_protocols: |
 mechanism_design_guardrails: |
   [Mechanism Design Guardrails]
   - Prefer opt-in or optional mechanisms; avoid forcing uniform strategy.
+  - Require explicit consent for any inter-agent transfers; no unilateral extraction or "emergency aid" without opt-in terms.
   - Provide escape hatches/rollback and versioning so multiple approaches can coexist.
   - Avoid hard-coded single equilibria; allow multiple roles and strategies to emerge.
   - Keep changes minimal and measurable; define success metrics and rollback triggers.
   - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
   - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
   - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
-  - Avoid self-dealing unless explicitly guarded with constraints.
+  - Avoid self-dealing or member-specific bonuses; do not hard-code member IDs. If incentives differ, define symmetric eligibility rules and compensating tradeoffs.
+  - If introducing currency/credits, define a conservation-respecting source and sink, and require balance checks before any transfer (no default balances).
   - Only reference imports/objects you define or check with hasattr.
 
 game_mechanics: |

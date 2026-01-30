@@ -18,6 +18,8 @@ introduction: |
      - No free resources or exploits allowed
      - Must follow conservation laws
      - When writing to inventories, use setdefault() before indexing
+     - Inter-agent transfers must be opt-in; no unilateral extraction
+     - If using currency/credits, require explicit balances and checks (no default balances)
 
 contract_templates:
   - name: "Resource Definition & Extraction"
@@ -225,7 +227,7 @@ contract_templates:
                           'profit_shares': profit_shares,  # {partner_id: percentage}
                           'type': business_type,
                           'inventory': {},
-                          'revenue': 0
+                          'output_ledger': {}
                       }
                       self.businesses.append(business)
                       return len(self.businesses) - 1
@@ -259,19 +261,22 @@ contract_templates:
                                   business['inventory'][r] -= q
                               business['inventory']['products'] = \
                                   business['inventory'].get('products', 0) + 5
-                              business['revenue'] += 50  # Revenue from sales
+                              business['output_ledger']['products'] = \
+                                  business['output_ledger'].get('products', 0) + 5
 
-                      # Distribute profits
-                      for partner_id, share in business['profit_shares'].items():
-                          profit = business['revenue'] * share
-                          if hasattr(execution_engine, 'resources'):
-                              inv = execution_engine.resources.inventories
-                              if partner_id not in inv:
-                                  inv[partner_id] = {}
-                              inv[partner_id]['currency'] = \
-                                  inv[partner_id].get('currency', 0) + profit
-
-                      business['revenue'] = 0  # Reset for next round
+                      # Distribute output (conserved goods, not free currency)
+                      total_share = sum(business['profit_shares'].values()) or 0
+                      if total_share > 0 and hasattr(execution_engine, 'resources'):
+                          inv = execution_engine.resources.inventories
+                          available = business['inventory'].get('products', 0)
+                          for partner_id, share in business['profit_shares'].items():
+                              payout = available * (share / total_share)
+                              if payout <= 0:
+                                  continue
+                              partner_inv = inv.setdefault(partner_id, {})
+                              partner_inv['products'] = partner_inv.get('products', 0) + payout
+                              business['inventory']['products'] = \
+                                  business['inventory'].get('products', 0) - payout
 
               execution_engine.businesses = BusinessSystem()
 
@@ -455,12 +460,15 @@ physics_templates:
                                           price = (buy_order['price'] + sell_order['price']) / 2
 
                                           # Execute transfer
-                                          if inv_seller.get(resource_type, 0) >= trade_qty:
+                                          trade_cost = price * trade_qty
+                                          buyer_currency = inv_buyer.get('currency', 0)
+                                          if (inv_seller.get(resource_type, 0) >= trade_qty and
+                                                  buyer_currency >= trade_cost):
                                               inv_seller[resource_type] -= trade_qty
                                               inv_buyer[resource_type] = inv_buyer.get(resource_type, 0) + trade_qty
 
-                                              inv_buyer['currency'] = inv_buyer.get('currency', 100) - price * trade_qty
-                                              inv_seller['currency'] = inv_seller.get('currency', 100) + price * trade_qty
+                                              inv_buyer['currency'] = buyer_currency - trade_cost
+                                              inv_seller['currency'] = inv_seller.get('currency', 0) + trade_cost
 
                                               buy_order['filled'] += trade_qty
                                               sell_order['filled'] += trade_qty
@@ -518,6 +526,8 @@ usage_guidelines:
 
   reminders:
     - "Judge will reject unrealistic physics (free resources, no costs)"
+    - "No unilateral transfers or member-specific bonuses; use opt-in contracts"
+    - "Do not default currency balances; require explicit funding and balance checks"
     - "Contracts must be mutually beneficial to be signed"
     - "Build systems that help ALL agents, not just you"
     - "Focus on creating realistic, sustainable economics"

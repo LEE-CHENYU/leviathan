@@ -1,5 +1,7 @@
 from typing import Optional
+import ast
 import json
+import re
 import numpy as np
 from collections import Counter
 
@@ -8,6 +10,80 @@ from MetaIsland.agent_mechanism_proposal import _agent_mechanism_proposal
 from MetaIsland.analyze import _analyze
 
 class IslandExecutionPromptingMixin:
+    def _summarize_mechanism_code(self, code: str, max_chars: int = 3000) -> str:
+        """Summarize large mechanism code blocks for prompt safety."""
+        if not code or len(code) <= max_chars:
+            return code
+
+        signature = None
+        docstring = None
+        helper_names = []
+
+        try:
+            tree = ast.parse(code)
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if node.name == "propose_modification":
+                        docstring = ast.get_docstring(node) or docstring
+                    else:
+                        helper_names.append(node.name)
+                elif isinstance(node, ast.ClassDef):
+                    helper_names.append(node.name)
+            docstring = docstring or ast.get_docstring(tree)
+        except Exception:
+            tree = None
+
+        if signature is None:
+            match = re.search(
+                r"^[ \t]*(async[ \t]+)?def[ \t]+propose_modification[ \t]*\([^\n]*\):",
+                code,
+                re.MULTILINE,
+            )
+            if match:
+                signature = match.group(0).strip()
+
+        parts = []
+        if signature:
+            parts.append(signature)
+        if docstring:
+            trimmed = docstring.strip()
+            if len(trimmed) > 1200:
+                trimmed = trimmed[:1200].rstrip() + "..."
+            parts.append('"""' + trimmed + '"""')
+        if helper_names:
+            preview = ", ".join(helper_names[:15])
+            if len(helper_names) > 15:
+                preview += ", ..."
+            parts.append(f"Helpers: {preview}")
+
+        note = f"[Mechanism summary truncated from {len(code)} chars]"
+        parts_text = "\n".join(part for part in parts if part).strip()
+
+        remaining = max_chars - len(parts_text) - len(note) - 4
+        excerpt = ""
+        if remaining > 200:
+            head_len = min(800, max(120, remaining // 2))
+            tail_len = min(800, max(120, remaining // 2))
+            if head_len + tail_len > remaining:
+                head_len = max(80, remaining // 2)
+                tail_len = max(80, remaining - head_len)
+            head = code[:head_len].rstrip()
+            tail = code[-tail_len:].lstrip()
+            excerpt = "\n[code excerpt]\n" + head + "\n...\n" + tail
+
+        summary_parts = [p for p in [parts_text, excerpt, note] if p]
+        summary = "\n".join(summary_parts).strip()
+        if len(summary) > max_chars and excerpt:
+            # Trim the excerpt to preserve the truncation note at the end.
+            allowed = max_chars - len(parts_text) - len(note) - 4
+            if allowed > 0:
+                excerpt = excerpt[:allowed].rstrip()
+                summary_parts = [p for p in [parts_text, excerpt, note] if p]
+                summary = "\n".join(summary_parts).strip()
+        if len(summary) > max_chars:
+            summary = summary[: max_chars - len(note) - 2].rstrip() + "\n" + note
+        return summary
+
     def format_mechanisms_for_prompt(self, mechanisms, label: str = "Mechanism") -> str:
         """Format mechanism entries for prompt inclusion."""
         if not mechanisms:
@@ -19,7 +95,7 @@ class IslandExecutionPromptingMixin:
                 name = mech.get('name') or mech.get('title') or mech.get('type') or f"{label} {idx}"
                 lines.append(f"[{name}]")
                 if mech.get('code'):
-                    lines.append(mech['code'])
+                    lines.append(self._summarize_mechanism_code(mech['code']))
                 else:
                     lines.append(json.dumps(mech, indent=2, default=str))
             else:
@@ -46,7 +122,7 @@ class IslandExecutionPromptingMixin:
 
             code = attempt.get('code')
             if code:
-                lines.append(code)
+                lines.append(self._summarize_mechanism_code(code))
 
             error = attempt.get('error')
             if error:
@@ -606,5 +682,3 @@ class IslandExecutionPromptingMixin:
             )
 
         return round_end_metrics
-
-

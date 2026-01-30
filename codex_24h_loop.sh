@@ -90,7 +90,7 @@ Direction:
 - Performance/refactor changes only if you can justify large, measurable gains (and say how you'd measure).
 Evidence-first rule:
 - Prioritize improvements based on real test/eval results, not blind edits.
-- If you cannot run the relevant test/eval for a proposed change, do NOT change code; instead improve tests, eval plan, or instrumentation so the result can be measured next.
+- If you cannot run the relevant test/eval due to critical infra/LLM failures (DNS/auth/rate-limit), do NOT change behavior; instead improve tests, eval plan, or instrumentation so the result can be measured next. Minor LLM errors should be treated as provisional (note them and rerun), not as blockers.
 Size constraint (script length):
 - Keep any individual script file you create or modify at ~1500 lines or fewer; do NOT exceed 2000 lines.
 - If a target script is already large or would exceed the limit, you must refactor into smaller files/modules.

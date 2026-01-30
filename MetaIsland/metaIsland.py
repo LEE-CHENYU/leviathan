@@ -852,7 +852,10 @@ class IslandExecution(
         #             self.execution_history['rounds'][-1]['mechanism_modifications']['executed'].append(mod)
 
         # Execute ratified modifications
-        exec_env = {'execution_engine': self}
+        exec_env = {
+            'execution_engine': self,
+            'np': np,
+        }
 
         if not self.execution_history.get('rounds'):
             return

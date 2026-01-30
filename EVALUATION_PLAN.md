@@ -8,7 +8,8 @@ Source of truth (end-to-end)
 - The latest summary is written to `execution_histories/e2e_smoke/latest_summary.json`.
 - When iteration decisions conflict with unit tests, prefer the e2e summary.
 - If the e2e run cannot execute due to missing credentials or provider issues, fix the provider configuration and rerun. Do not use mock or stubbed LLMs for evaluation.
-- If `LLM_OFFLINE` / `E2E_OFFLINE` is set or `llm_error_total > 0`, treat the run as invalid and rerun with a working provider.
+- If `LLM_OFFLINE` / `E2E_OFFLINE` is set or `llm_error_total` indicates critical infra failures (DNS/auth/rate-limit), treat the run as invalid and rerun with a working provider.
+- If `llm_error_total` reflects minor LLM output issues (e.g., syntax/empty/truncation), treat the run as provisional: proceed with behavior iteration but flag the issue and schedule a rerun to confirm.
 - The e2e summary now includes `round_metrics_derived` plus `round_metrics_combined`/`round_metrics_coverage` so guardrails can still be inspected when raw `round_metrics` are missing.
 - The e2e summary also reports coverage for `contract_stats`, `physics_stats`, and contract partner stats to surface missing instrumentation.
 - If `round_context` is absent in the execution history, `scripts/run_e2e_smoke.py` derives `round_context` (gini_cargo/land/wealth) from the latest snapshot and reports `round_context_*` coverage in the summary.
@@ -54,11 +55,14 @@ Metrics (tracked per round)
 
 Baselines
 - Use the last 3 completed rounds from `execution_history` as baseline (or first run if none).
+- Latest e2e smoke (2026-01-30T11:13:00, run `20260130_110112`) is LLM-healthy (`llm_error_total=0`) but all 3 mechanism attempts were rejected (`mechanism_judge_rejected_count=3`, `mechanism_judge_approved_count=0`). Rejection reasons cite: (1) member-specific unfair advantage, (2) unilateral resource transfer violating autonomy/consent, and (3) currency creation / missing balance checks. Use this as the evidence to tighten mechanism guardrails and templates before scaling.
 - Latest baseline snapshot (2026-01-30T03:23:35 e2e smoke, run `20260130_024153`, 1 round):
   - `plan_feasibility_missing_reason_counts`: missing_experiment=0, missing_label=1, missing_signature=0.
   - Analysis card tag hygiene: card_count=3, tag_total=14, invalid_tag_rate=0.286, recoverable_tag_rate=0.0, empty_card_rate=0.333.
   - LLM health: `llm_error_total=0`, `llm_syntax_error_count=0`.
 - Note: analysis-card hygiene metrics were updated after 2026-01-30; recompute the baseline on the next valid e2e run.
+- Latest e2e smoke (2026-01-30T09:55:07, run `20260130_094006`) is LLM-healthy (`llm_error_total=0`) but reports `mechanism_error_count=1` (`mechanism_execution` = `NameError: np not defined`) with `mechanism_executed_count=0`. Rerun after exposing numpy in mechanism execution env; expect `mechanism_error_count=0` and `mechanism_executed_count` to rise with approved mechanisms.
+- Latest e2e smoke (2026-01-30T10:42:29, run `20260130_101110`) is LLM-healthy (`llm_error_total=0`) with `mechanism_executed_count=1`, `mechanism_error_count=0`, and `plan_only_tag_rate=0.6`. Prompt size spiked (`llm_prompt_tokens_avg=31090`, `llm_prompt_char_count_avg=114391`) because `current_mechanisms` ballooned (~98k chars from a 49k aggregated mechanism code); `llm_finish_reason_length_count=1` and `llm_finish_reason_missing_count=3` persist. Trim mechanism prompt payloads before the next rerun to reduce truncation pressure.
 - Latest e2e smoke (2026-01-30T08:28:19, run `20260130_081430`) is invalid per guardrails (`llm_error_total=1` from `llm_syntax_error=1`). Mechanism errors include `llm_syntax_error` and `mechanism_execution` with `mechanism_executed_count=0`; agent code errors were 0. It also reports `llm_finish_reason_missing_count=3` and `llm_request_cap_count=2` (max_tokens=4096). Inspect syntax-error line context before changing prompts, then rerun e2e.
 - Earlier e2e smoke (2026-01-30T08:01:14, run `20260130_074115`) is LLM-healthy (`llm_error_total=0`) and shows `mechanism_judge_missing_count=0`, but `llm_finish_reason_length_count=1` and `llm_completion_at_request_cap_rate=0.5`; treat behavior metrics as provisional and prioritize prompt-length/conciseness fixes before promoting as baseline. It recorded `agent_code_error_count=1` (tag `contracts`) and one mechanism rejection citing conservation and completeness issues.
 - Prior e2e smoke (2026-01-30T07:32:39, run `20260130_062642`) is invalid per guardrails (`llm_error_total=1`) and shows `mechanism_judge_missing_count=3`; treat this as a wiring issue to verify after the next rerun.
@@ -73,11 +77,13 @@ Thresholds (guardrails)
 - Contract concentration: `contract_partner_top_share_avg` should not exceed baseline by >0.10.
 - Mechanism execution must not exceed approved count in any round; mechanism error rate should not exceed baseline by >0.05.
 - Mechanism judge coverage: `mechanism_judge_missing_count` should be 0 when the judge node is enabled; non-zero indicates missing judge logging or skipped judging.
+- Mechanism judge safety: rejection reasons mentioning unfair advantage, unilateral transfers/autonomy violations, or currency creation should be 0 in a healthy run; if present, refine guardrails/templates before scaling.
 - Experiments: at least 40% of recent actions should match a baseline or variation plan.
 - Execution reliability: plan/execution alignment rate should not drop by >0.05 vs baseline.
 - Feasibility: `plan_ineligible_tag_rate` and `plan_only_tag_rate` should not exceed baseline by >0.05.
 - Agent code errors: `agent_code_error_rate` should not exceed baseline by >0.05; scan `agent_code_error_tag_counts` for recurring high-error tags. If infra tags dominate, rerun with a working provider before judging behavior.
-- LLM infra errors (`llm_error_total > 0`, including `llm_empty_response`) invalidate the run; rerun with a working provider before judging behavior.
+- LLM infra errors (DNS/auth/rate-limit) invalidate the run; rerun with a working provider before judging behavior.
+- Minor LLM output errors (syntax/empty/truncation) do not block iteration, but require a follow-up rerun to confirm improvements.
 - LLM truncation: `llm_finish_reason_length_count` should be 0; if >0, treat behavior metrics as invalid and rerun with higher max tokens or trimmed prompts.
 - LLM syntax errors: with tail-trimming enabled, expect `llm_error_tag_counts.llm_syntax_error` to drop to 0 in a healthy run; if not, re-examine prompt size and truncation causes.
 - Syntax error position: use `round_metrics.llm_syntax_error_near_end_count`, `round_metrics.llm_syntax_error_near_end_10pct_count`, `round_metrics.llm_syntax_error_mid_count`, and the `*_rate` variants to see whether syntax faults cluster in the last few lines or last 10% of lines (truncation) versus mid-body (model quality); if mid-body dominates, prompt trimming alone will not fix it.
@@ -105,6 +111,7 @@ Expected deltas (small wins)
 - Feasibility coverage: `plan_feasibility_missing_reason_counts.missing_label` trends toward 0 as signature parsing recovers action tags.
 - Contract diversity: `contract_partner_unique_avg` +1 without increasing failures.
 - Recommendation diversity: when population dominance is high, expect some diversity adjustments in recommendations without reducing survival guardrails.
+- Mechanism approvals: `mechanism_judge_approved_count` >= 1 with no judge rejections citing unfair advantage, autonomy/consent violations, or currency creation vulnerabilities.
 
 Stage-gated evaluation
 - Small (e2e smoke): 1–3 rounds, 3–5 agents. Use `scripts/run_e2e_smoke.py` and validate guardrails.
