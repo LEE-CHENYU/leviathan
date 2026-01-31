@@ -206,71 +206,184 @@ def _select_fallback_template(self, member_id):
     }
 
 
+def _coerce_features_payload(features):
+    if features is None:
+        return None
+    try:
+        return features.to_dict("records")
+    except Exception:
+        return features
+
+
+def _apply_agent_action_fallback(
+    self,
+    member_id,
+    error: Exception,
+    completion_metadata: dict | None = None,
+    features=None,
+    relations=None,
+    code_result: str | None = None,
+    raw_code: str | None = None,
+    reason: str | None = None,
+    error_category_override: str | None = None,
+    traceback_str: str | None = None,
+):
+    stable_id = None
+    try:
+        stable_id = self._resolve_member_stable_id(member_id)
+    except Exception:
+        stable_id = None
+
+    fallback_code, fallback_meta = _select_fallback_code(self, member_id)
+    if not fallback_code:
+        fallback_code, fallback_meta = _select_fallback_template(self, member_id)
+    if not fallback_code:
+        fallback_code = DEFAULT_FALLBACK_CODE
+        fallback_meta = {"source": "template_default"}
+    if reason:
+        fallback_meta = dict(fallback_meta or {})
+        fallback_meta["reason"] = reason
+
+    try:
+        fallback_code = self.clean_code_string(fallback_code)
+    except Exception:
+        pass
+
+    if not hasattr(self, "agent_code_by_member"):
+        self.agent_code_by_member = {}
+    self.agent_code_by_member[member_id] = fallback_code
+
+    round_record = None
+    try:
+        if self.execution_history.get("rounds"):
+            round_record = self.execution_history["rounds"][-1]
+    except Exception:
+        round_record = None
+
+    features_payload = _coerce_features_payload(features)
+    relations_payload = relations if relations is not None else {}
+    metadata_payload = completion_metadata or {}
+
+    if round_record is not None:
+        if not isinstance(round_record.get("generated_code"), dict):
+            round_record["generated_code"] = {}
+        round_record["generated_code"][member_id] = {
+            "code": fallback_code,
+            "features_at_generation": features_payload,
+            "relationships_at_generation": relations_payload,
+            "final_prompt": None,
+            "fallback": fallback_meta,
+            "llm_metadata": metadata_payload,
+        }
+        errors = round_record.setdefault("errors", {})
+        agent_errors = errors.setdefault("agent_code_errors", [])
+    else:
+        agent_errors = None
+
+    if agent_errors is not None:
+        error_category = (
+            error_category_override
+            if error_category_override
+            else classify_llm_error(error)
+        )
+        error_info = {
+            "round": len(self.execution_history.get("rounds", [])),
+            "member_id": stable_id if stable_id is not None else member_id,
+            "member_index": member_id,
+            "type": "agent_action",
+            "error": str(error),
+            "error_category": error_category,
+            "traceback": traceback_str or traceback.format_exc(),
+            "code": code_result or "",
+            "llm_metadata": metadata_payload,
+            "fallback_used": True,
+            "fallback_source": fallback_meta.get("source") if isinstance(fallback_meta, dict) else None,
+            "fallback_meta": fallback_meta,
+            "fallback_code": fallback_code,
+        }
+        error_details = describe_syntax_error(
+            error,
+            code_result or raw_code,
+        )
+        if error_details:
+            error_info["error_details"] = error_details
+        code_stats = build_code_stats(raw_code, code_result)
+        if code_stats:
+            error_info["code_stats"] = code_stats
+        agent_errors.append(error_info)
+
+    return fallback_code
+
+
 async def _agent_code_decision(self, member_id) -> None:
     """
     Asks GPT for directly executable Python code, stores it in a dictionary keyed by member_id.
     The code will define a function agent_action(execution_engine, member_id),
     which references attributes that actually exist.
     """
-    data = self.prepare_agent_data(member_id, error_context_type="agent_action")
-    member = data['member']
-    relations = data['relations']
-    features = data['features']
-    code_memory = data['code_memory']
-    analysis_memory = data['analysis_memory']
-    past_performance = data['past_performance']
-    error_context = data['error_context']
-    message_context = data['message_context']
-    communication_summary = data['communication_summary']
-    contextual_strategy_summary = data.get(
-        'contextual_strategy_summary',
-        'No contextual strategy data.'
-    )
-    population_state_summary = data.get(
-        'population_state_summary',
-        'No population state summary available.'
-    )
-    contract_summary = data.get(
-        'contract_summary',
-        'Contract activity: unavailable.'
-    )
-    analysis_card_summary = data.get(
-        'analysis_card_summary',
-        'No analysis cards available.'
-    )
-    experiment_summary = data.get(
-        'experiment_summary',
-        'No experiment outcomes available.'
-    )
-    strategy_profile = data.get('strategy_profile', 'No strategy profile available.')
-    population_strategy_profile = data.get(
-        'population_strategy_profile',
-        'No population strategy data.'
-    )
-    population_exploration_summary = data.get(
-        'population_exploration_summary',
-        'No population exploration data.'
-    )
-    strategy_recommendations = data.get(
-        'strategy_recommendations',
-        'No strategy recommendations available.'
-    )
-
-    current_mechanisms = data['current_mechanisms']
-    report = data['report']
-
     base_code = self.base_class_code
     code_result = ""
     raw_code = None
     completion_metadata = {}
-    report_text = report if report else "No analysis available"
+    features = None
+    relations = None
+    member = None
+    report_text = "No analysis available"
 
     try:
+        data = self.prepare_agent_data(member_id, error_context_type="agent_action")
+        member = data['member']
+        relations = data['relations']
+        features = data['features']
+        code_memory = data['code_memory']
+        analysis_memory = data['analysis_memory']
+        past_performance = data['past_performance']
+        error_context = data['error_context']
+        message_context = data['message_context']
+        communication_summary = data['communication_summary']
+        contextual_strategy_summary = data.get(
+            'contextual_strategy_summary',
+            'No contextual strategy data.'
+        )
+        population_state_summary = data.get(
+            'population_state_summary',
+            'No population state summary available.'
+        )
+        contract_summary = data.get(
+            'contract_summary',
+            'Contract activity: unavailable.'
+        )
+        analysis_card_summary = data.get(
+            'analysis_card_summary',
+            'No analysis cards available.'
+        )
+        experiment_summary = data.get(
+            'experiment_summary',
+            'No experiment outcomes available.'
+        )
+        strategy_profile = data.get('strategy_profile', 'No strategy profile available.')
+        population_strategy_profile = data.get(
+            'population_strategy_profile',
+            'No population strategy data.'
+        )
+        population_exploration_summary = data.get(
+            'population_exploration_summary',
+            'No population exploration data.'
+        )
+        strategy_recommendations = data.get(
+            'strategy_recommendations',
+            'No strategy recommendations available.'
+        )
+
+        current_mechanisms = data['current_mechanisms']
+        report = data['report']
+        report_text = report if report else "No analysis available"
+
         loader = get_prompt_loader()
         current_mechanisms_text = self.format_mechanisms_for_prompt(current_mechanisms)
 
         prompt = loader.build_action_prompt(
-            member_id=member.id,
+            member_id=member.id if member is not None else member_id,
             island_ideology=self.island_ideology,
             error_context=error_context,
             current_mechanisms=current_mechanisms_text,
@@ -348,7 +461,7 @@ async def _agent_code_decision(self, member_id) -> None:
 
         # Log the generated code
         round_num = len(self.execution_history['rounds'])
-        if round_num not in self.execution_history['rounds'][-1]['generated_code']:
+        if not isinstance(self.execution_history['rounds'][-1].get('generated_code'), dict):
             self.execution_history['rounds'][-1]['generated_code'] = {}
 
         self.execution_history['rounds'][-1]['generated_code'][member_id] = {
@@ -368,72 +481,16 @@ async def _agent_code_decision(self, member_id) -> None:
         return code_result
 
     except Exception as e:
-        stable_id = None
-        try:
-            stable_id = self._resolve_member_stable_id(member_id)
-        except Exception:
-            stable_id = None
-        fallback_code, fallback_meta = _select_fallback_code(self, member_id)
-        if not fallback_code:
-            fallback_code, fallback_meta = _select_fallback_template(self, member_id)
-        if not fallback_code:
-            fallback_code = DEFAULT_FALLBACK_CODE
-            fallback_meta = {"source": "template_default"}
-        try:
-            fallback_code = self.clean_code_string(fallback_code)
-        except Exception:
-            pass
-
-        if not hasattr(self, 'agent_code_by_member'):
-            self.agent_code_by_member = {}
-        self.agent_code_by_member[member_id] = fallback_code
-
-        try:
-            features_payload = features.to_dict('records')
-        except Exception:
-            features_payload = features
-
-        round_record = self.execution_history['rounds'][-1]
-        if not isinstance(round_record.get('generated_code'), dict):
-            round_record['generated_code'] = {}
-        round_record['generated_code'][member_id] = {
-            'code': fallback_code,
-            'features_at_generation': features_payload,
-            'relationships_at_generation': relations,
-            'final_prompt': None,
-            'fallback': fallback_meta,
-            'llm_metadata': completion_metadata,
-        }
-
-        error_info = {
-            'round': len(self.execution_history['rounds']),
-            'member_id': stable_id if stable_id is not None else member_id,
-            'member_index': member_id,
-            'type': 'agent_action',
-            'error': str(e),
-            'error_category': classify_llm_error(e),
-            'traceback': traceback.format_exc(),
-            'code': code_result,
-            'llm_metadata': completion_metadata,
-            'fallback_used': True,
-            'fallback_source': fallback_meta.get('source'),
-            'fallback_meta': fallback_meta,
-            'fallback_code': fallback_code
-        }
-        raw_code_for_error = locals().get("raw_code")
-        code_result_for_error = locals().get("code_result")
-        error_details = describe_syntax_error(
+        fallback_code = _apply_agent_action_fallback(
+            self,
+            member_id,
             e,
-            code_result_for_error or raw_code_for_error,
+            completion_metadata=completion_metadata,
+            features=features,
+            relations=relations,
+            code_result=code_result,
+            raw_code=raw_code,
+            reason="agent_decision_exception",
+            traceback_str=traceback.format_exc(),
         )
-        if error_details:
-            error_info['error_details'] = error_details
-        code_stats = build_code_stats(raw_code, code_result)
-        if code_stats:
-            error_info['code_stats'] = code_stats
-        self.execution_history['rounds'][-1]['errors']['agent_code_errors'].append(error_info)
-        print(f"Error generating code for member {member_id}:")
-        print(traceback.format_exc())
-        print(f"Using fallback code for member {member_id}: {fallback_meta.get('source')}")
-        self._logger.error(f"GPT Code Generation Error (member {member_id}): {e}")
         return fallback_code

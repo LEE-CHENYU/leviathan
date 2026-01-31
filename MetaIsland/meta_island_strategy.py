@@ -9,6 +9,32 @@ from collections import Counter
 class StrategyMemory(dict):
     """Dict-backed strategy memory that supports list-style append."""
 
+    _DEFAULTS = {
+        "offers_made": 0,
+        "attacks_received_this_round": 0,
+        "baseline_rounds": 0,
+        "variation_rounds": 0,
+        "non_aggression_proposed": False,
+        "last_offer_target": None,
+    }
+
+    def __missing__(self, key):
+        if isinstance(key, str):
+            if key in self._DEFAULTS:
+                value = self._DEFAULTS[key]
+            elif "notes" in key.lower():
+                value = []
+            elif key.lower().startswith("is_") or key.lower().endswith(("_flag", "_done", "_proposed")):
+                value = False
+            elif key.lower().endswith(("_target", "_id")):
+                value = None
+            else:
+                value = 0
+        else:
+            value = 0
+        self[key] = value
+        return value
+
     def append(self, item) -> None:
         notes = self.get("notes")
         if not isinstance(notes, list):
@@ -20,7 +46,7 @@ class StrategyMemory(dict):
 
 
 class IslandExecutionStrategyMixin:
-    def parse_relationship_matrix(self, relationship_dict):
+    def parse_relationship_matrix(self, relationship_dict=None):
         """
         Parse and return a human-readable summary of the relationship matrices.
         
@@ -28,19 +54,42 @@ class IslandExecutionStrategyMixin:
                                  each containing a NxN numpy array of relationships.
         :return: A list of strings describing the relationships.
         """
+        if relationship_dict is None:
+            relationship_dict = getattr(self, "relationship_dict", None)
+        if not relationship_dict or not hasattr(relationship_dict, "items"):
+            return []
+
         summary = []
         rel_map = {
             'victim':      "member_{i} was attacked by member_{j}",
             'benefit':     "member_{i} gave a benefit to member_{j}",
             'benefit_land':"member_{i} gave land to member_{j}"
         }
-        
+        member_count = None
+        if hasattr(self, "current_members") and self.current_members is not None:
+            try:
+                member_count = len(self.current_members)
+            except TypeError:
+                member_count = None
+        if not member_count:
+            return []
+
         for relation_type, matrix in relationship_dict.items():
             if relation_type not in rel_map:
                 continue
-            
-            for i in range(matrix.shape[0]):
-                for j in range(matrix.shape[1]):
+            if matrix is None:
+                continue
+            shape = getattr(matrix, "shape", None)
+            if not shape or len(shape) < 2:
+                continue
+            max_i = shape[0]
+            max_j = shape[1]
+            if member_count is not None:
+                max_i = min(max_i, member_count)
+                max_j = min(max_j, member_count)
+
+            for i in range(max_i):
+                for j in range(max_j):
                     val = matrix[i, j]
                     # Filter out invalid or zero entries
                     if not np.isnan(val) and val != 0:
@@ -1080,5 +1129,3 @@ class IslandExecutionStrategyMixin:
                     self.messages.pop(member_key, None)
             self._message_snapshot_round.pop(member_key, None)
             self._message_snapshot_len.pop(member_key, None)
-
-

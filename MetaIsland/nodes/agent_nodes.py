@@ -2,7 +2,9 @@
 Agent-related execution nodes.
 """
 import asyncio
+import traceback
 from MetaIsland.graph_engine import ExecutionNode
+from MetaIsland.agent_code_decision import _apply_agent_action_fallback
 
 
 class AnalyzeNode(ExecutionNode):
@@ -65,13 +67,41 @@ class AgentDecisionNode(ExecutionNode):
 
         print("\n[Decide] All agents making decisions...")
         tasks = []
+        member_ids = []
         for member_id in range(len(execution.current_members)):
             tasks.append(execution.agent_code_decision(member_id))
+            member_ids.append(member_id)
 
         decisions = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Count valid decisions
         valid_decisions = [d for d in decisions if d is not None and not isinstance(d, Exception)]
+
+        # Ensure every member has a decision; fill gaps with fallback templates
+        code_map = {}
+        try:
+            code_map = execution.agent_code_by_member or {}
+        except Exception:
+            code_map = {}
+        missing_members = [
+            member_id
+            for member_id in member_ids
+            if not code_map.get(member_id)
+        ]
+        if missing_members:
+            for member_id in missing_members:
+                err = RuntimeError("agent_decision_missing")
+                _apply_agent_action_fallback(
+                    execution,
+                    member_id,
+                    err,
+                    reason="agent_decision_missing",
+                    error_category_override="agent_decision_missing",
+                    traceback_str="".join(
+                        traceback.format_exception(err.__class__, err, err.__traceback__)
+                    ),
+                )
+            print(f"[Decide] Filled {len(missing_members)} missing decisions with fallback code")
 
         print(f"[Decide] Complete: {len(valid_decisions)} decisions made")
 

@@ -1,4 +1,5 @@
 from typing import List, Tuple, Optional
+import math
 import numpy as np
 import json
 from datetime import datetime
@@ -36,6 +37,26 @@ from MetaIsland.model_router import model_router
 from MetaIsland.llm_utils import ensure_non_empty_response
 
 provider, model_id = model_router("default")
+
+try:
+    import pandas as pd
+except Exception:
+    pd = None
+
+def _build_pandas_shim():
+    if pd is not None:
+        return pd
+    class _PandasShim:
+        @staticmethod
+        def isna(value):
+            if value is None:
+                return True
+            if isinstance(value, float) and math.isnan(value):
+                return True
+            return value != value
+    return _PandasShim()
+
+PANDAS_SHIM = _build_pandas_shim()
 
 
 class IslandExecution(
@@ -226,6 +247,7 @@ class IslandExecution(
         if not hasattr(self, 'agent_code_by_member'):
             self._logger.warning("No agent code to execute.")
             return
+        self._ensure_resource_aliases()
 
         round_num = len(self.execution_history['rounds'])
         round_start_snapshot = self._collect_member_snapshot()
@@ -280,6 +302,8 @@ class IslandExecution(
                     'execution_engine': self,
                     'send_message': tracked_send_message,
                     'np': np,
+                    'math': math,
+                    'pd': PANDAS_SHIM,
                 }
 
                 # Execute the code in a way that makes the function accessible
@@ -826,7 +850,96 @@ class IslandExecution(
     #             })
         
     #     self.voting_box = {}
-                    
+                   
+    def _ensure_market_place_order_compat(self) -> None:
+        """Allow market.place_order to accept common keyword aliases."""
+        market = getattr(self, "market", None)
+        if market is None:
+            return
+        place_order = getattr(market, "place_order", None)
+        if not callable(place_order):
+            return
+        wrapped_flag = getattr(getattr(place_order, "__func__", place_order), "_compat_wrapped", False)
+        if wrapped_flag:
+            return
+
+        original = place_order
+        try:
+            signature = inspect.signature(original)
+        except (TypeError, ValueError):
+            signature = None
+
+        param_names = []
+        accepts_kwargs = False
+        if signature is not None:
+            params = list(signature.parameters.values())
+            if params and params[0].name == "self":
+                params = params[1:]
+            param_names = [
+                param.name
+                for param in params
+                if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+            ]
+            accepts_kwargs = any(param.kind == param.VAR_KEYWORD for param in params)
+
+        alias_map = {
+            "member_id": ("member_id", "member", "member_index", "id"),
+            "resource_type": ("resource_type", "resource", "item", "product"),
+            "order_type": ("order_type", "order", "side", "action"),
+            "price": ("price", "unit_price", "rate"),
+            "quantity": ("quantity", "qty", "amount", "size"),
+        }
+
+        def _wrap_place_order(*args, **kwargs):
+            if not kwargs:
+                return original(*args)
+            mapped = dict(kwargs)
+            if param_names:
+                if "resource" in param_names and "resource" not in mapped and "resource_type" in mapped:
+                    mapped["resource"] = mapped.pop("resource_type")
+                if "order" in param_names and "order" not in mapped and "order_type" in mapped:
+                    mapped["order"] = mapped.pop("order_type")
+                if "side" in param_names and "side" not in mapped and "order_type" in mapped:
+                    mapped["side"] = mapped.pop("order_type")
+                if "qty" in param_names and "qty" not in mapped and "quantity" in mapped:
+                    mapped["qty"] = mapped.pop("quantity")
+            for canonical, aliases in alias_map.items():
+                if param_names and canonical not in param_names:
+                    continue
+                if canonical in mapped:
+                    continue
+                for alias in aliases:
+                    if alias in mapped:
+                        mapped[canonical] = mapped.pop(alias)
+                        break
+            if accepts_kwargs or not param_names:
+                return original(*args, **mapped)
+            if args:
+                try:
+                    return original(*args, **mapped)
+                except TypeError:
+                    pass
+            if len(args) > len(param_names):
+                return original(*args, **kwargs)
+            positional = list(args)
+            for name in param_names[len(positional):]:
+                if name in mapped:
+                    positional.append(mapped.pop(name))
+                else:
+                    return original(*args, **kwargs)
+            return original(*positional)
+
+        _wrap_place_order._compat_wrapped = True
+        market.place_order = _wrap_place_order
+
+    def _ensure_resource_aliases(self) -> None:
+        """Alias cooperative resources to the default resources handle when present."""
+        if hasattr(self, "resources"):
+            return
+        coop = getattr(self, "cooperative_resources", None)
+        if coop is not None:
+            self.resources = coop
+
     def execute_mechanism_modifications(self, approved: Optional[List[dict]] = None):
         """Execute ratified modifications (optionally restricted to approved proposals)."""
         current_round = len(self.execution_history['rounds'])
@@ -858,6 +971,7 @@ class IslandExecution(
         }
 
         if not self.execution_history.get('rounds'):
+            self._ensure_market_place_order_compat()
             return
 
         if approved is not None:
@@ -884,6 +998,7 @@ class IslandExecution(
 
         if not mods:
             print("\n[Mechanisms] No mechanism modifications to execute")
+            self._ensure_market_place_order_compat()
             return
 
         mod = None
@@ -1008,6 +1123,7 @@ class IslandExecution(
             print(f"Error executing code for member {member_id}:")
             print(traceback.format_exc())
             self._logger.error(f"Error executing code for member {member_id}: {e}")
+        self._ensure_market_place_order_compat()
 
     def save_generated_code(self, code: str, member_id: int, code_type: str) -> None:
         """

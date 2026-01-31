@@ -46,6 +46,8 @@ cat >> "$LOG" <<EOF
 root: $ROOT
 sleep: ${SLEEP_SECONDS}s
 duration: ${DURATION_SECONDS}s
+loop control: /Users/lichenyu/.codex/skills/clawbot-loop-control/scripts/loopctl.sh <loop> <action>
+loop control examples: loopctl.sh codex status | loopctl.sh codex restart | loopctl.sh arxiv papers
 EOF
 
 iter=0

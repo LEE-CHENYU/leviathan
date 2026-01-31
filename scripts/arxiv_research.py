@@ -290,6 +290,12 @@ def run_once(
 
     state = load_state()
     seen = set(state.get("seen", []))
+    stored_papers = state.get("papers") or []
+    paper_index = {
+        p.get("arxiv_id"): p
+        for p in stored_papers
+        if isinstance(p, dict) and p.get("arxiv_id")
+    }
 
     results = list(client.results(search))
     ranked: List[Tuple[arxiv.Result, float]] = []
@@ -314,6 +320,7 @@ def run_once(
         model_id = summary_model
 
     summary_items: List[Tuple[Dict[str, Any], float]] = []
+    now_iso = dt.datetime.now(dt.timezone.utc).isoformat()
     for result, score in picks:
         arxiv_id = result.get_short_id()
         if arxiv_id in seen:
@@ -349,11 +356,26 @@ def run_once(
         write_summary_md(output_dir, paper, summary, score)
         summary_items.append((paper, score))
         seen.add(arxiv_id)
+        paper_index[arxiv_id] = {
+            **paper,
+            "score": score,
+            "summarized_at": now_iso,
+        }
 
     if summary_items:
         update_latest_md(output_dir, summary_items)
 
+    state_max_papers = int(config.get("state_max_papers") or 500)
+    papers_list = list(paper_index.values())
+    papers_list.sort(
+        key=lambda item: item.get("summarized_at") or item.get("published") or "",
+        reverse=True,
+    )
+    if state_max_papers > 0:
+        papers_list = papers_list[:state_max_papers]
+
     state["seen"] = sorted(seen)
+    state["papers"] = papers_list
     state["last_run_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     save_state(state)
 

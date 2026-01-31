@@ -14,6 +14,8 @@ introduction: |
   - If you construct custom action dicts in contracts, pass them through
     execution_engine.physics.apply_constraints(...) before applying state changes.
   - When writing to inventories, use setdefault() to avoid missing-key errors.
+  - When using member.strategy_memory, initialize defaults or use get/setdefault.
+  - Resource systems may expose extract() or extract_from_land(); check before calling.
 
 action_templates:
   - name: "Propose Trade Contract"
@@ -314,18 +316,47 @@ action_templates:
                   # Optional physics gating
                   allowed_yield = None
                   if hasattr(execution_engine, 'physics'):
+                      base_yield = 1.0
+                      if hasattr(resources, 'resource_types'):
+                          base_yield = resources.resource_types.get('food', {}).get('base_yield', 1.0)
                       action = {
                           'type': 'extract',
                           'resource': 'food',
                           'member_id': member_id,
-                          'yield': resources.resource_types.get('food', {}).get('base_yield', 1.0)
+                          'yield': base_yield
                       }
                       action = execution_engine.physics.apply_constraints(action, execution_engine)
                       allowed_yield = action.get('yield')
                       if allowed_yield is not None and allowed_yield <= 0:
                           return
 
-                  extracted = resources.extract(member_id, None, 'food')
+                  pre_vitality = member.vitality
+                  extracted = 0
+                  if hasattr(resources, 'extract'):
+                      extracted = resources.extract(member_id, None, 'food')
+                  elif hasattr(resources, 'extract_from_land'):
+                      land_location = None
+                      if hasattr(member, 'owned_land') and member.owned_land:
+                          try:
+                              land_location = next(iter(member.owned_land))
+                          except TypeError:
+                              land_location = list(member.owned_land)[0] if member.owned_land else None
+                      if land_location is None:
+                          return
+                      result = resources.extract_from_land(member, land_location, 'food', quantity=1)
+                      if isinstance(result, dict):
+                          extracted = (result.get('quantity') or
+                                       result.get('yield') or
+                                       result.get('quantity_extracted') or 0)
+                      else:
+                          extracted = result
+                  else:
+                      return
+
+                  try:
+                      extracted = float(extracted)
+                  except (TypeError, ValueError):
+                      extracted = 0
 
                   # Adjust inventory to respect physics-limited yield if provided
                   if allowed_yield is not None and extracted > allowed_yield:
@@ -335,10 +366,11 @@ action_templates:
 
                   print(f"Extracted {extracted} food")
 
-                  # Pay vitality cost if defined
-                  resource_def = resources.resource_types.get('food', {})
-                  vitality_cost = resource_def.get('extraction_cost_vitality', 0)
-                  member.vitality -= vitality_cost
+                  # Pay vitality cost only if extraction did not already apply it
+                  resource_def = resources.resource_types.get('food', {}) if hasattr(resources, 'resource_types') else {}
+                  vitality_cost = resource_def.get('extraction_cost_vitality', resource_def.get('extraction_cost', 0))
+                  if vitality_cost and extracted > 0 and member.vitality == pre_vitality:
+                      member.vitality = max(0, member.vitality - vitality_cost)
 
   - name: "Place Market Orders"
     description: "Use market to buy/sell"

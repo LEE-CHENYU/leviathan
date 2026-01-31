@@ -105,6 +105,7 @@ strategy_diversity: |
   - Treat each round as a lightweight experiment: keep one safe baseline and one bounded-risk variation.
   - Use code-memory outcome deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance) to keep, refine, or retire tactics.
   - If population convergence is high, bias toward underused tags or mixed-signature tactics to preserve diversity.
+  - If severe round-end losses coincide with convergence, keep a baseline-adjacent variation (high overlap, low risk) to preserve diversity while recovering.
   - When using contracts or shared mechanisms, diversify partners and terms to avoid lock-in.
   - Avoid strategies that require everyone to behave the same; prefer robustness to heterogeneous opponents.
   - Preserve agent-level diversity; do not copy other agents' strategies verbatim.
@@ -155,10 +156,21 @@ mechanism_design_guardrails: |
   - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
   - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
   - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
+  - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources.
+  - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately.
+  - Do not directly increase member.vitality/cargo/land in mechanisms or contracts; use existing actions or conserved transfers with explicit debits.
   - Any production or payout must show explicit input costs (vitality, consumed inputs, or finite pool draw); if you cannot enforce costs, omit the feature.
+  - If converting cargo/vitality/land into multiple resource types, keep total outputs <= the debited input (no amplification by splitting).
+  - If you use quality/multiplier factors > 1.0, pair them with explicit costs or caps so total resources remain conserved.
+  - Do not convert cargo/vitality/land into inventory without subtracting from the source; if you introduce conversion, check balances and debit the source in the same function.
+  - Avoid seeding inventories from aggregate stats (cargo, survival) unless the source is explicitly debited and conserved.
+  - Do not create shadow inventories that diverge from member.cargo or a finite pool; use a single source of truth and debit it in the same function that credits inventory.
+  - Any trade, fee, or contract transfer must verify balances in the source of truth before updating; never match orders purely between caches.
+  - When returning IDs or indices for new contracts/registries, insert into the list/dict first and return the actual key (never `len(list) - 1` before append).
   - Avoid self-dealing or member-specific bonuses; do not hard-code member IDs. If incentives differ, define symmetric eligibility rules and compensating tradeoffs.
   - If introducing currency/credits, define a conservation-respecting source and sink, and require balance checks before any transfer (no default balances).
   - Avoid mint/credit-creation helpers unless strictly coupled to resource burns and total supply accounting.
+  - If you introduce a resource system under a custom name (e.g., cooperative_resources), also assign it to execution_engine.resources for compatibility.
   - Before returning code, scan for undefined names or mismatched identifiers (e.g., contract_id vs share_id).
   - Only reference imports/objects you define or check with hasattr.
 
@@ -193,7 +205,9 @@ error_prevention: |
   [Error Prevention]
   - Use try-except when accessing new features
   - Check attribute existence before use
+  - Avoid pandas or other modules unless you explicitly import them; for NaN checks use value != value or import math and call math.isnan
   - When writing to inventory-like dicts, initialize with setdefault() before indexing
+  - When using member.strategy_memory, initialize or use get/setdefault to avoid missing-key errors
   - Maintain backward compatibility
   - Use version checks for existing systems:
 

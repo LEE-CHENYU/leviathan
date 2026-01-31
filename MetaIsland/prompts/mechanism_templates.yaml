@@ -17,9 +17,18 @@ introduction: |
      - Your code will be validated for realism
      - No free resources or exploits allowed
      - Must follow conservation laws
+     - If you create a resource system under a custom name, also set execution_engine.resources for compatibility
+     - Never seed inventories from cargo/vitality/land without deducting the source
+     - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources
+     - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately
+     - Use a single source of truth (member.cargo or a finite pool); do not let inventory caches diverge
+     - Verify balances in the source of truth before any transfer/trade/fee
+     - If converting cargo/vitality/land into multiple resources, total outputs must not exceed the debited input
+     - If using multipliers > 1.0, pair them with explicit costs or caps to preserve conservation
      - When writing to inventories, use setdefault() before indexing
      - Inter-agent transfers must be opt-in; no unilateral extraction
      - If using currency/credits, require explicit balances and checks (no default balances)
+     - When returning IDs or indices, insert into the list/dict first and return the actual key
 
 contract_templates:
   - name: "Resource Definition & Extraction"
@@ -33,10 +42,12 @@ contract_templates:
                   def __init__(self, execution_engine):
                       self.execution_engine = execution_engine
                       self.resource_types = {}
-                      self.inventories = {}  # {member_id: {resource: quantity}}
+                      self.inventories = {}  # {member_id: {resource: quantity}} backed by resource_pools
+                      self.resource_pools = {}  # {resource: remaining}
 
-                  def define_resource(self, name, extraction_params):
+                  def define_resource(self, name, extraction_params, initial_pool=0.0):
                       self.resource_types[name] = extraction_params
+                      self.resource_pools[name] = float(initial_pool)
 
                   def extract(self, member_id, land_location, resource_type, execution_engine=None):
                       if resource_type not in self.resource_types:
@@ -59,9 +70,15 @@ contract_templates:
                               return 0
                           member.vitality = max(0.0, member.vitality - extraction_cost)
 
-                      extracted = base_yield * land_quality
+                      pool = self.resource_pools.get(resource_type, 0.0)
+                      if pool <= 0:
+                          return 0
+
+                      extracted = min(pool, base_yield * land_quality)
                       if extracted <= 0:
                           return 0
+
+                      self.resource_pools[resource_type] = max(0.0, pool - extracted)
 
                       # Update inventory
                       inv = self.inventories.setdefault(member_id, {})
@@ -76,13 +93,13 @@ contract_templates:
                   'base_yield': 5.0,
                   'land_quality_factor': 1.0,
                   'extraction_cost_vitality': 2.0
-              })
+              }, initial_pool=200.0)
 
               execution_engine.resources.define_resource('materials', {
                   'base_yield': 3.0,
                   'land_quality_factor': 0.8,
                   'extraction_cost_vitality': 3.0
-              })
+              }, initial_pool=120.0)
 
   - name: "Simple Trade Contract"
     description: "Create a contract template for resource trading"
@@ -519,7 +536,7 @@ usage_guidelines:
       items:
         - "Define what resources exist in your domain"
         - "Specify extraction costs and yields"
-        - "Set up inventories"
+        - "Set up inventories backed by finite pools or cargo"
 
     - title: "ADD PHYSICS CONSTRAINTS"
       items:
@@ -544,6 +561,12 @@ usage_guidelines:
     - "No unilateral transfers or member-specific bonuses; use opt-in contracts"
     - "Do not default currency balances; require explicit funding and balance checks"
     - "Avoid minting credits/currency unless strictly tied to resource burn and conserved supply"
+    - "Do not directly increase member.vitality/cargo/land; use conserved transfers or explicit debits"
+    - "Defense/support contracts should trigger existing actions or transfers, not free vitality boosts"
+    - "Do not convert cargo/vitality/land into inventory without subtracting from the source"
+    - "Avoid shadow inventories; always debit the source of truth when crediting inventory"
+    - "If splitting inputs into multiple resources, keep total outputs <= inputs (no amplification)"
+    - "Cap or cost any multipliers > 1.0 so totals remain conserved"
     - "Contracts must be mutually beneficial to be signed"
     - "Build systems that help ALL agents, not just you"
     - "Focus on creating realistic, sustainable economics"
