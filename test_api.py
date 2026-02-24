@@ -412,3 +412,68 @@ class TestAuthEnabled:
         )
         assert resp.status_code == 200
         assert resp.json()["protected"] is True
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — Agent registry tests
+# ──────────────────────────────────────────────
+
+from api.registry import AgentRecord, AgentRegistry
+
+
+class TestAgentRegistry:
+    def test_register_agent(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        registry = AgentRegistry()
+        record = registry.register("TestBot", "A test agent", kernel)
+        assert isinstance(record, AgentRecord)
+        assert record.name == "TestBot"
+        assert record.api_key.startswith("lev_")
+        assert record.member_id in [m.id for m in kernel._execution.current_members]
+
+    def test_register_assigns_different_members(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        registry = AgentRegistry()
+        r1 = registry.register("Bot1", "", kernel)
+        r2 = registry.register("Bot2", "", kernel)
+        assert r1.member_id != r2.member_id
+        assert r1.api_key != r2.api_key
+        assert r1.agent_id != r2.agent_id
+
+    def test_register_too_many_returns_none(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=2, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        registry = AgentRegistry()
+        registry.register("Bot1", "", kernel)
+        registry.register("Bot2", "", kernel)
+        result = registry.register("Bot3", "", kernel)
+        assert result is None
+
+    def test_get_by_api_key(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        registry = AgentRegistry()
+        record = registry.register("TestBot", "", kernel)
+        found = registry.get_by_api_key(record.api_key)
+        assert found is not None
+        assert found.agent_id == record.agent_id
+
+    def test_get_by_api_key_missing(self):
+        registry = AgentRegistry()
+        assert registry.get_by_api_key("lev_nonexistent") is None
+
+    def test_get_by_agent_id(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        registry = AgentRegistry()
+        record = registry.register("TestBot", "", kernel)
+        found = registry.get_by_agent_id(record.agent_id)
+        assert found is not None
+        assert found.name == "TestBot"
