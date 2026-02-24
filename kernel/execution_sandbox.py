@@ -136,7 +136,10 @@ class InProcessSandbox:
         # Call the entry-point if an engine is provided
         if context.execution_engine is not None:
             try:
-                fn(context.execution_engine)
+                if entry_point == "agent_action":
+                    fn(context.execution_engine, context.member_index)
+                else:
+                    fn(context.execution_engine)
             except Exception as call_err:
                 return SandboxResult(
                     success=False,

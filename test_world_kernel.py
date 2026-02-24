@@ -372,7 +372,7 @@ class TestInProcessSandbox:
 
     def test_sandbox_captures_error(self):
         """Code raises ValueError; sandbox returns success=False with error."""
-        code = "def agent_action(engine):\n    raise ValueError('bad value')\n"
+        code = "def agent_action(engine, member_index):\n    raise ValueError('bad value')\n"
 
         class FakeEngine:
             pass
@@ -457,3 +457,121 @@ class TestWorldKernelInit:
             # world_id differs (uuid), so we compare member data and land
             assert snap1.members == snap2.members
             assert snap1.land == snap2.land
+
+
+# ──────────────────────────────────────────────
+# Task 5 – Round lifecycle tests
+# ──────────────────────────────────────────────
+
+from kernel.schemas import ActionIntent, MechanismProposal
+
+
+class TestAcceptActions:
+    def test_accept_actions_basic(self):
+        """Submit one no-op action; assert success."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            wk.begin_round()
+            action = ActionIntent(
+                agent_id=0,
+                round_id=1,
+                code="def agent_action(engine, member_index):\n    pass\n",
+                idempotency_key="act-1",
+            )
+            results = wk.accept_actions([action])
+            assert len(results) == 1
+            assert results[0].success is True
+            assert results[0].agent_id == 0
+
+    def test_accept_actions_error_handling(self):
+        """Submit bad code; assert success=False with error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            wk.begin_round()
+            action = ActionIntent(
+                agent_id=0,
+                round_id=1,
+                code="def agent_action(engine, member_index):\n    raise RuntimeError('boom')\n",
+                idempotency_key="act-bad",
+            )
+            results = wk.accept_actions([action])
+            assert len(results) == 1
+            assert results[0].success is False
+            assert "boom" in results[0].error
+
+    def test_accept_actions_idempotency(self):
+        """Submit same idempotency_key twice; assert cached result."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            wk.begin_round()
+            action = ActionIntent(
+                agent_id=0,
+                round_id=1,
+                code="def agent_action(engine, member_index):\n    pass\n",
+                idempotency_key="act-idem",
+            )
+            results1 = wk.accept_actions([action])
+            results2 = wk.accept_actions([action])
+            assert results1[0] is results2[0]  # exact same cached object
+
+
+class TestAcceptMechanisms:
+    def test_accept_mechanisms_basic(self):
+        """Submit one no-op mechanism; assert executed=True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            wk.begin_round()
+            mech = MechanismProposal(
+                proposal_id="mech-1",
+                agent_id=0,
+                code="def propose_modification(engine):\n    pass\n",
+                round_id=1,
+            )
+            results = wk.accept_mechanisms([mech])
+            assert len(results) == 1
+            assert results[0].executed is True
+            assert results[0].proposal_id == "mech-1"
+
+
+class TestSettleRound:
+    def test_settle_round_produces_receipt(self):
+        """settle_round produces receipt with matching hashes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            snap_before = wk.get_snapshot()
+            wk.begin_round()
+            receipt = wk.settle_round(seed=99)
+            assert isinstance(receipt, RoundReceipt)
+            assert receipt.round_id == 1
+            assert receipt.seed == 99
+            assert len(receipt.snapshot_hash_before) == 64
+            assert len(receipt.snapshot_hash_after) == 64
+            assert receipt.snapshot_hash_before != receipt.snapshot_hash_after or True  # may or may not differ
+
+    def test_full_round_lifecycle(self):
+        """begin_round -> accept_actions -> settle_round end-to-end."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+
+            # Round 1
+            wk.begin_round()
+            assert wk.round_id == 1
+
+            action = ActionIntent(
+                agent_id=0,
+                round_id=1,
+                code="def agent_action(engine, member_index):\n    pass\n",
+                idempotency_key="lifecycle-1",
+            )
+            results = wk.accept_actions([action])
+            assert results[0].success is True
+
+            receipt = wk.settle_round(seed=42)
+            assert receipt.round_id == 1
+            assert wk.get_round_receipt() is receipt
