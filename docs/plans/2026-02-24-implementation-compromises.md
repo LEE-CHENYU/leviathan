@@ -79,12 +79,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** Kernel isn't truly "no filesystem side effects" as the docstring claims. IslandExecution writes to disk.
 - **When to fix:** When refactoring IslandExecution to support in-memory mode, or when the kernel fully encapsulates storage.
 
-### K11. No integration test comparing WorldKernel vs direct IslandExecution
+### ~~K11. No integration test comparing WorldKernel vs direct IslandExecution~~ RESOLVED
 
-- **Design says (Testing Strategy item 3):** "Run full round via WorldKernel facade, run same round via direct IslandExecution, assert member states match."
-- **What we built:** Golden determinism tests compare two WorldKernel runs, but don't compare WorldKernel output against direct IslandExecution output.
-- **Risk:** Facade could silently diverge from the real engine in edge cases.
-- **When to fix:** Before Phase 2. Add a test that runs the same seed/actions through both paths and asserts identical member states.
+- **Resolved:** 2026-02-24. Added `TestKernelIslandEquivalence` with 3 tests: initial state equivalence, produce/consume equivalence, and multi-round (3 rounds) equivalence. All compare WorldKernel snapshot members against direct IslandExecution members field-by-field with pytest.approx for floats.
 
 ### K12. messages_sent is always empty in ActionResult
 
@@ -130,11 +127,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **What we built:** No CORS middleware. Browser-based dashboards will be blocked.
 - **When to fix:** When a web frontend needs to call the API. One-line FastAPI middleware addition.
 
-### A6. No rate limiting or request validation
+### ~~A6. No rate limiting or request validation~~ RESOLVED
 
-- **What we built:** All endpoints are fully open, no rate limiting, no API key requirement.
-- **Risk:** Acceptable for Phase 1 (read-only). Becomes critical in Phase 2 (write path).
-- **When to fix:** Phase 2 (external write path + agent onboarding).
+- **Resolved:** 2026-02-24. Added `api/auth.py` with `APIKeyAuth` dependency (X-API-Key header or query param, 401/403 responses) and `RateLimiterMiddleware` (per-IP token bucket, 429 on exhaustion). Auth is opt-in per route via `Depends(get_auth)` — Phase 1 read routes stay open, Phase 2 write routes will require it. 8 tests added.
 
 ### A7. Event log grows unbounded in memory
 
@@ -165,11 +160,13 @@ This document tracks every simplification, shortcut, and deferred decision made 
 ## Summary by Priority
 
 ### Must fix before Phase 2 (external agents)
-- **K1** (sandbox security) — external code must not run in oracle process
-- **K6** (persistent idempotency) — external retries must be safe
-- **K11** (integration test) — confidence that facade matches engine
-- **A6** (rate limiting + auth) — open write endpoints need protection
-- **A10** (thread safety) — concurrent reads/writes need locking
+- **K1** (sandbox security) — only if Phase 2 accepts raw Python code from external agents
+- ~~**K11** (integration test)~~ RESOLVED
+- ~~**A6** (rate limiting + auth)~~ RESOLVED
+
+### Should fix before production
+- **K6** (persistent idempotency) — cross-restart deduplication, nice-to-have not blocker
+- **A10** (thread safety) — Python GIL makes most ops safe enough for dev; add locking before production
 
 ### Should fix before Phase 3 (governance)
 - **K3** (mechanism registry) — governance needs full mechanism tracking
