@@ -738,3 +738,66 @@ class TestDeadlineEndpoint:
         assert data["state"] == "accepting"
         assert data["round_id"] == 1
         assert data["seconds_remaining"] > 0
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — Simulation loop integration test
+# ──────────────────────────────────────────────
+
+
+class TestSimLoopIntegration:
+    def test_full_external_agent_round(self):
+        """End-to-end: register, submit action during accepting window, verify receipt."""
+        from scripts.run_server import build_app
+
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        client = TestClient(app)
+
+        # Register agent
+        reg = client.post("/v1/agents/register", json={"name": "E2EBot"}).json()
+        api_key = reg["api_key"]
+
+        # Manually run one round with submission window
+        kernel = app.state.leviathan["kernel"]
+        round_state = app.state.leviathan["round_state"]
+
+        kernel.begin_round()
+        round_state.open_submissions(round_id=kernel.round_id, pace=5.0)
+
+        # Submit action
+        resp = client.post(
+            "/v1/world/actions",
+            json={
+                "code": "def agent_action(engine, member_id):\n    me = engine.current_members[member_id]\n    engine.expand(me)\n",
+                "idempotency_key": "e2e-r1",
+            },
+            headers={"X-API-Key": api_key},
+        )
+        assert resp.json()["status"] == "accepted"
+
+        # Close, execute, settle
+        round_state.close_submissions()
+        pending = round_state.drain_actions()
+        assert len(pending) == 1
+
+        # Execute through subprocess sandbox
+        from kernel.subprocess_sandbox import SubprocessSandbox
+        from kernel.execution_sandbox import SandboxContext
+
+        sandbox = SubprocessSandbox()
+        for pa in pending:
+            member_index = kernel._resolve_agent_index(pa.member_id)
+            if member_index is not None:
+                ctx = SandboxContext(
+                    execution_engine=kernel._execution,
+                    member_index=member_index,
+                )
+                result = sandbox.execute_agent_code(pa.code, ctx)
+                if result.success:
+                    kernel.apply_intended_actions(result.intended_actions)
+
+        receipt = kernel.settle_round(seed=kernel.round_id)
+        round_state.mark_settled()
+
+        assert receipt.round_id == 1
+        assert round_state.state == "settled"

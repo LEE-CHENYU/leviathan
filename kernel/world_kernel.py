@@ -223,6 +223,56 @@ class WorldKernel:
             )
         return results
 
+    def apply_intended_actions(self, actions: list) -> list:
+        """Apply intended actions from an EngineProxy to the real engine.
+
+        Each action is a dict like {"action": "attack", "member_id": 1, "target_id": 2}.
+        Returns a list of result dicts with {"action": ..., "applied": bool, "error": ...}.
+        """
+        results = []
+        for act in actions:
+            action_type = act.get("action")
+            try:
+                if action_type == "attack":
+                    m1 = self._find_member_by_id(act["member_id"])
+                    m2 = self._find_member_by_id(act["target_id"])
+                    if m1 and m2:
+                        self._execution.attack(m1, m2)
+                        results.append({"action": action_type, "applied": True})
+                    else:
+                        results.append({"action": action_type, "applied": False, "error": "member not found"})
+                elif action_type == "offer":
+                    m1 = self._find_member_by_id(act["member_id"])
+                    m2 = self._find_member_by_id(act["target_id"])
+                    if m1 and m2:
+                        self._execution.offer(m1, m2)
+                        results.append({"action": action_type, "applied": True})
+                    else:
+                        results.append({"action": action_type, "applied": False, "error": "member not found"})
+                elif action_type == "offer_land":
+                    m1 = self._find_member_by_id(act["member_id"])
+                    m2 = self._find_member_by_id(act["target_id"])
+                    if m1 and m2:
+                        self._execution.offer_land(m1, m2)
+                        results.append({"action": action_type, "applied": True})
+                    else:
+                        results.append({"action": action_type, "applied": False, "error": "member not found"})
+                elif action_type == "expand":
+                    m1 = self._find_member_by_id(act["member_id"])
+                    if m1:
+                        self._execution.expand(m1)
+                        results.append({"action": action_type, "applied": True})
+                    else:
+                        results.append({"action": action_type, "applied": False, "error": "member not found"})
+                elif action_type == "message":
+                    self._execution.send_message(act["from_id"], act["to_id"], act["message"])
+                    results.append({"action": action_type, "applied": True})
+                else:
+                    results.append({"action": action_type, "applied": False, "error": f"unknown action: {action_type}"})
+            except Exception as e:
+                results.append({"action": action_type, "applied": False, "error": str(e)})
+        return results
+
     def settle_round(self, seed: int) -> RoundReceipt:
         """Run produce/consume and build a deterministic round receipt."""
         snap_before = self.get_snapshot()
@@ -264,6 +314,13 @@ class WorldKernel:
         return self._last_receipt
 
     # ── Private helpers ───────────────────────────
+
+    def _find_member_by_id(self, member_id: int):
+        """Find a Member object by permanent id."""
+        for m in self._execution.current_members:
+            if m.id == member_id:
+                return m
+        return None
 
     def _resolve_agent_index(self, agent_id: int) -> Optional[int]:
         """Find the index of a member by its id in current_members."""

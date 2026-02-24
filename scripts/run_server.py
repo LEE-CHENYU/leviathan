@@ -51,21 +51,53 @@ def build_app(
 def _simulation_loop(
     kernel: WorldKernel,
     event_log: List[EventEnvelope],
+    round_state,
     pace: float,
     max_rounds: int,
     stop_event: threading.Event,
 ) -> None:
     """Background thread that advances the simulation.
 
-    Each iteration runs one full round (begin + settle), appends an
-    EventEnvelope to the shared event log, then sleeps for *pace*
-    seconds.  The loop exits cleanly when *stop_event* is set or
+    Each iteration runs one full round with a submission window:
+      begin_round -> open_submissions -> sleep(pace) ->
+      close_submissions -> execute_actions -> settle_round -> append_event
+
+    The loop exits cleanly when *stop_event* is set or
     *max_rounds* is reached (0 means unlimited).
     """
+    from kernel.subprocess_sandbox import SubprocessSandbox
+    from kernel.execution_sandbox import SandboxContext
+
+    sandbox = SubprocessSandbox()
     rounds_completed = 0
+
     while not stop_event.is_set():
         kernel.begin_round()
+        round_state.open_submissions(round_id=kernel.round_id, pace=pace)
+
+        # Sleep for the submission window
+        stop_event.wait(timeout=pace)
+        if stop_event.is_set():
+            break
+
+        round_state.close_submissions()
+
+        # Execute pending actions through SubprocessSandbox
+        pending = round_state.drain_actions()
+        for pa in pending:
+            member_index = kernel._resolve_agent_index(pa.member_id)
+            if member_index is not None:
+                ctx = SandboxContext(
+                    execution_engine=kernel._execution,
+                    member_index=member_index,
+                )
+                result = sandbox.execute_agent_code(pa.code, ctx)
+                if result.success:
+                    kernel.apply_intended_actions(result.intended_actions)
+
         receipt = kernel.settle_round(seed=kernel.round_id)
+        round_state.mark_settled()
+
         event_log.append(
             EventEnvelope(
                 event_id=len(event_log) + 1,
@@ -81,9 +113,6 @@ def _simulation_loop(
         if max_rounds > 0 and rounds_completed >= max_rounds:
             logger.info("Reached max rounds (%d), stopping", max_rounds)
             break
-
-        # Sleep interruptibly so SIGINT/SIGTERM can stop us quickly
-        stop_event.wait(timeout=pace)
 
 
 def _parse_land(value: str):
@@ -135,11 +164,12 @@ def main() -> None:
 
     kernel = app.state.leviathan["kernel"]
     event_log = app.state.leviathan["event_log"]
+    round_state = app.state.leviathan["round_state"]
     stop_event = threading.Event()
 
     sim_thread = threading.Thread(
         target=_simulation_loop,
-        args=(kernel, event_log, args.pace, args.rounds, stop_event),
+        args=(kernel, event_log, round_state, args.pace, args.rounds, stop_event),
         daemon=True,
         name="sim-loop",
     )

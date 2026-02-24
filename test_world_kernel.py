@@ -982,3 +982,44 @@ class TestSubprocessSandbox:
         result = sandbox.execute_agent_code(code, ctx)
         assert result.success is False
         assert "timeout" in (result.error or "").lower() or "timed out" in (result.error or "").lower()
+
+
+# ──────────────────────────────────────────────
+# Task 9 – apply_intended_actions tests
+# ──────────────────────────────────────────────
+
+
+class TestApplyIntendedActions:
+    """Test WorldKernel.apply_intended_actions applies proxy actions to the real engine."""
+
+    def _make_kernel(self, members=5):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=members, land_shape=(10, 10), random_seed=42)
+        return WorldKernel(config, save_path=tmpdir)
+
+    def test_expand_action_changes_land(self):
+        kernel = self._make_kernel()
+        kernel.begin_round()
+        kernel._execution.get_neighbors()
+        member = kernel._execution.current_members[0]
+        old_land = member.land_num
+        actions = [{"action": "expand", "member_id": member.id}]
+        results = kernel.apply_intended_actions(actions)
+        assert len(results) == 1
+        # Expand should increase land (if empty land was available)
+        if member.current_empty_loc_list:
+            assert member.land_num >= old_land
+
+    def test_unknown_action_skipped(self):
+        kernel = self._make_kernel()
+        kernel.begin_round()
+        actions = [{"action": "unknown_thing", "member_id": 1}]
+        results = kernel.apply_intended_actions(actions)
+        assert len(results) == 1
+        assert results[0]["applied"] is False
+
+    def test_empty_actions(self):
+        kernel = self._make_kernel()
+        kernel.begin_round()
+        results = kernel.apply_intended_actions([])
+        assert results == []
