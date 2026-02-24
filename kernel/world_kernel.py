@@ -38,7 +38,13 @@ class WorldKernel:
             save_path=save_path,
             random_seed=config.random_seed,
         )
-        self._world_id = str(uuid.uuid4())
+        # Deterministic world_id when seed is provided, random otherwise
+        if config.random_seed is not None:
+            self._world_id = str(
+                uuid.uuid5(uuid.NAMESPACE_DNS, f"worldkernel-{config.random_seed}")
+            )
+        else:
+            self._world_id = str(uuid.uuid4())
         self._round_id = 0
         self._sandbox = InProcessSandbox()
         self._idempotency_cache: Dict[str, ActionResult] = {}

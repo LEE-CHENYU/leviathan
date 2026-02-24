@@ -575,3 +575,86 @@ class TestSettleRound:
             receipt = wk.settle_round(seed=42)
             assert receipt.round_id == 1
             assert wk.get_round_receipt() is receipt
+
+
+# ──────────────────────────────────────────────
+# Task 6 – Golden determinism tests
+# ──────────────────────────────────────────────
+
+
+def _run_deterministic_round(seed, member_count=5, land=(5, 5), num_rounds=1, tmpdir=None):
+    """Helper: run num_rounds of begin/settle with a fixed seed.
+
+    Returns (snapshot_hash_before, snapshot_hash_after, final_state_hash)
+    for each round as a list of tuples, plus the final WorldKernel.
+    """
+    config = WorldConfig(
+        init_member_number=member_count,
+        land_shape=land,
+        random_seed=seed,
+    )
+    wk = WorldKernel(config, tmpdir)
+    round_data = []
+    for r in range(num_rounds):
+        wk.begin_round()
+        # Submit a deterministic no-op action for each member
+        actions = []
+        for i in range(member_count):
+            actions.append(
+                ActionIntent(
+                    agent_id=i,
+                    round_id=wk.round_id,
+                    code="def agent_action(engine, member_index):\n    pass\n",
+                    idempotency_key=f"golden-{seed}-r{r}-a{i}",
+                )
+            )
+        wk.accept_actions(actions)
+        receipt = wk.settle_round(seed=seed)
+        final_snap = wk.get_snapshot()
+        round_data.append((
+            receipt.snapshot_hash_before,
+            receipt.snapshot_hash_after,
+            final_snap.state_hash,
+        ))
+    return round_data, wk
+
+
+class TestGoldenDeterminism:
+    def test_golden_determinism_same_seed(self):
+        """Identical seed + inputs produce identical hashes."""
+        with tempfile.TemporaryDirectory() as tmpdir1, \
+             tempfile.TemporaryDirectory() as tmpdir2:
+            data1, _ = _run_deterministic_round(seed=42, tmpdir=tmpdir1)
+            data2, _ = _run_deterministic_round(seed=42, tmpdir=tmpdir2)
+
+            assert data1[0][0] == data2[0][0], "snapshot_hash_before should match"
+            assert data1[0][1] == data2[0][1], "snapshot_hash_after should match"
+            assert data1[0][2] == data2[0][2], "final state_hash should match"
+
+    def test_golden_determinism_different_seed(self):
+        """Different seeds produce different initial hashes."""
+        with tempfile.TemporaryDirectory() as tmpdir1, \
+             tempfile.TemporaryDirectory() as tmpdir2:
+            data1, _ = _run_deterministic_round(seed=42, tmpdir=tmpdir1)
+            data2, _ = _run_deterministic_round(seed=99, tmpdir=tmpdir2)
+
+            assert data1[0][0] != data2[0][0], "different seeds should produce different hashes"
+
+    def test_golden_determinism_multiple_rounds(self):
+        """3 rounds with identical inputs produce identical final state."""
+        with tempfile.TemporaryDirectory() as tmpdir1, \
+             tempfile.TemporaryDirectory() as tmpdir2:
+            data1, wk1 = _run_deterministic_round(seed=42, num_rounds=3, tmpdir=tmpdir1)
+            data2, wk2 = _run_deterministic_round(seed=42, num_rounds=3, tmpdir=tmpdir2)
+
+            # Check each round's hashes match
+            for r in range(3):
+                assert data1[r][0] == data2[r][0], f"round {r+1} snapshot_hash_before mismatch"
+                assert data1[r][1] == data2[r][1], f"round {r+1} snapshot_hash_after mismatch"
+                assert data1[r][2] == data2[r][2], f"round {r+1} final state_hash mismatch"
+
+            # Final state must be identical
+            snap1 = wk1.get_snapshot()
+            snap2 = wk2.get_snapshot()
+            assert snap1.members == snap2.members
+            assert snap1.land == snap2.land
