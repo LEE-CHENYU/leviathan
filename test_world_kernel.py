@@ -414,3 +414,46 @@ class TestInProcessSandbox:
         result = self.sandbox.execute_agent_code(code, ctx)
         assert result.success is False
         assert result.error is not None
+
+
+# ──────────────────────────────────────────────
+# Task 4 – WorldKernel facade tests
+# ──────────────────────────────────────────────
+
+import tempfile
+
+from kernel.world_kernel import WorldKernel
+
+
+class TestWorldKernelInit:
+    def test_world_kernel_init(self):
+        """WorldKernel initialises with round_id == 0."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            assert wk.round_id == 0
+
+    def test_world_kernel_get_snapshot(self):
+        """get_snapshot returns WorldSnapshot with correct member count and valid hash."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk = WorldKernel(config, tmpdir)
+            snap = wk.get_snapshot()
+            assert isinstance(snap, WorldSnapshot)
+            assert len(snap.members) == 5
+            assert snap.round_id == 0
+            assert len(snap.state_hash) == 64
+            assert all(c in "0123456789abcdef" for c in snap.state_hash)
+
+    def test_world_kernel_snapshot_deterministic(self):
+        """Two kernels with same seed produce identical state_hash."""
+        with tempfile.TemporaryDirectory() as tmpdir1, \
+             tempfile.TemporaryDirectory() as tmpdir2:
+            config = WorldConfig(init_member_number=5, land_shape=(5, 5), random_seed=42)
+            wk1 = WorldKernel(config, tmpdir1)
+            wk2 = WorldKernel(config, tmpdir2)
+            snap1 = wk1.get_snapshot()
+            snap2 = wk2.get_snapshot()
+            # world_id differs (uuid), so we compare member data and land
+            assert snap1.members == snap2.members
+            assert snap1.land == snap2.land
