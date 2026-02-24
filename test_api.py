@@ -543,3 +543,51 @@ class TestRoundState:
         accepted = rs.submit_action(pa2)
         assert accepted is True
         assert len(rs.get_pending_actions()) == 1
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — New models tests
+# ──────────────────────────────────────────────
+
+from api.models import (
+    AgentRegisterRequest,
+    AgentRegisterResponse,
+    AgentProfileResponse,
+    ActionSubmitRequest,
+    ActionSubmitResponse,
+    DeadlineResponse,
+)
+
+
+class TestPhase2Models:
+    def test_register_request(self):
+        req = AgentRegisterRequest(name="Bot1", description="test bot")
+        assert req.name == "Bot1"
+
+    def test_register_response(self):
+        resp = AgentRegisterResponse(agent_id=1, api_key="lev_abc", member_id=5)
+        assert resp.agent_id == 1
+        assert resp.api_key == "lev_abc"
+
+    def test_agent_profile(self):
+        resp = AgentProfileResponse(
+            agent_id=1, name="Bot1", member_id=5, registered_at="2025-01-01T00:00:00Z"
+        )
+        assert resp.agent_id == 1
+
+    def test_action_submit_request(self):
+        req = ActionSubmitRequest(
+            code="def agent_action(e, m): pass", idempotency_key="r1-a1"
+        )
+        assert req.code.startswith("def")
+
+    def test_action_submit_response_accepted(self):
+        resp = ActionSubmitResponse(status="accepted", round_id=5)
+        assert resp.status == "accepted"
+
+    def test_deadline_response(self):
+        resp = DeadlineResponse(
+            round_id=3, state="accepting", deadline_utc="2025-01-01T00:00:00Z",
+            seconds_remaining=4.5,
+        )
+        assert resp.seconds_remaining == 4.5

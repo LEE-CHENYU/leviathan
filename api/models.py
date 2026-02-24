@@ -54,3 +54,48 @@ class AgentDiscovery(BaseModel):
     api_version: str
     capabilities: List[str]
     endpoints: Dict[str, str]
+
+
+# ── Phase 2: Write endpoint models ──────────────
+
+
+class AgentRegisterRequest(BaseModel):
+    """Request body for POST /v1/agents/register."""
+    name: str
+    description: str = ""
+
+
+class AgentRegisterResponse(BaseModel):
+    """Response from POST /v1/agents/register."""
+    agent_id: int
+    api_key: str
+    member_id: int
+
+
+class AgentProfileResponse(BaseModel):
+    """Response from GET /v1/agents/me."""
+    agent_id: int
+    name: str
+    member_id: int
+    registered_at: str
+
+
+class ActionSubmitRequest(BaseModel):
+    """Request body for POST /v1/world/actions."""
+    code: str
+    idempotency_key: str
+
+
+class ActionSubmitResponse(BaseModel):
+    """Response from POST /v1/world/actions."""
+    status: str
+    round_id: int
+    reason: Optional[str] = None
+
+
+class DeadlineResponse(BaseModel):
+    """Response from GET /v1/world/rounds/current/deadline."""
+    round_id: int
+    state: str
+    deadline_utc: Optional[str] = None
+    seconds_remaining: float
