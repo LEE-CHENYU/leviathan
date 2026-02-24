@@ -658,3 +658,145 @@ class TestGoldenDeterminism:
             snap2 = wk2.get_snapshot()
             assert snap1.members == snap2.members
             assert snap1.land == snap2.land
+
+
+# ──────────────────────────────────────────────
+# K11 – WorldKernel vs IslandExecution equivalence
+# ──────────────────────────────────────────────
+
+from MetaIsland.metaIsland import IslandExecution
+
+
+def _sorted_member_dicts(snapshot):
+    """Extract members from a WorldSnapshot and return them sorted by id."""
+    return sorted(snapshot.members, key=lambda m: m["id"])
+
+
+def _sorted_member_attrs(island_execution):
+    """Extract member attributes from an IslandExecution and return them sorted by id."""
+    return sorted(
+        [
+            {
+                "id": m.id,
+                "vitality": float(m.vitality),
+                "cargo": float(m.cargo),
+                "land_num": int(m.land_num),
+            }
+            for m in island_execution.current_members
+        ],
+        key=lambda m: m["id"],
+    )
+
+
+def _assert_members_equivalent(kernel_members, island_members):
+    """Assert that two sorted member lists are field-by-field equivalent."""
+    assert len(kernel_members) == len(island_members), (
+        f"Member count mismatch: kernel={len(kernel_members)}, "
+        f"island={len(island_members)}"
+    )
+    for km, im in zip(kernel_members, island_members):
+        assert km["id"] == im["id"], f"ID mismatch: {km['id']} != {im['id']}"
+        assert km["vitality"] == pytest.approx(im["vitality"]), (
+            f"Vitality mismatch for member {km['id']}"
+        )
+        assert km["cargo"] == pytest.approx(im["cargo"]), (
+            f"Cargo mismatch for member {km['id']}"
+        )
+        assert km["land_num"] == im["land_num"], (
+            f"land_num mismatch for member {km['id']}"
+        )
+
+
+class TestKernelIslandEquivalence:
+    """K11: Verify that WorldKernel facade produces identical member states
+    to a direct IslandExecution with the same seed and parameters."""
+
+    SEED = 42
+    MEMBER_COUNT = 5
+    LAND_SHAPE = (10, 10)
+
+    def test_initial_state_equivalence(self):
+        """Initial member states from WorldKernel and IslandExecution must match."""
+        with tempfile.TemporaryDirectory() as tmpdir_k, \
+             tempfile.TemporaryDirectory() as tmpdir_i:
+            config = WorldConfig(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                random_seed=self.SEED,
+            )
+            wk = WorldKernel(config, tmpdir_k)
+
+            ie = IslandExecution(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                save_path=tmpdir_i,
+                random_seed=self.SEED,
+            )
+
+            kernel_members = _sorted_member_dicts(wk.get_snapshot())
+            island_members = _sorted_member_attrs(ie)
+
+            _assert_members_equivalent(kernel_members, island_members)
+
+    def test_produce_consume_equivalence(self):
+        """After one produce/consume cycle, member states must still match."""
+        with tempfile.TemporaryDirectory() as tmpdir_k, \
+             tempfile.TemporaryDirectory() as tmpdir_i:
+            config = WorldConfig(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                random_seed=self.SEED,
+            )
+            wk = WorldKernel(config, tmpdir_k)
+
+            ie = IslandExecution(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                save_path=tmpdir_i,
+                random_seed=self.SEED,
+            )
+
+            # WorldKernel path: begin_round + settle_round runs produce/consume
+            wk.begin_round()
+            wk.settle_round(seed=wk.round_id)
+
+            # Direct IslandExecution path
+            ie.new_round()
+            ie.produce()
+            ie.consume()
+
+            kernel_members = _sorted_member_dicts(wk.get_snapshot())
+            island_members = _sorted_member_attrs(ie)
+
+            _assert_members_equivalent(kernel_members, island_members)
+
+    def test_multi_round_equivalence(self):
+        """After 3 rounds of produce/consume, member states must match each round."""
+        with tempfile.TemporaryDirectory() as tmpdir_k, \
+             tempfile.TemporaryDirectory() as tmpdir_i:
+            config = WorldConfig(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                random_seed=self.SEED,
+            )
+            wk = WorldKernel(config, tmpdir_k)
+
+            ie = IslandExecution(
+                init_member_number=self.MEMBER_COUNT,
+                land_shape=self.LAND_SHAPE,
+                save_path=tmpdir_i,
+                random_seed=self.SEED,
+            )
+
+            for round_num in range(1, 4):
+                wk.begin_round()
+                wk.settle_round(seed=wk.round_id)
+
+                ie.new_round()
+                ie.produce()
+                ie.consume()
+
+                kernel_members = _sorted_member_dicts(wk.get_snapshot())
+                island_members = _sorted_member_attrs(ie)
+
+                _assert_members_equivalent(kernel_members, island_members)
