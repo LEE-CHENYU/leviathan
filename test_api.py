@@ -115,3 +115,32 @@ class TestDeps:
         log = get_event_log(state)
         assert isinstance(log, list)
         assert len(log) == 0
+
+
+# ──────────────────────────────────────────────
+# Task 3 – FastAPI app factory and /health tests
+# ──────────────────────────────────────────────
+
+from starlette.testclient import TestClient
+
+from api.app import create_app
+
+
+def _make_test_client(members=5, seed=42):
+    """Create a TestClient backed by a fresh WorldKernel.
+
+    Reusable helper for all endpoint tests in later tasks.
+    """
+    tmpdir = tempfile.mkdtemp()
+    config = WorldConfig(init_member_number=members, land_shape=(10, 10), random_seed=seed)
+    kernel = WorldKernel(config, save_path=tmpdir)
+    app = create_app(kernel)
+    return TestClient(app), kernel
+
+
+class TestHealthEndpoint:
+    def test_health(self):
+        client, _ = _make_test_client()
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
