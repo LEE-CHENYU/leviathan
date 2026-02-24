@@ -27,6 +27,7 @@ class SandboxResult:
     success: bool
     error: Optional[str] = None
     traceback_str: Optional[str] = None
+    intended_actions: list = field(default_factory=list)
 
 
 # ── Protocol ───────────────────────────────────

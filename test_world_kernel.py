@@ -882,3 +882,103 @@ class TestEngineProxy:
         proxy.expand(me)
         assert len(proxy.actions) == 3
         assert [a["action"] for a in proxy.actions] == ["attack", "offer", "expand"]
+
+
+# ──────────────────────────────────────────────
+# SubprocessSandbox tests
+# ──────────────────────────────────────────────
+
+from kernel.subprocess_sandbox import SubprocessSandbox
+
+
+class TestSubprocessSandbox:
+    """Verify SubprocessSandbox runs code in a child process."""
+
+    def _make_context(self, n_members=3):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=n_members, land_shape=(10, 10), random_seed=42)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        return SandboxContext(
+            execution_engine=kernel._execution,
+            member_index=0,
+        ), kernel
+
+    def test_simple_expand_action(self):
+        ctx, kernel = self._make_context()
+        sandbox = SubprocessSandbox()
+        code = (
+            "def agent_action(engine, member_id):\n"
+            "    me = engine.current_members[member_id]\n"
+            "    engine.expand(me)\n"
+        )
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is True
+        assert len(result.intended_actions) == 1
+        assert result.intended_actions[0]["action"] == "expand"
+
+    def test_attack_action(self):
+        ctx, kernel = self._make_context(n_members=5)
+        sandbox = SubprocessSandbox()
+        code = (
+            "def agent_action(engine, member_id):\n"
+            "    me = engine.current_members[member_id]\n"
+            "    target = engine.current_members[1]\n"
+            "    engine.attack(me, target)\n"
+        )
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is True
+        assert len(result.intended_actions) == 1
+        assert result.intended_actions[0]["action"] == "attack"
+
+    def test_multiple_actions(self):
+        ctx, kernel = self._make_context(n_members=5)
+        sandbox = SubprocessSandbox()
+        code = (
+            "def agent_action(engine, member_id):\n"
+            "    me = engine.current_members[member_id]\n"
+            "    target = engine.current_members[1]\n"
+            "    engine.attack(me, target)\n"
+            "    engine.offer(me, target)\n"
+        )
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is True
+        assert len(result.intended_actions) == 2
+
+    def test_syntax_error_returns_failure(self):
+        ctx, kernel = self._make_context()
+        sandbox = SubprocessSandbox()
+        code = "def agent_action(engine, member_id)\n"
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "SyntaxError" in (result.error or "")
+
+    def test_no_entry_point_returns_failure(self):
+        ctx, kernel = self._make_context()
+        sandbox = SubprocessSandbox()
+        code = "x = 42\n"
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "agent_action" in (result.error or "")
+
+    def test_runtime_error_returns_failure(self):
+        ctx, kernel = self._make_context()
+        sandbox = SubprocessSandbox()
+        code = (
+            "def agent_action(engine, member_id):\n"
+            "    raise ValueError('boom')\n"
+        )
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "boom" in (result.error or "")
+
+    def test_timeout_returns_failure(self):
+        ctx, kernel = self._make_context()
+        sandbox = SubprocessSandbox(timeout=2)
+        code = (
+            "def agent_action(engine, member_id):\n"
+            "    import time\n"
+            "    time.sleep(10)\n"
+        )
+        result = sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "timeout" in (result.error or "").lower() or "timed out" in (result.error or "").lower()
