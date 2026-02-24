@@ -591,3 +591,25 @@ class TestPhase2Models:
             seconds_remaining=4.5,
         )
         assert resp.seconds_remaining == 4.5
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — App wiring tests
+# ──────────────────────────────────────────────
+
+from api.registry import AgentRegistry as AgentRegistryWiring
+from api.round_state import RoundState as RoundStateWiring
+
+
+class TestPhase2AppWiring:
+    def test_app_state_has_registry(self):
+        client, kernel = _make_test_client()
+        state = client.app.state.leviathan
+        assert "registry" in state
+        assert isinstance(state["registry"], AgentRegistryWiring)
+
+    def test_app_state_has_round_state(self):
+        client, kernel = _make_test_client()
+        state = client.app.state.leviathan
+        assert "round_state" in state
+        assert isinstance(state["round_state"], RoundStateWiring)
