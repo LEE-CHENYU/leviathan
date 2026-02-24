@@ -9,12 +9,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 
 ## Phase 0: WorldKernel Extraction
 
-### K1. In-process code execution (no real sandboxing)
+### ~~K1. In-process code execution (no real sandboxing)~~ RESOLVED
 
-- **Design says:** `ExecutionSandbox` protocol exists to swap in subprocess/WASM sandboxing later.
-- **What we built:** `InProcessSandbox` runs agent code via `compile()` + in-process execution in a restricted namespace. No process boundary, no resource limits, no timeout enforcement.
-- **Risk:** Malicious or buggy agent code can crash the entire server, consume unbounded memory/CPU, or access Python internals.
-- **When to fix:** Before Phase 2 (external agent onboarding). External agents must not run code in the oracle process. Options: subprocess sandbox, Pyodide/WASM, or a constrained DSL replacing raw Python.
+- **Resolved:** 2026-02-24. Added `SubprocessSandbox` in `kernel/subprocess_sandbox.py` with `EngineProxy` action proxy pattern. Agent code runs in a child process with timeout enforcement (default 5s). Actions recorded as JSON by the proxy and applied to the real engine via `WorldKernel.apply_intended_actions()`. 7 sandbox tests + 8 proxy tests + 3 apply tests + 1 E2E integration test.
 
 ### K2. Snapshot only captures minimal member stats
 
@@ -143,11 +140,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** API consumers have no stable schema contract.
 - **When to fix:** Before external SDK development (Phase 2). Pin OpenAPI spec version, export to file, add to CI.
 
-### A9. Simulation loop is not integrated with real agent LLM calls
+### ~~A9. Simulation loop is not integrated with real agent LLM calls~~ RESOLVED
 
-- **What we built:** `run_server.py` loop calls `begin_round()` + `settle_round()` directly — no `accept_actions()` or `accept_mechanisms()` in between. Rounds settle immediately without agent input.
-- **Risk:** The API shows simulation state evolving, but agents aren't actually deciding. It's a "headless" simulation.
-- **When to fix:** Phase 2 (external write path) adds `POST /v1/world/actions` so agents submit decisions between `begin_round` and `settle_round`.
+- **Resolved:** 2026-02-24. Phase 2 adds submission window: `begin_round → open_submissions → sleep(pace) → close_submissions → execute_actions → settle_round`. External agents submit via `POST /v1/world/actions` during the window. Actions run through `SubprocessSandbox` and applied via `WorldKernel.apply_intended_actions()`.
 
 ### A10. No thread safety for concurrent API reads during simulation writes
 
@@ -160,7 +155,7 @@ This document tracks every simplification, shortcut, and deferred decision made 
 ## Summary by Priority
 
 ### Must fix before Phase 2 (external agents)
-- **K1** (sandbox security) — only if Phase 2 accepts raw Python code from external agents
+- ~~**K1** (sandbox security)~~ RESOLVED — SubprocessSandbox with action proxy pattern
 - ~~**K11** (integration test)~~ RESOLVED
 - ~~**A6** (rate limiting + auth)~~ RESOLVED
 
@@ -189,4 +184,4 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **A5** (CORS) — one-line fix when frontend exists
 - **A7** (memory eviction) — add before long-running deployments
 - **A8** (OpenAPI pinning) — add before SDK release
-- **A9** (headless sim) — resolved by Phase 2 write path
+- ~~**A9** (headless sim)~~ RESOLVED — Phase 2 write path adds submission window
