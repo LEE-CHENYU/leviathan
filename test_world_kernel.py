@@ -1244,3 +1244,59 @@ class TestComputeRoundMetrics:
         assert metrics["total_vitality"] == 0.0
         assert metrics["population"] == 0
         assert metrics["gini_coefficient"] == 0.0
+
+
+# ──────────────────────────────────────────────
+# Phase 3 Task 4 – KernelDAGRunner tests
+# ──────────────────────────────────────────────
+
+from kernel.dag_runner import KernelDAGRunner
+
+
+class TestKernelDAGRunner:
+    def _make_kernel(self, tmp_path):
+        from kernel.schemas import WorldConfig
+        from kernel.world_kernel import WorldKernel
+        config = WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42)
+        return WorldKernel(config, save_path=str(tmp_path))
+
+    def test_run_phases_returns_phase_log(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        runner = KernelDAGRunner(kernel._execution)
+        log = runner.run_settlement_phases()
+        assert "produce" in log
+        assert "consume" in log
+
+    def test_phases_in_correct_order(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        runner = KernelDAGRunner(kernel._execution)
+        log = runner.run_settlement_phases()
+        assert log.index("produce") < log.index("consume")
+
+    def test_deterministic_across_runs(self, tmp_path):
+        from kernel.schemas import WorldConfig
+        from kernel.world_kernel import WorldKernel
+        config = WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42)
+        k1 = WorldKernel(config, save_path=str(tmp_path / "k1"))
+        k1.begin_round()
+        KernelDAGRunner(k1._execution).run_settlement_phases()
+        snap1 = k1.get_snapshot()
+
+        k2 = WorldKernel(config, save_path=str(tmp_path / "k2"))
+        k2.begin_round()
+        KernelDAGRunner(k2._execution).run_settlement_phases()
+        snap2 = k2.get_snapshot()
+
+        for m1, m2 in zip(snap1.members, snap2.members):
+            assert m1["vitality"] == pytest.approx(m2["vitality"])
+            assert m1["cargo"] == pytest.approx(m2["cargo"])
+
+    def test_skips_llm_nodes(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        runner = KernelDAGRunner(kernel._execution)
+        log = runner.run_settlement_phases()
+        assert "analyze" not in log
+        assert "agent_decisions" not in log
