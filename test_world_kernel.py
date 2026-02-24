@@ -224,3 +224,98 @@ class TestRoundReceipt:
             "timestamp",
         }
         assert field_names == expected
+
+
+# ──────────────────────────────────────────────
+# Task 2 – Receipt hashing tests
+# ──────────────────────────────────────────────
+
+from kernel.receipt import canonical_json, compute_receipt_hash, compute_state_hash
+
+
+class TestCanonicalJson:
+    def test_sorted_keys(self):
+        """Keys must be sorted regardless of insertion order."""
+        raw = canonical_json({"z": 1, "a": 2, "m": 3})
+        assert raw == b'{"a":2,"m":3,"z":1}'
+
+    def test_no_whitespace(self):
+        """No extra whitespace anywhere in the output."""
+        raw = canonical_json({"key": [1, 2, {"nested": True}]})
+        assert b" " not in raw
+        assert b"\n" not in raw
+
+    def test_identical_bytes_for_identical_input(self):
+        """Calling twice with the same input produces byte-identical output."""
+        obj = {"hello": "world", "num": 42, "nested": {"a": [1, 2, 3]}}
+        assert canonical_json(obj) == canonical_json(obj)
+
+    def test_utf8_encoding(self):
+        """Non-ASCII characters are preserved (ensure_ascii=False)."""
+        raw = canonical_json({"greeting": "hola"})
+        assert isinstance(raw, bytes)
+        decoded = raw.decode("utf-8")
+        assert "hola" in decoded
+
+    def test_default_str_for_non_serializable(self):
+        """Non-serializable objects fall back to str()."""
+        from datetime import datetime
+
+        dt = datetime(2025, 1, 1)
+        raw = canonical_json({"ts": dt})
+        assert isinstance(raw, bytes)
+        assert b"2025" in raw
+
+
+class TestComputeStateHash:
+    def test_hex_digest_length(self):
+        """SHA-256 hex digest is always 64 characters."""
+        snap = {
+            "world_id": "w1",
+            "round_id": 0,
+            "members": [],
+            "land": {},
+            "active_mechanisms": [],
+            "active_contracts": [],
+            "physics_constraints": [],
+            "state_hash": "placeholder",
+        }
+        h = compute_state_hash(snap)
+        assert len(h) == 64
+        assert all(c in "0123456789abcdef" for c in h)
+
+    def test_excludes_state_hash_field(self):
+        """Changing only state_hash should NOT change the computed hash."""
+        snap_a = {
+            "world_id": "w1",
+            "round_id": 0,
+            "members": [],
+            "land": {},
+            "active_mechanisms": [],
+            "active_contracts": [],
+            "physics_constraints": [],
+            "state_hash": "aaa",
+        }
+        snap_b = dict(snap_a, state_hash="bbb")
+        assert compute_state_hash(snap_a) == compute_state_hash(snap_b)
+
+    def test_different_data_different_hash(self):
+        """Different snapshot content must produce a different hash."""
+        snap_a = {"world_id": "w1", "round_id": 0, "members": [], "land": {}}
+        snap_b = {"world_id": "w1", "round_id": 1, "members": [], "land": {}}
+        assert compute_state_hash(snap_a) != compute_state_hash(snap_b)
+
+
+class TestComputeReceiptHash:
+    def test_hex_digest_length(self):
+        h = compute_receipt_hash({"round_id": 1, "seed": 42})
+        assert len(h) == 64
+
+    def test_deterministic(self):
+        receipt = {"round_id": 1, "seed": 42, "data": [1, 2, 3]}
+        assert compute_receipt_hash(receipt) == compute_receipt_hash(receipt)
+
+    def test_different_data_different_hash(self):
+        r1 = {"round_id": 1, "seed": 42}
+        r2 = {"round_id": 2, "seed": 42}
+        assert compute_receipt_hash(r1) != compute_receipt_hash(r2)
