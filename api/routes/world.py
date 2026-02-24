@@ -50,3 +50,14 @@ def get_round_by_id(round_id: int, request: Request) -> RoundReceiptResponse:
         if event.event_type == "round_settled" and event.round_id == round_id:
             return RoundReceiptResponse(**event.payload)
     raise HTTPException(status_code=404, detail=f"Round {round_id} not found")
+
+
+@router.get("/events", response_model=List[EventEnvelope])
+def get_events(
+    request: Request, since_round: Optional[int] = None
+) -> List[EventEnvelope]:
+    """Return event log entries, optionally filtered to rounds after since_round."""
+    event_log: List[EventEnvelope] = request.app.state.leviathan["event_log"]
+    if since_round is None:
+        return list(event_log)
+    return [e for e in event_log if e.round_id > since_round]

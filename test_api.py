@@ -223,3 +223,46 @@ class TestRoundEndpoints:
         client, kernel = _make_test_client()
         resp = client.get("/v1/world/rounds/999")
         assert resp.status_code == 404
+
+
+# ──────────────────────────────────────────────
+# Task 6 – Events polling endpoint
+# ──────────────────────────────────────────────
+
+
+class TestEventsEndpoint:
+    def test_events_polling(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=3)
+        resp = client.get("/v1/world/events", params={"since_round": 1})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert data[0]["round_id"] == 2
+        assert data[1]["round_id"] == 3
+
+    def test_events_all(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=2)
+        resp = client.get("/v1/world/events")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+
+    def test_events_empty(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=1)
+        resp = client.get("/v1/world/events", params={"since_round": 999})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 0
+
+    def test_events_monotonic_ids(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=3)
+        resp = client.get("/v1/world/events")
+        data = resp.json()
+        event_ids = [e["event_id"] for e in data]
+        assert len(event_ids) == 3
+        assert event_ids == sorted(event_ids)
+        assert len(set(event_ids)) == 3
