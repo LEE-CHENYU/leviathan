@@ -659,3 +659,82 @@ class TestAgentEndpoints:
         client, kernel = _make_test_client(members=5)
         resp = client.get("/v1/agents/me", headers={"X-API-Key": "lev_invalid"})
         assert resp.status_code == 403
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — Action submission + deadline tests
+# ──────────────────────────────────────────────
+
+
+class TestActionEndpoints:
+    def _register_and_open(self, client, members=5):
+        """Register an agent and open submissions."""
+        reg = client.post("/v1/agents/register", json={"name": "Bot"}).json()
+        rs = client.app.state.leviathan["round_state"]
+        rs.open_submissions(round_id=1, pace=30.0)
+        return reg["api_key"], reg["member_id"]
+
+    def test_submit_action_accepted(self):
+        client, kernel = _make_test_client(members=5)
+        api_key, member_id = self._register_and_open(client)
+        resp = client.post(
+            "/v1/world/actions",
+            json={"code": "def agent_action(e, m): pass", "idempotency_key": "r1-a1"},
+            headers={"X-API-Key": api_key},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "accepted"
+        assert data["round_id"] == 1
+
+    def test_submit_action_rejected_when_closed(self):
+        client, kernel = _make_test_client(members=5)
+        reg = client.post("/v1/agents/register", json={"name": "Bot"}).json()
+        resp = client.post(
+            "/v1/world/actions",
+            json={"code": "def agent_action(e, m): pass", "idempotency_key": "k1"},
+            headers={"X-API-Key": reg["api_key"]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "rejected"
+
+    def test_submit_action_unauthorized(self):
+        client, kernel = _make_test_client(members=5)
+        resp = client.post(
+            "/v1/world/actions",
+            json={"code": "pass", "idempotency_key": "k1"},
+        )
+        assert resp.status_code == 401
+
+    def test_submit_action_idempotency(self):
+        client, kernel = _make_test_client(members=5)
+        api_key, _ = self._register_and_open(client)
+        body = {"code": "def agent_action(e, m): pass", "idempotency_key": "same-key"}
+        resp1 = client.post("/v1/world/actions", json=body, headers={"X-API-Key": api_key})
+        resp2 = client.post("/v1/world/actions", json=body, headers={"X-API-Key": api_key})
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        rs = client.app.state.leviathan["round_state"]
+        assert len(rs.get_pending_actions()) == 1
+
+
+class TestDeadlineEndpoint:
+    def test_deadline_settled(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world/rounds/current/deadline")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["state"] == "settled"
+        assert data["seconds_remaining"] == 0.0
+
+    def test_deadline_accepting(self):
+        client, kernel = _make_test_client()
+        rs = client.app.state.leviathan["round_state"]
+        rs.open_submissions(round_id=1, pace=30.0)
+        resp = client.get("/v1/world/rounds/current/deadline")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["state"] == "accepting"
+        assert data["round_id"] == 1
+        assert data["seconds_remaining"] > 0

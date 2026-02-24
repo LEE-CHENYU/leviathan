@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
-from api.models import EventEnvelope, RoundInfo, RoundReceiptResponse, WorldInfo
+from api.models import DeadlineResponse, EventEnvelope, RoundInfo, RoundReceiptResponse, WorldInfo
 
 router = APIRouter(prefix="/v1/world")
 
@@ -40,6 +40,18 @@ def get_current_round(request: Request) -> RoundInfo:
     if receipt is not None:
         last_receipt = RoundReceiptResponse(**dataclasses.asdict(receipt))
     return RoundInfo(round_id=kernel.round_id, last_receipt=last_receipt)
+
+
+@router.get("/rounds/current/deadline", response_model=DeadlineResponse)
+def get_deadline(request: Request) -> DeadlineResponse:
+    """Return the current round's submission deadline."""
+    round_state = request.app.state.leviathan["round_state"]
+    return DeadlineResponse(
+        round_id=round_state.round_id,
+        state=round_state.state,
+        deadline_utc=round_state.deadline.isoformat() if round_state.deadline else None,
+        seconds_remaining=round_state.seconds_remaining(),
+    )
 
 
 @router.get("/rounds/{round_id}", response_model=RoundReceiptResponse)
