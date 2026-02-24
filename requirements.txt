@@ -16,6 +16,11 @@ pyyaml>=6.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 
+# API (Phase 1)
+fastapi>=0.100.0
+uvicorn>=0.20.0
+httpx>=0.24.0
+
 # Research loop
 arxiv>=2.1.0
 pypdf>=4.0.0
