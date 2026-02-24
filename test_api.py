@@ -477,3 +477,69 @@ class TestAgentRegistry:
         found = registry.get_by_agent_id(record.agent_id)
         assert found is not None
         assert found.name == "TestBot"
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — RoundState tests
+# ──────────────────────────────────────────────
+
+from api.round_state import PendingAction, RoundState
+
+
+class TestRoundState:
+    def test_initial_state(self):
+        rs = RoundState()
+        assert rs.state == "settled"
+        assert rs.round_id == 0
+        assert rs.deadline is None
+        assert rs.get_pending_actions() == []
+
+    def test_open_submissions(self):
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=5.0)
+        assert rs.state == "accepting"
+        assert rs.round_id == 1
+        assert rs.deadline is not None
+        assert rs.seconds_remaining() > 0
+
+    def test_submit_action_during_accepting(self):
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=5.0)
+        pa = PendingAction(agent_id=1, member_id=10, code="x=1", idempotency_key="k1")
+        accepted = rs.submit_action(pa)
+        assert accepted is True
+        assert len(rs.get_pending_actions()) == 1
+
+    def test_submit_action_rejected_when_not_accepting(self):
+        rs = RoundState()
+        pa = PendingAction(agent_id=1, member_id=10, code="x=1", idempotency_key="k1")
+        accepted = rs.submit_action(pa)
+        assert accepted is False
+
+    def test_close_and_drain(self):
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=5.0)
+        pa = PendingAction(agent_id=1, member_id=10, code="x=1", idempotency_key="k1")
+        rs.submit_action(pa)
+        rs.close_submissions()
+        assert rs.state == "executing"
+        drained = rs.drain_actions()
+        assert len(drained) == 1
+        assert rs.get_pending_actions() == []
+
+    def test_mark_settled(self):
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=5.0)
+        rs.close_submissions()
+        rs.mark_settled()
+        assert rs.state == "settled"
+
+    def test_idempotency_duplicate_key(self):
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=5.0)
+        pa1 = PendingAction(agent_id=1, member_id=10, code="x=1", idempotency_key="k1")
+        pa2 = PendingAction(agent_id=1, member_id=10, code="x=2", idempotency_key="k1")
+        rs.submit_action(pa1)
+        accepted = rs.submit_action(pa2)
+        assert accepted is True
+        assert len(rs.get_pending_actions()) == 1
