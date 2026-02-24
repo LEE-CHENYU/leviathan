@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from api.auth import APIKeyAuth, RateLimiterMiddleware
 from api.deps import create_app_state
+from api.routes.agents import router as agents_router
 from api.routes.discovery import router as discovery_router
 from api.routes.world import router as world_router
 from kernel.world_kernel import WorldKernel
@@ -43,5 +44,6 @@ def create_app(
 
     app.include_router(world_router)
     app.include_router(discovery_router)
+    app.include_router(agents_router)
 
     return app

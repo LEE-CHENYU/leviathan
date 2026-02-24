@@ -613,3 +613,49 @@ class TestPhase2AppWiring:
         state = client.app.state.leviathan
         assert "round_state" in state
         assert isinstance(state["round_state"], RoundStateWiring)
+
+
+# ──────────────────────────────────────────────
+# Phase 2 — Agent endpoints tests
+# ──────────────────────────────────────────────
+
+
+class TestAgentEndpoints:
+    def test_register_agent(self):
+        client, kernel = _make_test_client(members=5)
+        resp = client.post(
+            "/v1/agents/register",
+            json={"name": "TestBot", "description": "A test agent"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "agent_id" in data
+        assert data["api_key"].startswith("lev_")
+        assert "member_id" in data
+
+    def test_register_too_many(self):
+        client, kernel = _make_test_client(members=2)
+        client.post("/v1/agents/register", json={"name": "Bot1"})
+        client.post("/v1/agents/register", json={"name": "Bot2"})
+        resp = client.post("/v1/agents/register", json={"name": "Bot3"})
+        assert resp.status_code == 409
+
+    def test_agent_me(self):
+        client, kernel = _make_test_client(members=5)
+        reg_resp = client.post("/v1/agents/register", json={"name": "TestBot"})
+        api_key = reg_resp.json()["api_key"]
+        resp = client.get("/v1/agents/me", headers={"X-API-Key": api_key})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "TestBot"
+        assert "registered_at" in data
+
+    def test_agent_me_unauthorized(self):
+        client, kernel = _make_test_client(members=5)
+        resp = client.get("/v1/agents/me")
+        assert resp.status_code == 401
+
+    def test_agent_me_invalid_key(self):
+        client, kernel = _make_test_client(members=5)
+        resp = client.get("/v1/agents/me", headers={"X-API-Key": "lev_invalid"})
+        assert resp.status_code == 403
