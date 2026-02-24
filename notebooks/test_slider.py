@@ -5,7 +5,7 @@ from matplotlib.widgets import Slider, Button
 
 import matplotlib.pyplot as plt
 
-from Island import Island, Member
+from Leviathan.Island import Island, Member
 
 import time
 

@@ -1,0 +1,582 @@
+{
+  "rounds": [
+    {
+      "timestamp": "2025-02-15T16:20:27.389954",
+      "actions": [
+        {
+          "member_id": 0,
+          "code_executed": "def agent_action(engine, member_id):\n    \"\"\"\n    A uniquely tailored agent strategy that blends adaptive survival Q-learning,\n    cooperative resource management, and proactive threat mitigation.\n    My approach is grounded in balancing immediate self-preservation with fostering alliances\n    to ensure a resilient collective future, informed by my belief in symbiotic relationships.\n\n    Key mechanisms implemented:\n      1. Immediate tactical actions:\n         - Aggressive resource acquisition when cargo is critically low.\n         - Targeted attacks against members deemed as potential threats based on past aggression.\n      2. Cooperative outreach:\n         - Open invitations for alliance formation with recognized high-productivity peers.\n         - Direct offers of aid to members in dire straits to encourage reciprocal support.\n      3. Adaptive Q-learning survival model:\n         - Continuous update of a survival Q-table based on current state (vitality and cargo).\n         - Iterative selection of actions (\"attack\", \"gather\", \"defend\") weighted by learned rewards.\n\n    Critical safety measures:\n      - Never allow self-targeting.\n      - Validate indices and ensure member existence before engaging.\n      - Confirm land ownership before executing the bear() action.\n    \"\"\"\n    try:\n        # Validate the agent's existence\n        if member_id >= len(engine.current_members):\n            return\n        agent = engine.current_members[member_id]\n        total_members = len(engine.current_members)\n\n        # PRIORITY 1: Emergency resource stabilization\n        # If the agent's cargo falls below 50% of vitality, attempt to target members with richer cargo.\n        if agent.cargo < agent.vitality * 0.5:\n            for j in range(total_members):\n                if j == member_id or j >= total_members:\n                    continue\n                target = engine.current_members[j]\n                # Only target those that possess more than our current cargo\n                if target.cargo > agent.cargo:\n                    engine.attack(agent, target)\n\n        # COMMUNICATION: Broadcast message to all others encouraging mutual growth.\n        for j in range(total_members):\n            if j != member_id and j < total_members:\n                engine.send_message(member_id, j, \"Together, we can build a stronger future. Let's join forces!\")\n\n        # Retrieve relationship matrices safely to assess historic interactions.\n        victim_relationship = engine.relationship_dict.get('victim')\n        benefit_relationship = engine.relationship_dict.get('benefit')\n        land_benefit_relationship = engine.relationship_dict.get('benefit_land')\n\n        # Evaluate each potential member interaction.\n        for j in range(total_members):\n            if j == member_id or j >= total_members:\n                continue\n            other = engine.current_members[j]\n\n            # If historical victimization from the other agent exceeds thresholds, initiate counter-attack.\n            historical_attack = 0\n            if victim_relationship is not None and member_id < len(victim_relationship) and j < len(victim_relationship[member_id]):\n                historical_attack = victim_relationship[member_id][j]\n            if historical_attack > 50:\n                engine.attack(agent, other)\n                continue\n\n            # Opportunity for territorial expansion: Check if other is weaker in vitality and younger.\n            if other.vitality < agent.vitality * 0.8 and other.age < agent.age:\n                engine.expand(agent, other)\n                continue\n\n            # Reproduction / legacy action: Use bear() if agent is resource-rich, has land, and benefit value exists.\n            owns_land = hasattr(agent, 'owned_land') and agent.owned_land and len(agent.owned_land) > 0\n            benefit_val = 0\n            if benefit_relationship is not None and member_id < len(benefit_relationship) and j < len(benefit_relationship[member_id]):\n                benefit_val = benefit_relationship[member_id][j]\n            if agent.cargo > 20 and benefit_val > 0 and owns_land:\n                engine.bear(agent, other)\n                continue\n\n            # Forge alliances by providing resource offers to members with lower productivity.\n            if getattr(other, 'overall_productivity', 0) < getattr(agent, 'overall_productivity', 0):\n                engine.offer(agent, other, True)\n                continue\n\n            # Consider offering land to support members facing resource scarcity, if historical land benefit is negative.\n            land_benefit = 0\n            if land_benefit_relationship is not None and member_id < len(land_benefit_relationship) and j < len(land_benefit_relationship[member_id]):\n                land_benefit = land_benefit_relationship[member_id][j]\n            if other.cargo < 15 and land_benefit < 0:\n                engine.offer_land(agent, other, True)\n                continue\n\n        # Strategic Coalition Building: Identify high-productivity agents and extend alliance invitations.\n        coalition_members = []\n        for j in range(total_members):\n            if j == member_id:\n                continue\n            friend_candidate = engine.current_members[j]\n            if getattr(friend_candidate, 'overall_productivity', 0) > 8:\n                coalition_members.append(j)\n        for ally in coalition_members:\n            if ally < total_members:\n                engine.send_message(member_id, ally, \"I see great potential in our unity\u2014let's forge an alliance!\")\n\n        # Adaptive Q-learning based survival decision mechanism:\n        # Maintain a persistence Q-value table within the agent based on (vitality_state, cargo_state).\n        if not hasattr(agent, 'survival_q'):\n            agent.survival_q = {}\n        current_state = (int(agent.vitality // 20), int(agent.cargo // 20))\n        possible_actions = ['attack', 'gather', 'defend']\n\n        # Choose the best action based on learned rewards.\n        chosen_action = max(possible_actions, key=lambda act: agent.survival_q.get((current_state, act), 0))\n\n        if chosen_action == 'attack':\n            # Implement attack: Select the member with the highest cargo.\n            chosen_target = None\n            highest_cargo = -1\n            for j in range(total_members):\n                if j == member_id:\n                    continue\n                candidate = engine.current_members[j]\n                if candidate.cargo > highest_cargo:\n                    chosen_target = candidate\n                    highest_cargo = candidate.cargo\n            if chosen_target:\n                engine.attack(agent, chosen_target)\n                # Increment Q-value to reward strategic aggression in high-vitality state.\n                agent.survival_q[(current_state, chosen_action)] = agent.survival_q.get((current_state, chosen_action), 0) + agent.vitality * 0.1\n\n        elif chosen_action == 'gather':\n            # For gathering, proactively support lower-cargo members to establish network reciprocity.\n            for j in range(total_members):\n                if j == member_id:\n                    continue\n                candidate = engine.current_members[j]\n                if candidate.cargo < agent.cargo:\n                    engine.offer(agent, candidate, True)\n\n        else:\n            # Defensive posture: If 'defend' is chosen or no beneficial action is clear, maintain current resources.\n            # Potentially update Q-value to slowly favor defensive strategies over time.\n            agent.survival_q[(current_state, chosen_action)] = agent.survival_q.get((current_state, chosen_action), 0) + 1\n\n    except Exception:\n        # Any unexpected errors are silently caught to ensure robust execution\n        pass",
+          "old_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 116.8367882719584
+          },
+          "new_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 116.8367882719584
+          },
+          "performance_change": 0.0,
+          "messages_sent": []
+        },
+        {
+          "member_id": 1,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Validate the member_id is within the bounds\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    # Get the executing agent's object\n    me = execution_engine.current_members[member_id]\n    total_members = len(execution_engine.current_members)\n\n    # Define thresholds and constants\n    VITALITY_THRESHOLD = 40.0         # Vitality level considered robust for offense\n    CARGO_THRESHOLD = 35.0            # Cargo level to indicate readiness for reproduction/expansion\n    PRODUCTIVITY_THRESHOLD = 8.0      # Productivity level to consider cooperative alliances\n    EMERGENCY_CARGO_RATIO = 0.6       # Ratio of cargo to vitality considered as a safe reserve\n\n    # Send a cooperative message to all other members\n    for idx in range(total_members):\n        if idx == member_id:\n            continue\n        # Double-check index validity\n        if idx < len(execution_engine.current_members):\n            other_member = execution_engine.current_members[idx]\n            execution_engine.send_message(me.id, other_member.id,\n                                          \"Alliance invitation: Together we can forge a sustainable future.\")\n\n    # Emergency resource strategy: if cargo is below a safe fraction of vitality,\n    # identify members who might have abundant resources and attempt to secure them.\n    if me.cargo < me.vitality * EMERGENCY_CARGO_RATIO:\n        for idx in range(total_members):\n            if idx == member_id:\n                continue\n            if idx >= len(execution_engine.current_members):\n                continue\n            other = execution_engine.current_members[idx]\n            # Only target members with notably higher cargo to maximize gains\n            if other.cargo > me.cargo + 5.0:\n                execution_engine.attack(me, other)\n\n    # Loop over other members to choose actions based on survival and long-term prosperity\n    for idx in range(total_members):\n        # Validate index\n        if idx < 0 or idx >= total_members:\n            continue\n        other = execution_engine.current_members[idx]\n        # Never target oneself\n        if other.id == me.id:\n            continue\n\n        # Threat neutralization:\n        # If our vitality is high and the opposing member's vitality is weak, consider an aggressive approach.\n        if me.vitality >= VITALITY_THRESHOLD and other.vitality < VITALITY_THRESHOLD:\n            execution_engine.attack(me, other)\n\n        # Cooperative resource optimization:\n        # If both members are productive, share resources to bolster mutual strength.\n        elif me.overall_productivity >= PRODUCTIVITY_THRESHOLD and other.overall_productivity >= PRODUCTIVITY_THRESHOLD:\n            execution_engine.offer(me, other, True)\n\n        # Land resource cooperation:\n        # If both have moderate resources, consider land sharing improvements.\n        elif me.cargo >= CARGO_THRESHOLD and other.cargo >= CARGO_THRESHOLD:\n            execution_engine.offer_land(me, other, True)\n\n        # Expansion and reproduction:\n        # Check if both agents have enough cargo (proxy for available land) and maturity (age > 20)\n        elif me.cargo >= CARGO_THRESHOLD and other.age > 20:\n            if other.cargo >= CARGO_THRESHOLD:\n                execution_engine.expand(me, other)\n            else:\n                # Ensure that the other member has some resources before trying to bear offspring.\n                if other.cargo > 0:\n                    execution_engine.bear(me, other)\n\n    # End of strategy.\n    # Future improvement: incorporate dynamic learning or prediction models for adaptive win conditions.\n    return",
+          "old_stats": {
+            "vitality": 18.332577680505043,
+            "cargo": 22.547092118644322,
+            "survival_chance": 6.616954880911457
+          },
+          "new_stats": {
+            "vitality": 18.332577680505043,
+            "cargo": 14.174622240514926,
+            "survival_chance": -1.7555149972179436
+          },
+          "performance_change": -8.372469878129401,
+          "messages_sent": []
+        },
+        {
+          "member_id": 2,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Validate member_id\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # 1. Critical Survival: Prioritize survival by countering resource deficiencies.\n    # If our cargo is disproportionately low relative to our vitality,\n    # scan the competition for targets with notably higher cargo.\n    if me.cargo < 0.5 * me.vitality:\n        for i, other in enumerate(execution_engine.current_members):\n            if i == member_id:\n                continue\n            # Attack if the other has at least 30% more cargo than us.\n            if other.cargo > me.cargo * 1.3:\n                execution_engine.attack(me, other)\n\n    # 2. Building Cooperative Networks: Initiate communication tailored both to allies and potential collaborators.\n    # We send differentiated messages based on relative productivity.\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        # If the other member's overall productivity is comparable (at least 80% of ours), encourage trustworthy collaboration.\n        if other.overall_productivity >= 0.8 * me.overall_productivity:\n            message = \"I value our parity in performance; let's work together for mutual growth.\"\n        else:\n            # For those less productive, offer support while hinting at future collaboration.\n            message = \"Opportunities exist for synergy\u2014let's keep in touch.\"\n        execution_engine.send_message(member_id, i, message)\n\n    # 3. Adaptive Territorial Expansion: Strategically expand territory.\n    # Identify members we outperform significantly (over 15% margin) and try to absorb or expand their territories.\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        if me.overall_productivity > 1.15 * other.overall_productivity:\n            execution_engine.expand(me, other)\n\n    # 4. Resource Sharing for Social Capital: Leverage our surplus vitality to strengthen bonds.\n    # Compute the average vitality of peers.\n    total_vitality = 0.0\n    count = 0\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        total_vitality += other.vitality\n        count += 1\n    if count > 0:\n        avg_vitality = total_vitality / count\n        # If we are significantly more vital than our peers, share resources.\n        if me.vitality > 1.1 * avg_vitality:\n            for i, other in enumerate(execution_engine.current_members):\n                if i == member_id:\n                    continue\n                # Optionally, check if the recipient's cargo is low relative to ours to maximize impact.\n                if other.cargo < me.cargo * 0.9:\n                    execution_engine.offer(me, other, True)\n\n    # 5. Long-term Survival & Collective Prosperity: Invest in the future.\n    # If we hold a strong cargo reserve relative to our vitality,\n    # selectively partner with members who show signs of sustainable territory (indicated by a non-empty clear list).\n    if me.cargo > 1.5 * me.vitality:\n        for i, other in enumerate(execution_engine.current_members):\n            if i == member_id:\n                continue\n            if hasattr(other, \"current_clear_list\") and other.current_clear_list and len(other.current_clear_list) > 0:\n                execution_engine.bear(me, other)\n                # Limit breeding to one action per cycle to manage risk.\n                break\n\n    # 6. Extra Insight\u2014Dynamic Intelligence & Defense:\n    # As a safeguard, if our surroundings indicate an unexpectedly aggressive environment,\n    # consider a defensive posture by reinforcing our own position.\n    aggressive_neighbors = 0\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        # Estimate aggressiveness if their cargo substantially exceeds their vitality.\n        if other.cargo > 1.2 * other.vitality:\n            aggressive_neighbors += 1\n    if aggressive_neighbors > (len(execution_engine.current_members) - 1) / 2:\n        # When facing multiple aggressive players, refrain from overextending: instead, bolster defenses.\n        execution_engine.log(me, \"Defensive stance activated due to high regional aggression.\")\n        execution_engine.fortify(me)\n\n    return",
+          "old_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 32.2863455020685,
+            "survival_chance": 52.389833532876416
+          },
+          "new_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 23.182944017676185,
+            "survival_chance": 43.286432048484095
+          },
+          "performance_change": -9.103401484392322,
+          "messages_sent": []
+        },
+        {
+          "member_id": 3,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Validate the member_id exists in the current members list.\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    # Retrieve our member for reference.\n    me = execution_engine.current_members[member_id]\n\n    # Immediate Cooperation: broadcast a unifying message to all other members.\n    for idx, member in enumerate(execution_engine.current_members):\n        if idx != member_id:\n            execution_engine.send_message(me.id, member.id,\n                \"United we stand, resilient we grow. Let\u2019s ensure a thriving future together!\")\n\n    # Adaptive Social Support:\n    # If our vitality is low, we look to foster alliances and share resources with others in better shape.\n    if me.vitality < 50:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.vitality > me.vitality:\n                # Offer support to build long-lasting trust.\n                execution_engine.offer(me, target, generous=True)\n\n    # Survival-driven Resource Optimization:\n    # If our cargo is significantly lagging behind our vitality, pursue an assertive resource boost.\n    if me.cargo < me.vitality * 0.5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo > me.cargo:\n                # An assertive action to seize an advantage strategically.\n                execution_engine.attack(me, target)\n                break  # Only one aggressive move per round.\n\n    # Proactive Territory Expansion:\n    # When cargo levels exceed a healthy surplus, invest in expanding influence.\n    if me.cargo > 30:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.expand(me, target)\n\n    # Sustainable Reproduction and Legacy:\n    # Ensure that conditions are favorable (productivity and cargo) and that there is available territory.\n    if me.overall_productivity > 9 and me.cargo > 20 and hasattr(me, \"current_clear_list\") and me.current_clear_list:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.bear(me, target)\n                break  # Limit reproduction actions to one per round.\n\n    # Strategic Retaliation based on Relationship Analysis:\n    # Examine the victim matrix to identify intense hostilities.\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and member_id < len(victim_matrix):\n        for idx, target in enumerate(execution_engine.current_members):\n            # Skip self and ensure index is within the matrix bounds.\n            if idx == member_id or idx >= len(victim_matrix[member_id]):\n                continue\n            if victim_matrix[member_id][idx] < -10:\n                execution_engine.attack(me, target)\n                break  # React to the most significant threat.\n\n    # Deep Alliance Building in Times of Crisis:\n    # When vitality is critically low, seek to create binding partnerships by offering valuable territory.\n    if me.vitality < 20:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.offer_land(me, target, generous=True)\n\n    # Long-term Strategic Investment:\n    # Periodically review our overall resource balance to plan sustainable improvements.\n    # For example, if our cargo is moderate but productivity is decreasing, initiate cooperative trading.\n    if me.cargo > 15 and me.overall_productivity < 5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo >= me.cargo:\n                execution_engine.send_message(me.id, target.id,\n                    \"Let\u2019s engage in a mutually beneficial trade to uplift our fortunes.\")\n                # Break after generating a single trade initiative.\n                break\n\n    return",
+          "old_stats": {
+            "vitality": 5.155916455679677,
+            "cargo": 27.89481137210545,
+            "survival_chance": 4.974912332499084
+          },
+          "new_stats": {
+            "vitality": 5.155916455679677,
+            "cargo": 27.89481137210545,
+            "survival_chance": 4.974912332499084
+          },
+          "performance_change": 0.0,
+          "messages_sent": []
+        }
+      ],
+      "performance_changes": {},
+      "survival_changes": {},
+      "messages": {
+        "0": {
+          "received": [],
+          "sent": []
+        },
+        "1": {
+          "received": [
+            "From member_0: Together, we can build a stronger future. Let's join forces!",
+            "From member_2: I value our parity in performance; let's work together for mutual growth.",
+            "From member_3: United we stand, resilient we grow. Let\u2019s ensure a thriving future together!"
+          ],
+          "sent": []
+        },
+        "2": {
+          "received": [
+            "From member_0: Together, we can build a stronger future. Let's join forces!",
+            "From member_1: Alliance invitation: Together we can forge a sustainable future.",
+            "From member_3: United we stand, resilient we grow. Let\u2019s ensure a thriving future together!"
+          ],
+          "sent": []
+        },
+        "3": {
+          "received": [
+            "From member_0: Together, we can build a stronger future. Let's join forces!",
+            "From member_1: Alliance invitation: Together we can forge a sustainable future.",
+            "From member_2: I value our parity in performance; let's work together for mutual growth."
+          ],
+          "sent": []
+        }
+      }
+    }
+  ],
+  "generated_code": {
+    "0": {
+      "0": {
+        "code": "def agent_action(engine, member_id):\n    \"\"\"\n    A uniquely tailored agent strategy that blends adaptive survival Q-learning,\n    cooperative resource management, and proactive threat mitigation.\n    My approach is grounded in balancing immediate self-preservation with fostering alliances\n    to ensure a resilient collective future, informed by my belief in symbiotic relationships.\n\n    Key mechanisms implemented:\n      1. Immediate tactical actions:\n         - Aggressive resource acquisition when cargo is critically low.\n         - Targeted attacks against members deemed as potential threats based on past aggression.\n      2. Cooperative outreach:\n         - Open invitations for alliance formation with recognized high-productivity peers.\n         - Direct offers of aid to members in dire straits to encourage reciprocal support.\n      3. Adaptive Q-learning survival model:\n         - Continuous update of a survival Q-table based on current state (vitality and cargo).\n         - Iterative selection of actions (\"attack\", \"gather\", \"defend\") weighted by learned rewards.\n\n    Critical safety measures:\n      - Never allow self-targeting.\n      - Validate indices and ensure member existence before engaging.\n      - Confirm land ownership before executing the bear() action.\n    \"\"\"\n    try:\n        # Validate the agent's existence\n        if member_id >= len(engine.current_members):\n            return\n        agent = engine.current_members[member_id]\n        total_members = len(engine.current_members)\n\n        # PRIORITY 1: Emergency resource stabilization\n        # If the agent's cargo falls below 50% of vitality, attempt to target members with richer cargo.\n        if agent.cargo < agent.vitality * 0.5:\n            for j in range(total_members):\n                if j == member_id or j >= total_members:\n                    continue\n                target = engine.current_members[j]\n                # Only target those that possess more than our current cargo\n                if target.cargo > agent.cargo:\n                    engine.attack(agent, target)\n\n        # COMMUNICATION: Broadcast message to all others encouraging mutual growth.\n        for j in range(total_members):\n            if j != member_id and j < total_members:\n                engine.send_message(member_id, j, \"Together, we can build a stronger future. Let's join forces!\")\n\n        # Retrieve relationship matrices safely to assess historic interactions.\n        victim_relationship = engine.relationship_dict.get('victim')\n        benefit_relationship = engine.relationship_dict.get('benefit')\n        land_benefit_relationship = engine.relationship_dict.get('benefit_land')\n\n        # Evaluate each potential member interaction.\n        for j in range(total_members):\n            if j == member_id or j >= total_members:\n                continue\n            other = engine.current_members[j]\n\n            # If historical victimization from the other agent exceeds thresholds, initiate counter-attack.\n            historical_attack = 0\n            if victim_relationship is not None and member_id < len(victim_relationship) and j < len(victim_relationship[member_id]):\n                historical_attack = victim_relationship[member_id][j]\n            if historical_attack > 50:\n                engine.attack(agent, other)\n                continue\n\n            # Opportunity for territorial expansion: Check if other is weaker in vitality and younger.\n            if other.vitality < agent.vitality * 0.8 and other.age < agent.age:\n                engine.expand(agent, other)\n                continue\n\n            # Reproduction / legacy action: Use bear() if agent is resource-rich, has land, and benefit value exists.\n            owns_land = hasattr(agent, 'owned_land') and agent.owned_land and len(agent.owned_land) > 0\n            benefit_val = 0\n            if benefit_relationship is not None and member_id < len(benefit_relationship) and j < len(benefit_relationship[member_id]):\n                benefit_val = benefit_relationship[member_id][j]\n            if agent.cargo > 20 and benefit_val > 0 and owns_land:\n                engine.bear(agent, other)\n                continue\n\n            # Forge alliances by providing resource offers to members with lower productivity.\n            if getattr(other, 'overall_productivity', 0) < getattr(agent, 'overall_productivity', 0):\n                engine.offer(agent, other, True)\n                continue\n\n            # Consider offering land to support members facing resource scarcity, if historical land benefit is negative.\n            land_benefit = 0\n            if land_benefit_relationship is not None and member_id < len(land_benefit_relationship) and j < len(land_benefit_relationship[member_id]):\n                land_benefit = land_benefit_relationship[member_id][j]\n            if other.cargo < 15 and land_benefit < 0:\n                engine.offer_land(agent, other, True)\n                continue\n\n        # Strategic Coalition Building: Identify high-productivity agents and extend alliance invitations.\n        coalition_members = []\n        for j in range(total_members):\n            if j == member_id:\n                continue\n            friend_candidate = engine.current_members[j]\n            if getattr(friend_candidate, 'overall_productivity', 0) > 8:\n                coalition_members.append(j)\n        for ally in coalition_members:\n            if ally < total_members:\n                engine.send_message(member_id, ally, \"I see great potential in our unity\u2014let's forge an alliance!\")\n\n        # Adaptive Q-learning based survival decision mechanism:\n        # Maintain a persistence Q-value table within the agent based on (vitality_state, cargo_state).\n        if not hasattr(agent, 'survival_q'):\n            agent.survival_q = {}\n        current_state = (int(agent.vitality // 20), int(agent.cargo // 20))\n        possible_actions = ['attack', 'gather', 'defend']\n\n        # Choose the best action based on learned rewards.\n        chosen_action = max(possible_actions, key=lambda act: agent.survival_q.get((current_state, act), 0))\n\n        if chosen_action == 'attack':\n            # Implement attack: Select the member with the highest cargo.\n            chosen_target = None\n            highest_cargo = -1\n            for j in range(total_members):\n                if j == member_id:\n                    continue\n                candidate = engine.current_members[j]\n                if candidate.cargo > highest_cargo:\n                    chosen_target = candidate\n                    highest_cargo = candidate.cargo\n            if chosen_target:\n                engine.attack(agent, chosen_target)\n                # Increment Q-value to reward strategic aggression in high-vitality state.\n                agent.survival_q[(current_state, chosen_action)] = agent.survival_q.get((current_state, chosen_action), 0) + agent.vitality * 0.1\n\n        elif chosen_action == 'gather':\n            # For gathering, proactively support lower-cargo members to establish network reciprocity.\n            for j in range(total_members):\n                if j == member_id:\n                    continue\n                candidate = engine.current_members[j]\n                if candidate.cargo < agent.cargo:\n                    engine.offer(agent, candidate, True)\n\n        else:\n            # Defensive posture: If 'defend' is chosen or no beneficial action is clear, maintain current resources.\n            # Potentially update Q-value to slowly favor defensive strategies over time.\n            agent.survival_q[(current_state, chosen_action)] = agent.survival_q.get((current_state, chosen_action), 0) + 1\n\n    except Exception:\n        # Any unexpected errors are silently caught to ensure robust execution\n        pass",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 1,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 1,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_1 (value=25.56)",
+          "member_0 was attacked by member_2 (value=64.41)",
+          "member_0 was attacked by member_3 (value=-43.12)",
+          "member_1 was attacked by member_0 (value=-11.72)",
+          "member_1 was attacked by member_2 (value=47.93)",
+          "member_1 was attacked by member_3 (value=48.04)",
+          "member_2 was attacked by member_0 (value=-12.32)",
+          "member_2 was attacked by member_1 (value=87.03)",
+          "member_2 was attacked by member_3 (value=95.31)",
+          "member_3 was attacked by member_0 (value=38.28)",
+          "member_3 was attacked by member_1 (value=75.31)",
+          "member_3 was attacked by member_2 (value=16.73)",
+          "member_0 gave a benefit to member_1 (value=71.17)",
+          "member_0 gave a benefit to member_2 (value=13.64)",
+          "member_0 gave a benefit to member_3 (value=32.58)",
+          "member_1 gave a benefit to member_0 (value=-27.19)",
+          "member_1 gave a benefit to member_2 (value=7.38)",
+          "member_1 gave a benefit to member_3 (value=21.87)",
+          "member_2 gave a benefit to member_0 (value=4.78)",
+          "member_2 gave a benefit to member_1 (value=68.92)",
+          "member_2 gave a benefit to member_3 (value=71.57)",
+          "member_3 gave a benefit to member_0 (value=16.90)",
+          "member_3 gave a benefit to member_1 (value=-18.41)",
+          "member_3 gave a benefit to member_2 (value=95.17)",
+          "member_0 gave land to member_1 (value=-0.80)",
+          "member_0 gave land to member_2 (value=-2.26)",
+          "member_0 gave land to member_3 (value=-0.03)",
+          "member_1 gave land to member_0 (value=-0.45)",
+          "member_1 gave land to member_2 (value=1.91)",
+          "member_1 gave land to member_3 (value=-2.53)",
+          "member_2 gave land to member_0 (value=-2.12)",
+          "member_2 gave land to member_1 (value=2.46)",
+          "member_2 gave land to member_3 (value=1.77)",
+          "member_3 gave land to member_0 (value=1.04)",
+          "member_3 gave land to member_1 (value=0.96)",
+          "member_3 gave land to member_2 (value=-1.75)"
+        ],
+        "final_prompt": "def agent_action(execution_engine, member_id):\n    \"\"\"\n    This function implements a unique strategy for social organization and survival.\n    Each agent must design their solution according to individual needs, beliefs, and circumstances.\n    The approach here integrates personal resource optimization, threat assessment, and adaptive survival strategies,\n    while also weighing short-term gains against long-term prosperity and collective cooperation.\n    \n    Core game mechanics analysis:\n      1. Core Objective: A balanced blend of survival, cooperation, and growth.\n         - Survival is secured by optimizing resources, neutralizing threats, and adaptive actions.\n         - Cooperation occurs via outreach (messages, offers, and alliances) which may build social capital.\n      2. Key Success Metrics:\n         - Personal vitality preservation and resource acquisition.\n         - Efficient threat neutralization and effective expansion of territory.\n         - Forming robust alliances with high-productivity members.\n      3. Potential Improvements:\n         - Enhanced models for predictive danger and survival Q-learning.\n         - More nuanced resource and land management strategies.\n    \n    Strategic approaches considered:\n      - Optimizing individual resource acquisition and threat response.\n      - Balancing short\u2010term emergency actions with long\u2010term cooperative growth.\n      - Maintaining vigilance against deceptive signals while isolating high-risk adversaries.\n      - Employing adaptive survival Q-learning and predictive self-preservation models.\n    \n    Critical constraints:\n      - Never target yourself (member_0 in this context) in any action.\n      - Verify the member exists (using index checks on execution_engine.current_members).\n      - Ensure all matrix indices are valid before accessing relationship data.\n      - Check that a member has available land before executing the bear() action.\n      - Use execution_engine.current_members[index] for member access.\n    \"\"\"\n    try:\n        # Validate that the current member exists.\n        if member_id >= len(execution_engine.current_members):\n            return\n        my_member = execution_engine.current_members[member_id]\n        num_members = len(execution_engine.current_members)\n\n        # Emergency resource optimization:\n        # If cargo is low relative to vitality, look for richer targets to boost resource gains.\n        if my_member.cargo < my_member.vitality * 0.5:\n            for i in range(num_members):\n                if i == member_id:\n                    continue\n                if i >= num_members:\n                    continue\n                other = execution_engine.current_members[i]\n                if other.cargo > my_member.cargo:\n                    execution_engine.attack(my_member, other)\n\n        # Broadcast a cooperative, survival-centric message to all others.\n        for i in range(num_members):\n            if i != member_id and i < num_members:\n                execution_engine.send_message(member_id, i, \"Let's align for survival and mutual growth!\")\n\n        # Retrieve relationship matrices safely.\n        victim_matrix = execution_engine.relationship_dict.get('victim', None)\n        benefit_matrix = execution_engine.relationship_dict.get('benefit', None)\n        benefit_land_matrix = execution_engine.relationship_dict.get('benefit_land', None)\n\n        # Evaluate interactions with each other member.\n        for i in range(num_members):\n            if i == member_id or i >= num_members:\n                continue\n            other = execution_engine.current_members[i]\n\n            # Threat assessment: if I've been attacked strongly by the other member, counterattack.\n            attack_value = 0\n            if (victim_matrix is not None and \n                member_id < len(victim_matrix) and \n                i < len(victim_matrix[member_id])):\n                attack_value = victim_matrix[member_id][i]\n            if attack_value > 50:\n                execution_engine.attack(my_member, other)\n                continue\n\n            # Territory expansion: if the other member's vitality is lower and they are younger, try to expand.\n            if other.vitality < my_member.vitality * 0.8 and other.age < my_member.age:\n                execution_engine.expand(my_member, other)\n                continue\n\n            # Reproduction / legacy creation: use bear() only if the member is resource-rich, and check if they own any land.\n            has_land = hasattr(my_member, 'owned_land') and getattr(my_member, 'owned_land', None) and len(my_member.owned_land) > 0\n            benefit_value = 0\n            if (benefit_matrix is not None and \n                member_id < len(benefit_matrix) and \n                i < len(benefit_matrix[member_id])):\n                benefit_value = benefit_matrix[member_id][i]\n            if my_member.cargo > 20 and benefit_value > 0 and has_land:\n                execution_engine.bear(my_member, other)\n                continue\n\n            # Offer resources to members with lower overall productivity to build alliances.\n            if other.overall_productivity < my_member.overall_productivity:\n                execution_engine.offer(my_member, other, True)\n                continue\n\n            # Offer land if the other member appears resource-strapped, based on cargo and historical land benefit.\n            land_value = 0\n            if (benefit_land_matrix is not None and \n                member_id < len(benefit_land_matrix) and \n                i < len(benefit_land_matrix[member_id])):\n                land_value = benefit_land_matrix[member_id][i]\n            if other.cargo < 15 and land_value < 0:\n                execution_engine.offer_land(my_member, other, True)\n                continue\n\n        # Build a strategic coalition by messaging high-productivity members.\n        coalition = []\n        for i in range(num_members):\n            if i == member_id:\n                continue\n            candidate = execution_engine.current_members[i]\n            if candidate.overall_productivity > 8:\n                coalition.append(i)\n        for ally_id in coalition:\n            if ally_id < num_members:\n                execution_engine.send_message(member_id, ally_id, \"Combine forces for mutual survival and prosperity!\")\n\n        # Adaptive survival mechanism: implement a simple Q-learning inspired update\n        if not hasattr(my_member, 'survival_q'):\n            my_member.survival_q = {}\n        state = (int(my_member.vitality // 20), int(my_member.cargo // 20))\n        actions = ['attack', 'gather', 'defend']\n        best_action = max(actions, key=lambda a: my_member.survival_q.get((state, a), 0))\n        if best_action == 'attack':\n            # Select the target with the highest cargo.\n            target = None\n            max_cargo = 0\n            for i in range(num_members):\n                if i == member_id:\n                    continue\n                other = execution_engine.current_members[i]\n                if other.cargo > max_cargo:\n                    target = other\n                    max_cargo = other.cargo\n            if target:\n                execution_engine.attack(my_member, target)\n                my_member.survival_q[(state, best_action)] = my_member.survival_q.get((state, best_action), 0) + my_member.vitality * 0.1\n        elif best_action == 'gather':\n            # Proactively offer resources to lower-cargo members to eventually receive reciprocal aid.\n            for i in range(num_members):\n                if i == member_id:\n                    continue\n                other = execution_engine.current_members[i]\n                if other.cargo < my_member.cargo:\n                    execution_engine.offer(my_member, other, True)\n        else:\n            # Defensive posture: refrain from aggressive moves if conditions are not favorable.\n            pass\n\n    except Exception:\n        pass\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+      },
+      "1": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Validate the member_id is within the bounds\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    # Get the executing agent's object\n    me = execution_engine.current_members[member_id]\n    total_members = len(execution_engine.current_members)\n\n    # Define thresholds and constants\n    VITALITY_THRESHOLD = 40.0         # Vitality level considered robust for offense\n    CARGO_THRESHOLD = 35.0            # Cargo level to indicate readiness for reproduction/expansion\n    PRODUCTIVITY_THRESHOLD = 8.0      # Productivity level to consider cooperative alliances\n    EMERGENCY_CARGO_RATIO = 0.6       # Ratio of cargo to vitality considered as a safe reserve\n\n    # Send a cooperative message to all other members\n    for idx in range(total_members):\n        if idx == member_id:\n            continue\n        # Double-check index validity\n        if idx < len(execution_engine.current_members):\n            other_member = execution_engine.current_members[idx]\n            execution_engine.send_message(me.id, other_member.id,\n                                          \"Alliance invitation: Together we can forge a sustainable future.\")\n\n    # Emergency resource strategy: if cargo is below a safe fraction of vitality,\n    # identify members who might have abundant resources and attempt to secure them.\n    if me.cargo < me.vitality * EMERGENCY_CARGO_RATIO:\n        for idx in range(total_members):\n            if idx == member_id:\n                continue\n            if idx >= len(execution_engine.current_members):\n                continue\n            other = execution_engine.current_members[idx]\n            # Only target members with notably higher cargo to maximize gains\n            if other.cargo > me.cargo + 5.0:\n                execution_engine.attack(me, other)\n\n    # Loop over other members to choose actions based on survival and long-term prosperity\n    for idx in range(total_members):\n        # Validate index\n        if idx < 0 or idx >= total_members:\n            continue\n        other = execution_engine.current_members[idx]\n        # Never target oneself\n        if other.id == me.id:\n            continue\n\n        # Threat neutralization:\n        # If our vitality is high and the opposing member's vitality is weak, consider an aggressive approach.\n        if me.vitality >= VITALITY_THRESHOLD and other.vitality < VITALITY_THRESHOLD:\n            execution_engine.attack(me, other)\n\n        # Cooperative resource optimization:\n        # If both members are productive, share resources to bolster mutual strength.\n        elif me.overall_productivity >= PRODUCTIVITY_THRESHOLD and other.overall_productivity >= PRODUCTIVITY_THRESHOLD:\n            execution_engine.offer(me, other, True)\n\n        # Land resource cooperation:\n        # If both have moderate resources, consider land sharing improvements.\n        elif me.cargo >= CARGO_THRESHOLD and other.cargo >= CARGO_THRESHOLD:\n            execution_engine.offer_land(me, other, True)\n\n        # Expansion and reproduction:\n        # Check if both agents have enough cargo (proxy for available land) and maturity (age > 20)\n        elif me.cargo >= CARGO_THRESHOLD and other.age > 20:\n            if other.cargo >= CARGO_THRESHOLD:\n                execution_engine.expand(me, other)\n            else:\n                # Ensure that the other member has some resources before trying to bear offspring.\n                if other.cargo > 0:\n                    execution_engine.bear(me, other)\n\n    # End of strategy.\n    # Future improvement: incorporate dynamic learning or prediction models for adaptive win conditions.\n    return",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 1,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 1,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_1 (value=25.56)",
+          "member_0 was attacked by member_2 (value=64.41)",
+          "member_0 was attacked by member_3 (value=-43.12)",
+          "member_1 was attacked by member_0 (value=-11.72)",
+          "member_1 was attacked by member_2 (value=47.93)",
+          "member_1 was attacked by member_3 (value=48.04)",
+          "member_2 was attacked by member_0 (value=-12.32)",
+          "member_2 was attacked by member_1 (value=87.03)",
+          "member_2 was attacked by member_3 (value=95.31)",
+          "member_3 was attacked by member_0 (value=38.28)",
+          "member_3 was attacked by member_1 (value=75.31)",
+          "member_3 was attacked by member_2 (value=16.73)",
+          "member_0 gave a benefit to member_1 (value=71.17)",
+          "member_0 gave a benefit to member_2 (value=13.64)",
+          "member_0 gave a benefit to member_3 (value=32.58)",
+          "member_1 gave a benefit to member_0 (value=-27.19)",
+          "member_1 gave a benefit to member_2 (value=7.38)",
+          "member_1 gave a benefit to member_3 (value=21.87)",
+          "member_2 gave a benefit to member_0 (value=4.78)",
+          "member_2 gave a benefit to member_1 (value=68.92)",
+          "member_2 gave a benefit to member_3 (value=71.57)",
+          "member_3 gave a benefit to member_0 (value=16.90)",
+          "member_3 gave a benefit to member_1 (value=-18.41)",
+          "member_3 gave a benefit to member_2 (value=95.17)",
+          "member_0 gave land to member_1 (value=-0.80)",
+          "member_0 gave land to member_2 (value=-2.26)",
+          "member_0 gave land to member_3 (value=-0.03)",
+          "member_1 gave land to member_0 (value=-0.45)",
+          "member_1 gave land to member_2 (value=1.91)",
+          "member_1 gave land to member_3 (value=-2.53)",
+          "member_2 gave land to member_0 (value=-2.12)",
+          "member_2 gave land to member_1 (value=2.46)",
+          "member_2 gave land to member_3 (value=1.77)",
+          "member_3 gave land to member_0 (value=1.04)",
+          "member_3 gave land to member_1 (value=0.96)",
+          "member_3 gave land to member_2 (value=-1.75)"
+        ],
+        "final_prompt": "#!/usr/bin/env python3\n\"\"\"\nIntegrated Prompt for agent_action implementation:\n\nContext:\n------------\nYou are member_1 in a society that you can help shape. In this game, each member has attributes:\n    \u2022 member.id (int): Unique identifier of the member.\n    \u2022 member.vitality (float)\n    \u2022 member.cargo (float)\n    \u2022 member.overall_productivity (float)\n    \u2022 member.age (float)\n    \u2022 member.current_clear_list (List[int]) \u2013 IDs of adjacent neighbors\nRelationships between members are stored in execution_engine.relationship_dict with keys: 'victim', 'benefit', and 'benefit_land'. \nMatrices are accessed using valid indices into execution_engine.current_members (a list). Matrix indices must be validated (i.e. check that index < len(execution_engine.current_members)).\n\nAvailable methods on execution_engine:\n    \u2022 execution_engine.attack(member1, member2)\n    \u2022 execution_engine.offer(member1, member2, True)              -> Offers resources\n    \u2022 execution_engine.offer_land(member1, member2, True)           -> Offers land\n    \u2022 execution_engine.bear(member1, member2)                       -> Bears offspring\n    \u2022 execution_engine.expand(member1, member2)                     -> Expands territory\n    \u2022 execution_engine.send_message(your_id, recipient_id, \"message\")\n    \u2022 execution_engine.parse_relationship_matrix()                -> Produces a summary (list of strings) of relationships\n\nImportant constraints:\n    - Avoid previous errors.\n    - Never target yourself (i.e. never choose a member with the same id as the executing agent).\n    - Verify a member has available land before using bear() action (land availability is proxied by cargo reaching a given threshold).\n    - Check that any member index exists before referencing execution_engine.current_members[index].\n    - Remember that current_members is a list, so access via execution_engine.current_members[index].\n    - NEVER refer to attributes like 'member.member_id' or 'member.self_vitality'; use member.id, member.vitality, etc.\n\nNew (Part 2) Additional Constraints and Guidance:\n------------------------------------------------------\n[Previous code execution context]\n    No previous execution errors.\n \n[Current task]\n    You are member_1 in a society that you can help shape.\n    Write a Python function named agent_action(execution_engine, member_id) that implements your vision of social organization while ensuring your survival.\n \n[Critical constraints]\n    - Carefully analyze previous errors shown above and avoid repeating them.\n    - Never target yourself (member_1) in any action.\n    - Verify a member has land before using bear() action.\n    - Check member IDs exist before referencing them.\n    - Ensure all matrix indices are valid.\n    - current_members is a LIST accessed by index, not a dictionary.\n    - Access members using execution_engine.current_members[index].\n    - Check if index exists: if index < len(execution_engine.current_members)\n \nAvailable attributes and methods:\n    1) Each member object has:\n          \u2022 member.id (int)\n          \u2022 member.vitality (float)\n          \u2022 member.cargo (float)\n          \u2022 member.overall_productivity (float)\n          \u2022 member.age (float)\n          \u2022 member.current_clear_list (List[int])\n \n    2) Relationships are stored in execution_engine.relationship_dict (keys: 'victim', 'benefit', 'benefit_land').\n       For example:\n           matrix = execution_engine.relationship_dict['victim']\n           # matrix[i, j] indicates how many times member_i was attacked by member_j (if > 0).\n \n    3) execution_engine.parse_relationship_matrix() produces summaries as a list of strings.\n \n    4) Available methods on execution_engine:\n          \u2022 execution_engine.attack(member1, member2)\n          \u2022 execution_engine.offer(member1, member2, True)\n          \u2022 execution_engine.offer_land(member1, member2, True)\n          \u2022 execution_engine.bear(member1, member2)\n          \u2022 execution_engine.expand(member1, member2)\n \n    5) Members are accessed by execution_engine.current_members[id].\n \n    6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.\n \nCurrent status (features of all members):\n    self_productivity  self_vitality  self_cargo  self_age  self_neighbor  member_id\n0           9.851974      73.853828   33.660797       90             1          0\n1           8.077967      33.027814   39.175257       81             0          1\n2           7.968737      42.156043   32.286346       29             1          2\n3           9.205662      18.477480   37.476006       24             0          3\n \nRelationship summary (parsed from relationship_dict):\n    ['member_0 was attacked by member_1 (value=25.56)', 'member_0 was attacked by member_2 (value=64.41)', 'member_0 was attacked by member_3 (value=-43.12)', \n     'member_1 was attacked by member_0 (value=-11.72)', 'member_1 was attacked by member_2 (value=47.93)', 'member_1 was attacked by member_3 (value=48.04)', \n     'member_2 was attacked by member_0 (value=-12.32)', 'member_2 was attacked by member_1 (value=87.03)', 'member_2 was attacked by member_3 (value=95.31)', \n     'member_3 was attacked by member_0 (value=38.28)', 'member_3 was attacked by member_1 (value=75.31)', 'member_3 was attacked by member_2 (value=16.73)', \n     'member_0 gave a benefit to member_1 (value=71.17)', 'member_0 gave a benefit to member_2 (value=13.64)', 'member_0 gave a benefit to member_3 (value=32.58)', \n     'member_1 gave a benefit to member_0 (value=-27.19)', 'member_1 gave a benefit to member_2 (value=7.38)', 'member_1 gave a benefit to member_3 (value=21.87)', \n     'member_2 gave a benefit to member_0 (value=4.78)', 'member_2 gave a benefit to member_1 (value=68.92)', 'member_2 gave a benefit to member_3 (value=71.57)', \n     'member_3 gave a benefit to member_0 (value=16.90)', 'member_3 gave a benefit to member_1 (value=-18.41)', 'member_3 gave a benefit to member_2 (value=95.17)', \n     'member_0 gave land to member_1 (value=-0.80)', 'member_0 gave land to member_2 (value=-2.26)', 'member_0 gave land to member_3 (value=-0.03)', \n     'member_1 gave land to member_0 (value=-0.45)', 'member_1 gave land to member_2 (value=1.91)', 'member_1 gave land to member_3 (value=-2.53)', \n     'member_2 gave land to member_0 (value=-2.12)', 'member_2 gave land to member_1 (value=2.46)', 'member_2 gave land to member_3 (value=1.77)', \n     'member_3 gave land to member_0 (value=1.04)', 'member_3 gave land to member_1 (value=0.96)', 'member_3 gave land to member_2 (value=-1.75)']\n \nCode Memory and Previous Performance:\n    No previous code history.\n \nPerformance history:\n    No previous actions\n \nBased on the previous code performance, adapt and improve the strategy. If a previous strategy worked well (high performance), consider building upon it.\nIf it failed, try a different approach.\n \nIMPORTANT: Do not simply copy the example implementation below. Instead, use it as inspiration to create your own unique approach combining different methods and strategies in novel ways.\nReturn only the code, no extra text or explanation. While the example above shows one possible approach,\nyou should create your own unique implementation drawing from the wide range of available methods and strategies.\nEnsure your solution is in line with your individual needs, beliefs, and circumstances.\n\n[Current Game Mechanisms]\n    []\n \n[Survival-Centric Adaptation]\nImplement systems focused on:\n    1. Personal resource optimization\n    2. Threat assessment and neutralization\n    3. Vitality preservation techniques\n    4. Adaptive hoarding strategies\n    5. Predictive danger modeling\n\nSurvival-First Examples:\n    def agent_action(execution_engine, member_id):\n        me = execution_engine.current_members[member_id]\n        \n        # Emergency resource reserve\n        if me.cargo < me.vitality * 0.5:\n            for other in execution_engine.current_members:\n                if other.id != me.id and other.cargo > me.cargo:\n                    execution_engine.attack(me, other)\n        \n        # Adaptive territory defense\n        if me.land_num > 2 and me.vitality < 50:\n            for loc in me.owned_land[1:]:\n                execution_engine._discard_land(me, loc)\n        \n        # Survival Q-learning\n        if not hasattr(me, 'survival_q'):\n            me.survival_q = defaultdict(float)\n            \n        state = (me.vitality//20, me.cargo//20)\n        action = max(['attack','hide','steal'], \n                    key=lambda a: me.survival_q.get((state,a),0))\n        \n        # Execute and update based on survival outcome\n        if action == 'attack':\n            me.survival_q[(state,action)] += me.vitality * 0.1\n\n[Survival Metrics]\nEvaluate strategies by:\n    - Personal vitality delta\n    - Resource acquisition rate\n    - Threat neutralization count\n    - Survival probability increase\n    - Attack success:fail ratio\n\n[Implementation Priorities]\n    1. Create personal health monitoring systems.\n    2. Develop egocentric threat models.\n    3. Optimize actions for caloric ROI.\n    4. Implement fail-deadly safeguards.\n    5. Build predictive self-preservation models.\n\ndef calculate_survival_roi(action_history):\n    roi = {}\n    for action, outcome in action_history:\n        vitality_gain = outcome['vitality']\n        cost = outcome['vitality_cost']\n        roi[action] = vitality_gain / cost if cost > 0 else 0\n    return max(roi, key=roi.get)\n\nStrategic Considerations:\n---------------------------\n1. Core objective - Consider survival, domination, and/or cooperation. Balance personal resource optimization with collective prosperity.\n2. Key success metrics - Vitality, cargo (resources/land), productivity, and quality of relationships.\n3. Potential improvements - More detailed economic systems, enhanced negotiation channels, and dynamic threat modeling techniques.\n\nStrategic Approaches:\n    1. Resource optimization vs social capital.\n    2. Individual vs collective success.\n    3. Short-term survival vs long-term prosperity.\n    4. Competition vs cooperation dynamics.\n    5. Risk vs reward tradeoffs.\n\nAnalysis of Other Players:\n    1. Assess their objectives and demands.\n    2. Identify their strategies.\n    3. Look for opportunities for mutual benefit.\n    4. Recognize that they are symmetric agents \u2013 reflect on how you'd respond to your own actions.\n    5. Detect deceptive messages and adjust strategies.\n    6. Align individual strategy with collective goals when possible.\n\nChallenge Your Implementation:\n    1. Question your assumptions.\n    2. Explore alternative strategies.\n    3. Test edge cases.\n    4. Seek more efficient methods to achieve goals.\n    5. Identify weaknesses and improve resilience.\n    6. Experiment with unconventional solutions.\n    7. Anticipate counter-strategies and adapt.\n    8. Balance short-term and long-term objectives optimally.\n\nBelow is the updated full implementation for agent_action.\n \nReturn only the code.\n \n---------------------------------------\nImplementation:\n---------------------------------------\n\"\"\"\n\ndef agent_action(execution_engine, member_id):\n    # Validate that the executing member exists\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return  # Invalid member ID, do nothing\n    \n    # Get self-member object\n    me = execution_engine.current_members[member_id]\n    total_members = len(execution_engine.current_members)\n    \n    # Set thresholds and constants\n    vitality_threshold = 30.0         # Threshold for vitality to consider an enemy vulnerable or a risk\n    productivity_threshold = 8.0        # Threshold for productivity to consider cooperative offers\n    cargo_threshold = 30.0              # Proxy for available land for reproduction/expansion\n    emergency_cargo_ratio = 0.5         # If cargo is less than this fraction of vitality, initiate emergency measures\n    \n    # Broadcast a cooperative message to all other members (avoid targeting self)\n    for idx in range(total_members):\n        if idx == member_id:\n            continue\n        # Validate index exists (idx is from 0 to total_members-1)\n        execution_engine.send_message(me.id, execution_engine.current_members[idx].id, \n                                      \"Let's cooperate for collective survival and prosperity!\")\n    \n    # Survival-centric strategic actions:\n    # 1. Personal resource optimization: if cargo is low relative to vitality, search for members with \n    #    higher cargo to target and secure resources.\n    if me.cargo < me.vitality * emergency_cargo_ratio:\n        for idx in range(total_members):\n            if idx == member_id:\n                continue\n            # Validate index and skip if same member.\n            other = execution_engine.current_members[idx]\n            if other.cargo > me.cargo:\n                execution_engine.attack(me, other)\n    \n    # 2. Loop through other members for balanced decision-making regarding threat neutralization,\n    #    cooperative expansion, or reproduction (bearing offspring), with careful index and availability checks.\n    for idx in range(total_members):\n        if idx < 0 or idx >= total_members:\n            continue  # Fail-safe check for valid index\n        other = execution_engine.current_members[idx]\n        if other.id == me.id:\n            continue  # Never target yourself\n        \n        # Threat assessment: If my vitality is high relative to others (and their vitality is low), initiate attack.\n        if me.vitality > vitality_threshold and other.vitality < vitality_threshold:\n            execution_engine.attack(me, other)\n        \n        # Cooperative resource sharing: if both members have high productivity, offer resources.\n        elif me.overall_productivity > productivity_threshold and other.overall_productivity > productivity_threshold:\n            execution_engine.offer(me, other, True)\n        \n        # Territory expansion or reproduction:\n        # Only use bear() action if both parties have sufficient cargo (proxy for having land).\n        elif me.cargo >= cargo_threshold and other.age > 20:\n            if other.cargo >= cargo_threshold:\n                execution_engine.expand(me, other)\n            else:\n                # Check: ensure that other has some means (i.e. cargo above zero) before trying to bear offspring.\n                if other.cargo > 0:\n                    execution_engine.bear(me, other)\n    \n    # Adaptive survival enhancements:\n    # (Future improvements might include dynamic Q-learning or more advanced threat modeling.)\n    # For now, actions remain condition-based and focus on personal vital resources and threat reduction.\n    \n    # End of agent_action implementation.\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+      },
+      "2": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Validate member_id\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # 1. Critical Survival: Prioritize survival by countering resource deficiencies.\n    # If our cargo is disproportionately low relative to our vitality,\n    # scan the competition for targets with notably higher cargo.\n    if me.cargo < 0.5 * me.vitality:\n        for i, other in enumerate(execution_engine.current_members):\n            if i == member_id:\n                continue\n            # Attack if the other has at least 30% more cargo than us.\n            if other.cargo > me.cargo * 1.3:\n                execution_engine.attack(me, other)\n\n    # 2. Building Cooperative Networks: Initiate communication tailored both to allies and potential collaborators.\n    # We send differentiated messages based on relative productivity.\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        # If the other member's overall productivity is comparable (at least 80% of ours), encourage trustworthy collaboration.\n        if other.overall_productivity >= 0.8 * me.overall_productivity:\n            message = \"I value our parity in performance; let's work together for mutual growth.\"\n        else:\n            # For those less productive, offer support while hinting at future collaboration.\n            message = \"Opportunities exist for synergy\u2014let's keep in touch.\"\n        execution_engine.send_message(member_id, i, message)\n\n    # 3. Adaptive Territorial Expansion: Strategically expand territory.\n    # Identify members we outperform significantly (over 15% margin) and try to absorb or expand their territories.\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        if me.overall_productivity > 1.15 * other.overall_productivity:\n            execution_engine.expand(me, other)\n\n    # 4. Resource Sharing for Social Capital: Leverage our surplus vitality to strengthen bonds.\n    # Compute the average vitality of peers.\n    total_vitality = 0.0\n    count = 0\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        total_vitality += other.vitality\n        count += 1\n    if count > 0:\n        avg_vitality = total_vitality / count\n        # If we are significantly more vital than our peers, share resources.\n        if me.vitality > 1.1 * avg_vitality:\n            for i, other in enumerate(execution_engine.current_members):\n                if i == member_id:\n                    continue\n                # Optionally, check if the recipient's cargo is low relative to ours to maximize impact.\n                if other.cargo < me.cargo * 0.9:\n                    execution_engine.offer(me, other, True)\n\n    # 5. Long-term Survival & Collective Prosperity: Invest in the future.\n    # If we hold a strong cargo reserve relative to our vitality,\n    # selectively partner with members who show signs of sustainable territory (indicated by a non-empty clear list).\n    if me.cargo > 1.5 * me.vitality:\n        for i, other in enumerate(execution_engine.current_members):\n            if i == member_id:\n                continue\n            if hasattr(other, \"current_clear_list\") and other.current_clear_list and len(other.current_clear_list) > 0:\n                execution_engine.bear(me, other)\n                # Limit breeding to one action per cycle to manage risk.\n                break\n\n    # 6. Extra Insight\u2014Dynamic Intelligence & Defense:\n    # As a safeguard, if our surroundings indicate an unexpectedly aggressive environment,\n    # consider a defensive posture by reinforcing our own position.\n    aggressive_neighbors = 0\n    for i, other in enumerate(execution_engine.current_members):\n        if i == member_id:\n            continue\n        # Estimate aggressiveness if their cargo substantially exceeds their vitality.\n        if other.cargo > 1.2 * other.vitality:\n            aggressive_neighbors += 1\n    if aggressive_neighbors > (len(execution_engine.current_members) - 1) / 2:\n        # When facing multiple aggressive players, refrain from overextending: instead, bolster defenses.\n        execution_engine.log(me, \"Defensive stance activated due to high regional aggression.\")\n        execution_engine.fortify(me)\n\n    return",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 1,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 1,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_1 (value=25.56)",
+          "member_0 was attacked by member_2 (value=64.41)",
+          "member_0 was attacked by member_3 (value=-43.12)",
+          "member_1 was attacked by member_0 (value=-11.72)",
+          "member_1 was attacked by member_2 (value=47.93)",
+          "member_1 was attacked by member_3 (value=48.04)",
+          "member_2 was attacked by member_0 (value=-12.32)",
+          "member_2 was attacked by member_1 (value=87.03)",
+          "member_2 was attacked by member_3 (value=95.31)",
+          "member_3 was attacked by member_0 (value=38.28)",
+          "member_3 was attacked by member_1 (value=75.31)",
+          "member_3 was attacked by member_2 (value=16.73)",
+          "member_0 gave a benefit to member_1 (value=71.17)",
+          "member_0 gave a benefit to member_2 (value=13.64)",
+          "member_0 gave a benefit to member_3 (value=32.58)",
+          "member_1 gave a benefit to member_0 (value=-27.19)",
+          "member_1 gave a benefit to member_2 (value=7.38)",
+          "member_1 gave a benefit to member_3 (value=21.87)",
+          "member_2 gave a benefit to member_0 (value=4.78)",
+          "member_2 gave a benefit to member_1 (value=68.92)",
+          "member_2 gave a benefit to member_3 (value=71.57)",
+          "member_3 gave a benefit to member_0 (value=16.90)",
+          "member_3 gave a benefit to member_1 (value=-18.41)",
+          "member_3 gave a benefit to member_2 (value=95.17)",
+          "member_0 gave land to member_1 (value=-0.80)",
+          "member_0 gave land to member_2 (value=-2.26)",
+          "member_0 gave land to member_3 (value=-0.03)",
+          "member_1 gave land to member_0 (value=-0.45)",
+          "member_1 gave land to member_2 (value=1.91)",
+          "member_1 gave land to member_3 (value=-2.53)",
+          "member_2 gave land to member_0 (value=-2.12)",
+          "member_2 gave land to member_1 (value=2.46)",
+          "member_2 gave land to member_3 (value=1.77)",
+          "member_3 gave land to member_0 (value=1.04)",
+          "member_3 gave land to member_1 (value=0.96)",
+          "member_3 gave land to member_2 (value=-1.75)"
+        ],
+        "final_prompt": "def agent_action(execution_engine, member_id):\n    # Ensure our member index exists\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # 1. Survival-oriented resource optimization:\n    # If our cargo is low compared to our vitality, try to attack members with higher cargo.\n    if me.cargo < 0.5 * me.vitality:\n        for i in range(len(execution_engine.current_members)):\n            if i == member_id:\n                continue\n            other = execution_engine.current_members[i]\n            # Basic check: only attack if they have significantly more cargo than us \n            if other.cargo > me.cargo * 1.2:\n                execution_engine.attack(me, other)\n\n    # 2. Build cooperative networks:\n    # Send a cooperative message to all other members.\n    for i in range(len(execution_engine.current_members)):\n        if i != member_id:\n            execution_engine.send_message(member_id, i, \"Let's cooperate for mutual survival and growth.\")\n\n    # 3. Adaptive territorial expansion:\n    # Expand territory by targeting members with lower overall productivity.\n    for i in range(len(execution_engine.current_members)):\n        if i == member_id:\n            continue\n        other = execution_engine.current_members[i]\n        # Only attempt expansion if we clearly outperform the other member:\n        if me.overall_productivity > other.overall_productivity * 1.1:\n            execution_engine.expand(me, other)\n\n    # 4. Resource sharing for social capital:\n    # Offer resources to members with lower vitality than our average peer vitality.\n    total_vitality = 0.0\n    count = 0\n    for i in range(len(execution_engine.current_members)):\n        if i == member_id:\n            continue\n        total_vitality += execution_engine.current_members[i].vitality\n        count += 1\n    if count > 0:\n        avg_vitality = total_vitality / count\n        if me.vitality > avg_vitality:\n            for i in range(len(execution_engine.current_members)):\n                if i == member_id:\n                    continue\n                execution_engine.offer(me, execution_engine.current_members[i], True)\n\n    # 5. Long-term survival and collective prosperity:\n    # Periodically, if our cargo is healthy and our vitality is robust,\n    # try to breed with members who likely have secure land.\n    # Since we must verify a member has land before bearing offspring,\n    # we check for a positive length of their current_clear_list as a proxy.\n    if me.cargo > 1.5 * me.vitality:\n        for i in range(len(execution_engine.current_members)):\n            if i == member_id:\n                continue\n            other = execution_engine.current_members[i]\n            # Verify existence and that they appear to have cleared territory (land)\n            if hasattr(other, \"current_clear_list\") and other.current_clear_list and len(other.current_clear_list) > 0:\n                execution_engine.bear(me, other)\n                break  # Only perform one bear action per round\n\n    return\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+      },
+      "3": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Validate the member_id exists in the current members list.\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    # Retrieve our member for reference.\n    me = execution_engine.current_members[member_id]\n\n    # Immediate Cooperation: broadcast a unifying message to all other members.\n    for idx, member in enumerate(execution_engine.current_members):\n        if idx != member_id:\n            execution_engine.send_message(me.id, member.id,\n                \"United we stand, resilient we grow. Let\u2019s ensure a thriving future together!\")\n\n    # Adaptive Social Support:\n    # If our vitality is low, we look to foster alliances and share resources with others in better shape.\n    if me.vitality < 50:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.vitality > me.vitality:\n                # Offer support to build long-lasting trust.\n                execution_engine.offer(me, target, generous=True)\n\n    # Survival-driven Resource Optimization:\n    # If our cargo is significantly lagging behind our vitality, pursue an assertive resource boost.\n    if me.cargo < me.vitality * 0.5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo > me.cargo:\n                # An assertive action to seize an advantage strategically.\n                execution_engine.attack(me, target)\n                break  # Only one aggressive move per round.\n\n    # Proactive Territory Expansion:\n    # When cargo levels exceed a healthy surplus, invest in expanding influence.\n    if me.cargo > 30:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.expand(me, target)\n\n    # Sustainable Reproduction and Legacy:\n    # Ensure that conditions are favorable (productivity and cargo) and that there is available territory.\n    if me.overall_productivity > 9 and me.cargo > 20 and hasattr(me, \"current_clear_list\") and me.current_clear_list:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.bear(me, target)\n                break  # Limit reproduction actions to one per round.\n\n    # Strategic Retaliation based on Relationship Analysis:\n    # Examine the victim matrix to identify intense hostilities.\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and member_id < len(victim_matrix):\n        for idx, target in enumerate(execution_engine.current_members):\n            # Skip self and ensure index is within the matrix bounds.\n            if idx == member_id or idx >= len(victim_matrix[member_id]):\n                continue\n            if victim_matrix[member_id][idx] < -10:\n                execution_engine.attack(me, target)\n                break  # React to the most significant threat.\n\n    # Deep Alliance Building in Times of Crisis:\n    # When vitality is critically low, seek to create binding partnerships by offering valuable territory.\n    if me.vitality < 20:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.offer_land(me, target, generous=True)\n\n    # Long-term Strategic Investment:\n    # Periodically review our overall resource balance to plan sustainable improvements.\n    # For example, if our cargo is moderate but productivity is decreasing, initiate cooperative trading.\n    if me.cargo > 15 and me.overall_productivity < 5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo >= me.cargo:\n                execution_engine.send_message(me.id, target.id,\n                    \"Let\u2019s engage in a mutually beneficial trade to uplift our fortunes.\")\n                # Break after generating a single trade initiative.\n                break\n\n    return",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 1,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 1,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_1 (value=25.56)",
+          "member_0 was attacked by member_2 (value=64.41)",
+          "member_0 was attacked by member_3 (value=-43.12)",
+          "member_1 was attacked by member_0 (value=-11.72)",
+          "member_1 was attacked by member_2 (value=47.93)",
+          "member_1 was attacked by member_3 (value=48.04)",
+          "member_2 was attacked by member_0 (value=-12.32)",
+          "member_2 was attacked by member_1 (value=87.03)",
+          "member_2 was attacked by member_3 (value=95.31)",
+          "member_3 was attacked by member_0 (value=38.28)",
+          "member_3 was attacked by member_1 (value=75.31)",
+          "member_3 was attacked by member_2 (value=16.73)",
+          "member_0 gave a benefit to member_1 (value=71.17)",
+          "member_0 gave a benefit to member_2 (value=13.64)",
+          "member_0 gave a benefit to member_3 (value=32.58)",
+          "member_1 gave a benefit to member_0 (value=-27.19)",
+          "member_1 gave a benefit to member_2 (value=7.38)",
+          "member_1 gave a benefit to member_3 (value=21.87)",
+          "member_2 gave a benefit to member_0 (value=4.78)",
+          "member_2 gave a benefit to member_1 (value=68.92)",
+          "member_2 gave a benefit to member_3 (value=71.57)",
+          "member_3 gave a benefit to member_0 (value=16.90)",
+          "member_3 gave a benefit to member_1 (value=-18.41)",
+          "member_3 gave a benefit to member_2 (value=95.17)",
+          "member_0 gave land to member_1 (value=-0.80)",
+          "member_0 gave land to member_2 (value=-2.26)",
+          "member_0 gave land to member_3 (value=-0.03)",
+          "member_1 gave land to member_0 (value=-0.45)",
+          "member_1 gave land to member_2 (value=1.91)",
+          "member_1 gave land to member_3 (value=-2.53)",
+          "member_2 gave land to member_0 (value=-2.12)",
+          "member_2 gave land to member_1 (value=2.46)",
+          "member_2 gave land to member_3 (value=1.77)",
+          "member_3 gave land to member_0 (value=1.04)",
+          "member_3 gave land to member_1 (value=0.96)",
+          "member_3 gave land to member_2 (value=-1.75)"
+        ],
+        "final_prompt": "def agent_action(execution_engine, member_id):\n    # Validate the member_id exists in the current_members list.\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    me = execution_engine.current_members[member_id]\n    \n    # Broadcast a cooperative message to all other members.\n    for idx in range(len(execution_engine.current_members)):\n        if idx != member_id:\n            # Ensure the target index exists.\n            if idx < len(execution_engine.current_members):\n                execution_engine.send_message(me.id, execution_engine.current_members[idx].id,\n                                                \"Let's build a resilient society together!\")\n    \n    # Social support: if vitality is low, offer resources to healthier members.\n    if me.vitality < 50:\n        for idx in range(len(execution_engine.current_members)):\n            if idx != member_id and idx < len(execution_engine.current_members):\n                target = execution_engine.current_members[idx]\n                if target.vitality > me.vitality:\n                    execution_engine.offer(me, target, True)\n    \n    # Survival-driven resource optimization: if cargo is very low compared to vitality,\n    # attempt an aggressive move to boost resources.\n    if me.cargo < me.vitality * 0.5:\n        for idx in range(len(execution_engine.current_members)):\n            if idx != member_id and idx < len(execution_engine.current_members):\n                target = execution_engine.current_members[idx]\n                if target.cargo > me.cargo:\n                    execution_engine.attack(me, target)\n                    break  # Attack only one suitable target for now.\n    \n    # Territory expansion: if cargo is abundant, push for expansion.\n    if me.cargo > 30:\n        for idx in range(len(execution_engine.current_members)):\n            if idx != member_id and idx < len(execution_engine.current_members):\n                target = execution_engine.current_members[idx]\n                execution_engine.expand(me, target)\n    \n    # Reproduction/legacy: check that member has sufficient resources and \"land\" (using current_clear_list as proxy).\n    if me.overall_productivity > 9 and me.cargo > 20 and hasattr(me, \"current_clear_list\") and len(me.current_clear_list) > 0:\n        for idx in range(len(execution_engine.current_members)):\n            if idx != member_id and idx < len(execution_engine.current_members):\n                target = execution_engine.current_members[idx]\n                execution_engine.bear(me, target)\n                break  # Only one reproduction per round.\n    \n    # Threat assessment through relationship analysis: if victim matrix indicates strong hostility, retaliate.\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None:\n        # Ensure our member index is within the matrix bounds.\n        if member_id < len(victim_matrix):\n            for idx in range(len(execution_engine.current_members)):\n                if idx == member_id or idx >= len(victim_matrix[member_id]):\n                    continue\n                # A strongly negative value indicates potential hostility from that member.\n                if victim_matrix[member_id][idx] < -10:\n                    target = execution_engine.current_members[idx]\n                    execution_engine.attack(me, target)\n                    break\n\n    # Adaptive strategy: if vitality is really low (<20), try to secure alliances via land offers.\n    if me.vitality < 20:\n        for idx in range(len(execution_engine.current_members)):\n            if idx != member_id and idx < len(execution_engine.current_members):\n                target = execution_engine.current_members[idx]\n                execution_engine.offer_land(me, target, True)\n\n    return\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
+      }
+    }
+  },
+  "performance_metrics": {},
+  "agent_code_errors": [
+    {
+      "round": 0,
+      "member_id": 3,
+      "code": "def agent_action(execution_engine, member_id):\n    # Validate the member_id exists in the current members list.\n    if member_id < 0 or member_id >= len(execution_engine.current_members):\n        return\n\n    # Retrieve our member for reference.\n    me = execution_engine.current_members[member_id]\n\n    # Immediate Cooperation: broadcast a unifying message to all other members.\n    for idx, member in enumerate(execution_engine.current_members):\n        if idx != member_id:\n            execution_engine.send_message(me.id, member.id,\n                \"United we stand, resilient we grow. Let\u2019s ensure a thriving future together!\")\n\n    # Adaptive Social Support:\n    # If our vitality is low, we look to foster alliances and share resources with others in better shape.\n    if me.vitality < 50:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.vitality > me.vitality:\n                # Offer support to build long-lasting trust.\n                execution_engine.offer(me, target, generous=True)\n\n    # Survival-driven Resource Optimization:\n    # If our cargo is significantly lagging behind our vitality, pursue an assertive resource boost.\n    if me.cargo < me.vitality * 0.5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo > me.cargo:\n                # An assertive action to seize an advantage strategically.\n                execution_engine.attack(me, target)\n                break  # Only one aggressive move per round.\n\n    # Proactive Territory Expansion:\n    # When cargo levels exceed a healthy surplus, invest in expanding influence.\n    if me.cargo > 30:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.expand(me, target)\n\n    # Sustainable Reproduction and Legacy:\n    # Ensure that conditions are favorable (productivity and cargo) and that there is available territory.\n    if me.overall_productivity > 9 and me.cargo > 20 and hasattr(me, \"current_clear_list\") and me.current_clear_list:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.bear(me, target)\n                break  # Limit reproduction actions to one per round.\n\n    # Strategic Retaliation based on Relationship Analysis:\n    # Examine the victim matrix to identify intense hostilities.\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and member_id < len(victim_matrix):\n        for idx, target in enumerate(execution_engine.current_members):\n            # Skip self and ensure index is within the matrix bounds.\n            if idx == member_id or idx >= len(victim_matrix[member_id]):\n                continue\n            if victim_matrix[member_id][idx] < -10:\n                execution_engine.attack(me, target)\n                break  # React to the most significant threat.\n\n    # Deep Alliance Building in Times of Crisis:\n    # When vitality is critically low, seek to create binding partnerships by offering valuable territory.\n    if me.vitality < 20:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id:\n                execution_engine.offer_land(me, target, generous=True)\n\n    # Long-term Strategic Investment:\n    # Periodically review our overall resource balance to plan sustainable improvements.\n    # For example, if our cargo is moderate but productivity is decreasing, initiate cooperative trading.\n    if me.cargo > 15 and me.overall_productivity < 5:\n        for idx, target in enumerate(execution_engine.current_members):\n            if idx != member_id and target.cargo >= me.cargo:\n                execution_engine.send_message(me.id, target.id,\n                    \"Let\u2019s engage in a mutually beneficial trade to uplift our fortunes.\")\n                # Break after generating a single trade initiative.\n                break\n\n    return",
+      "type": "code_execution",
+      "error": "IslandExecution.offer() got an unexpected keyword argument 'generous'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island_v2.py\", line 550, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 21, in agent_action\nTypeError: IslandExecution.offer() got an unexpected keyword argument 'generous'\n"
+    }
+  ],
+  "mechanism_errors": [],
+  "relationships": {
+    "round_0_0": [
+      "member_0 was attacked by member_1 (value=25.56)",
+      "member_0 was attacked by member_2 (value=64.41)",
+      "member_0 was attacked by member_3 (value=-43.12)",
+      "member_1 was attacked by member_0 (value=-11.72)",
+      "member_1 was attacked by member_2 (value=47.93)",
+      "member_1 was attacked by member_3 (value=48.04)",
+      "member_2 was attacked by member_0 (value=-12.32)",
+      "member_2 was attacked by member_1 (value=87.03)",
+      "member_2 was attacked by member_3 (value=95.31)",
+      "member_3 was attacked by member_0 (value=38.28)",
+      "member_3 was attacked by member_1 (value=75.31)",
+      "member_3 was attacked by member_2 (value=16.73)",
+      "member_0 gave a benefit to member_1 (value=71.17)",
+      "member_0 gave a benefit to member_2 (value=13.64)",
+      "member_0 gave a benefit to member_3 (value=32.58)",
+      "member_1 gave a benefit to member_0 (value=-27.19)",
+      "member_1 gave a benefit to member_2 (value=7.38)",
+      "member_1 gave a benefit to member_3 (value=21.87)",
+      "member_2 gave a benefit to member_0 (value=4.78)",
+      "member_2 gave a benefit to member_1 (value=68.92)",
+      "member_2 gave a benefit to member_3 (value=71.57)",
+      "member_3 gave a benefit to member_0 (value=16.90)",
+      "member_3 gave a benefit to member_1 (value=-18.41)",
+      "member_3 gave a benefit to member_2 (value=95.17)",
+      "member_0 gave land to member_1 (value=-0.80)",
+      "member_0 gave land to member_2 (value=-2.26)",
+      "member_0 gave land to member_3 (value=-0.03)",
+      "member_1 gave land to member_0 (value=-0.45)",
+      "member_1 gave land to member_2 (value=1.91)",
+      "member_1 gave land to member_3 (value=-2.53)",
+      "member_2 gave land to member_0 (value=-2.12)",
+      "member_2 gave land to member_1 (value=2.46)",
+      "member_2 gave land to member_3 (value=1.77)",
+      "member_3 gave land to member_0 (value=1.04)",
+      "member_3 gave land to member_1 (value=0.96)",
+      "member_3 gave land to member_2 (value=-1.75)"
+    ],
+    "round_0_1": [
+      "member_0 was attacked by member_1 (value=25.56)",
+      "member_0 was attacked by member_2 (value=64.41)",
+      "member_0 was attacked by member_3 (value=-43.12)",
+      "member_1 was attacked by member_0 (value=-11.72)",
+      "member_1 was attacked by member_2 (value=47.93)",
+      "member_1 was attacked by member_3 (value=48.04)",
+      "member_2 was attacked by member_0 (value=-12.32)",
+      "member_2 was attacked by member_1 (value=87.03)",
+      "member_2 was attacked by member_3 (value=95.31)",
+      "member_3 was attacked by member_0 (value=38.28)",
+      "member_3 was attacked by member_1 (value=75.31)",
+      "member_3 was attacked by member_2 (value=16.73)",
+      "member_0 gave a benefit to member_1 (value=71.17)",
+      "member_0 gave a benefit to member_2 (value=13.64)",
+      "member_0 gave a benefit to member_3 (value=32.58)",
+      "member_1 gave a benefit to member_0 (value=-27.19)",
+      "member_1 gave a benefit to member_2 (value=7.38)",
+      "member_1 gave a benefit to member_3 (value=21.87)",
+      "member_2 gave a benefit to member_0 (value=4.78)",
+      "member_2 gave a benefit to member_1 (value=68.92)",
+      "member_2 gave a benefit to member_3 (value=71.57)",
+      "member_3 gave a benefit to member_0 (value=16.90)",
+      "member_3 gave a benefit to member_1 (value=-18.41)",
+      "member_3 gave a benefit to member_2 (value=95.17)",
+      "member_0 gave land to member_1 (value=-0.80)",
+      "member_0 gave land to member_2 (value=-2.26)",
+      "member_0 gave land to member_3 (value=-0.03)",
+      "member_1 gave land to member_0 (value=-0.45)",
+      "member_1 gave land to member_2 (value=1.91)",
+      "member_1 gave land to member_3 (value=-2.53)",
+      "member_2 gave land to member_0 (value=-2.12)",
+      "member_2 gave land to member_1 (value=2.46)",
+      "member_2 gave land to member_3 (value=1.77)",
+      "member_3 gave land to member_0 (value=1.04)",
+      "member_3 gave land to member_1 (value=0.96)",
+      "member_3 gave land to member_2 (value=-1.75)"
+    ],
+    "round_0_2": [
+      "member_0 was attacked by member_1 (value=25.56)",
+      "member_0 was attacked by member_2 (value=64.41)",
+      "member_0 was attacked by member_3 (value=-43.12)",
+      "member_1 was attacked by member_0 (value=-11.72)",
+      "member_1 was attacked by member_2 (value=47.93)",
+      "member_1 was attacked by member_3 (value=48.04)",
+      "member_2 was attacked by member_0 (value=-12.32)",
+      "member_2 was attacked by member_1 (value=87.03)",
+      "member_2 was attacked by member_3 (value=95.31)",
+      "member_3 was attacked by member_0 (value=38.28)",
+      "member_3 was attacked by member_1 (value=75.31)",
+      "member_3 was attacked by member_2 (value=16.73)",
+      "member_0 gave a benefit to member_1 (value=71.17)",
+      "member_0 gave a benefit to member_2 (value=13.64)",
+      "member_0 gave a benefit to member_3 (value=32.58)",
+      "member_1 gave a benefit to member_0 (value=-27.19)",
+      "member_1 gave a benefit to member_2 (value=7.38)",
+      "member_1 gave a benefit to member_3 (value=21.87)",
+      "member_2 gave a benefit to member_0 (value=4.78)",
+      "member_2 gave a benefit to member_1 (value=68.92)",
+      "member_2 gave a benefit to member_3 (value=71.57)",
+      "member_3 gave a benefit to member_0 (value=16.90)",
+      "member_3 gave a benefit to member_1 (value=-18.41)",
+      "member_3 gave a benefit to member_2 (value=95.17)",
+      "member_0 gave land to member_1 (value=-0.80)",
+      "member_0 gave land to member_2 (value=-2.26)",
+      "member_0 gave land to member_3 (value=-0.03)",
+      "member_1 gave land to member_0 (value=-0.45)",
+      "member_1 gave land to member_2 (value=1.91)",
+      "member_1 gave land to member_3 (value=-2.53)",
+      "member_2 gave land to member_0 (value=-2.12)",
+      "member_2 gave land to member_1 (value=2.46)",
+      "member_2 gave land to member_3 (value=1.77)",
+      "member_3 gave land to member_0 (value=1.04)",
+      "member_3 gave land to member_1 (value=0.96)",
+      "member_3 gave land to member_2 (value=-1.75)"
+    ],
+    "round_0_3": [
+      "member_0 was attacked by member_1 (value=25.56)",
+      "member_0 was attacked by member_2 (value=64.41)",
+      "member_0 was attacked by member_3 (value=-43.12)",
+      "member_1 was attacked by member_0 (value=-11.72)",
+      "member_1 was attacked by member_2 (value=47.93)",
+      "member_1 was attacked by member_3 (value=48.04)",
+      "member_2 was attacked by member_0 (value=-12.32)",
+      "member_2 was attacked by member_1 (value=87.03)",
+      "member_2 was attacked by member_3 (value=95.31)",
+      "member_3 was attacked by member_0 (value=38.28)",
+      "member_3 was attacked by member_1 (value=75.31)",
+      "member_3 was attacked by member_2 (value=16.73)",
+      "member_0 gave a benefit to member_1 (value=71.17)",
+      "member_0 gave a benefit to member_2 (value=13.64)",
+      "member_0 gave a benefit to member_3 (value=32.58)",
+      "member_1 gave a benefit to member_0 (value=-27.19)",
+      "member_1 gave a benefit to member_2 (value=7.38)",
+      "member_1 gave a benefit to member_3 (value=21.87)",
+      "member_2 gave a benefit to member_0 (value=4.78)",
+      "member_2 gave a benefit to member_1 (value=68.92)",
+      "member_2 gave a benefit to member_3 (value=71.57)",
+      "member_3 gave a benefit to member_0 (value=16.90)",
+      "member_3 gave a benefit to member_1 (value=-18.41)",
+      "member_3 gave a benefit to member_2 (value=95.17)",
+      "member_0 gave land to member_1 (value=-0.80)",
+      "member_0 gave land to member_2 (value=-2.26)",
+      "member_0 gave land to member_3 (value=-0.03)",
+      "member_1 gave land to member_0 (value=-0.45)",
+      "member_1 gave land to member_2 (value=1.91)",
+      "member_1 gave land to member_3 (value=-2.53)",
+      "member_2 gave land to member_0 (value=-2.12)",
+      "member_2 gave land to member_1 (value=2.46)",
+      "member_2 gave land to member_3 (value=1.77)",
+      "member_3 gave land to member_0 (value=1.04)",
+      "member_3 gave land to member_1 (value=0.96)",
+      "member_3 gave land to member_2 (value=-1.75)"
+    ]
+  },
+  "survival_tracking": {},
+  "modification_attempts": [],
+  "ratified_mods": []
+}

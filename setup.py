@@ -8,6 +8,13 @@ setup(
         "numpy",
         "pandas",
         "matplotlib",
+        "networkx",
+        "nxviz",
+        "google.generativeai",
+        "openai",
+        "dill",
+        "scikit-learn",
+        "librosa"
     ],
     # entry_points={
     #     'console_scripts': [

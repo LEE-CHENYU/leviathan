@@ -113,14 +113,46 @@ Your decisions to challenge, offer, or reproduce with specific targets are influ
 - **Decision Inputs**: Variables (approximately) normalized to 0 ~ 1, representing your current state (e.g., health, wealth) and that of potential targets. They reflect the dynamic conditions of the game.
 - **Gene Values**: Fixed for each player, ranging from -1 to 1. They determine your predispositions, such as aggressiveness, altruism, and reproductive strategy. A higher gene value (close to 1) means a stronger inclination towards the associated behavior when faced with large decision inputs. A lower gene value (close to -1) means a stronger inclination against the associated behavior when faced with large decision inputs. When the gene value is close to 0, it means you are neutral to the associated behavior in this category.
 
+## E2E Smoke Test (LLM required)
+
+The end-to-end smoke test (`python scripts/run_e2e_smoke.py`) requires a live LLM.
+Offline stubs are not supported for evaluation.
+
+OpenRouter example:
+
+```bash
+export OPENROUTER_API_KEY="..."
+export E2E_PROVIDER=openrouter
+export E2E_MODEL="minimax/minimax-m2.1"  # optional override
+python scripts/run_e2e_smoke.py
+```
+
+OpenAI-compatible gateway or OpenAI example:
+
+```bash
+export OPENAI_API_KEY="..."
+export E2E_PROVIDER=openai
+export OPENAI_BASE_URL="https://api.openai.com/v1"  # or your gateway, e.g. http://localhost:8000/v1
+export E2E_MODEL="gpt-5.2"  # optional override
+python scripts/run_e2e_smoke.py
+```
+
+If you prefer repo config over env vars, you can set `base_url` under `default` (for the
+default provider) or `benchmark` (for OpenAI fallback) in `config/models.yaml`. The e2e
+smoke runner and `scripts/llm_access_check.py` will use it when `OPENAI_BASE_URL` /
+`OPENROUTER_BASE_URL` are not set.
+
+If preflight fails, check the diagnostics in
+`execution_histories/e2e_smoke/latest_preflight.json` along with the stderr hints.
+
 ## Installation
 
 To install the project in editable mode, run the following command:
-  
+
   ```sh
   pip install -e .
   ```
-  
+
 ## Contribution
 
 Feel free to contribute! The team members are actively working on the multi-agent reinforcement learning version of the project to further enhance the agents' decision-making capabilities. We welcome any contributions that can help improve the simulation, whether it's through code, documentation, or new ideas.

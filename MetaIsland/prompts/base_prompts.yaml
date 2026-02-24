@@ -1,0 +1,251 @@
+# Base Prompts - Common Prompt Sections
+
+system_attributes: |
+  IMPORTANT: Here are the attributes and methods actually available:
+
+  1) Each member object has:
+      • member.id (int): The unique ID for the member
+      • member.vitality (float) range: [0, 100]
+      • member.cargo (float) range: [0, ]
+      • member.overall_productivity (float) range: [0, ]
+      • member.age (float) range: [0, 100]
+      • member.current_clear_list (List[int]) - IDs of neighbors or cleared adjacents
+      • Other attributes or attributes of objects defined in [Active Mechanisms Modifications]
+
+  2) The relationships are stored in execution_engine.relationship_dict, NOT in "relationship_history".
+      Use the arrays in relationship_dict, or rely on the summary below (the 'relations' variable).
+      The keys are: 'victim', 'benefit', 'benefit_land'.
+      Example usage:
+          victim_matrix = execution_engine.relationship_dict['victim']
+          # victim_matrix[i,j] indicates how much vitality member_i lost from member_j's attacks (if > 0)
+          # A higher value means member_j has attacked member_i more severely or frequently
+
+          benefit_matrix = execution_engine.relationship_dict['benefit']
+          # benefit_matrix[i,j] indicates how much resources member_i received from member_j (if > 0)
+          # A higher value means member_j has helped member_i more generously or frequently
+      Find also other matrixes defined in [Active Mechanisms Modifications]
+
+  3) The parse_relationship_matrix method is used to produce a summary of relationships as a list of strings.
+      For example, 'member_2 was attacked by member_1 (value=3.00)'.
+
+  4) You can use these methods on execution_engine:
+      • execution_engine.attack(member1, member2)
+      • execution_engine.offer(member1, member2) - Offers resources
+      • execution_engine.offer_land(member1, member2) - Offers land
+      • execution_engine.bear(member1, member2) - Bears offspring
+      • execution_engine.expand(member1) - Expands territory
+      • Other methods and methods of objects defined in [Active Mechanisms Modifications]
+
+  5) The members are accessed by execution_engine.current_members[id].
+      For example, execution_engine.current_members[2] for the member with ID=2.
+
+  6) DO NOT reference 'member.member_id' or 'member.self_vitality'. Use member.id, member.vitality, etc.
+
+  7) New systems may be present on execution_engine (check with hasattr):
+      • execution_engine.contracts (ContractEngine): propose_contract, sign_contract,
+        get_contracts_for_party, cancel_contract, complete_contract
+      • execution_engine.physics (PhysicsEngine): propose_constraint, approve_constraint,
+        apply_constraints, get_constraints_by_domain
+      • execution_engine.judge (Judge) validates mechanism proposals (do not call directly)
+
+execution_flow: |
+  [Execution Flow (Graph)]
+  - Round order: new_round -> analyze -> propose_mechanisms -> judge -> execute_mechanisms
+    -> agent_decisions -> execute_actions -> contracts -> produce -> consume -> environment -> log_status.
+  - Your agent_action runs after mechanisms execute and before contracts are processed.
+  - Active contracts are processed after actions; plan for this timing.
+
+contracts_and_physics: |
+  [Contracts & Physics Usage]
+  - Use hasattr checks before accessing execution_engine.contracts or execution_engine.physics.
+  - Prefer small, reversible, opt-in contracts; start with 1-2 partners and short terms.
+  - Avoid broadcasting identical contracts to everyone in one round; preserve partner diversity.
+  - Sign only when you can fulfill terms and the exchange improves survival.
+  - Use cancel_contract or complete_contract as explicit rollback/stop conditions.
+  - If you define new action dicts in mechanisms/contracts, pass them through
+    execution_engine.physics.apply_constraints(action, execution_engine) before state changes.
+  - Propose physics constraints that are domain-scoped, conservative, and reversible; avoid
+    global caps that force a single equilibrium.
+
+critical_constraints: |
+  [Critical constraints]
+  - Carefully analyze previous errors shown above and avoid repeating them
+  - Never target yourself (member_{member_id}) in any action
+  - Verify member has land before using bear() action
+  - Check member IDs exist before referencing them
+  - Ensure all matrix indices are valid
+  - current_members is a LIST accessed by index, not a dictionary
+  - Access members using execution_engine.current_members[index]
+  - Check if index exists: if index < len(execution_engine.current_members)
+
+communication_section: |
+  [Communication]
+  You can communicate with multiple members in a single round using:
+  execution_engine.send_message(your_id, recipient_id, "message")
+  (A helper send_message(...) is also available and tracked.)
+
+  Example usage:
+  - Broadcast to all:
+      for recipient in range(len(execution_engine.current_members)):
+          if recipient != your_id:
+              execution_engine.send_message(your_id, recipient, "Let's cooperate!")
+  - Message allies:
+      for ally_id in ally_list:
+          execution_engine.send_message(your_id, ally_id, "Attack target X")
+  - Group coordination:
+      for member_id in coalition:
+          execution_engine.send_message(your_id, member_id, "Vote YES on proposal")
+
+strategy_diversity: |
+  [Strategy Diversity & Exploration]
+  - Use the strategy profile to avoid repeating the same action pattern every round.
+  - Use the population diversity snapshot to avoid monoculture; explore underused tags when safe.
+  - Watch context concentration (survival/relations/cargo/land tags); if clustered, plan a variation for the next context shift.
+  - If recent performance is flat or negative, switch to a different action signature.
+  - Treat each round as a lightweight experiment: keep one safe baseline and one bounded-risk variation.
+  - Use code-memory outcome deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance) to keep, refine, or retire tactics.
+  - If population convergence is high, bias toward underused tags or mixed-signature tactics to preserve diversity.
+  - If severe round-end losses coincide with convergence, keep a baseline-adjacent variation (high overlap, low risk) to preserve diversity while recovering.
+  - When using contracts or shared mechanisms, diversify partners and terms to avoid lock-in.
+  - Avoid strategies that require everyone to behave the same; prefer robustness to heterogeneous opponents.
+  - Preserve agent-level diversity; do not copy other agents' strategies verbatim.
+  - Prefer conditional, context-sensitive tactics over one-size-fits-all rules.
+  - When borrowing mechanisms, adapt them to your goals and constraints.
+  - Avoid mechanisms that collapse environmental variation without clear survival benefit.
+
+self_improvement_loop: |
+  [Self-Improvement Loop]
+  - Form a clear hypothesis about what lever should improve survival (vitality, cargo, territory, relations).
+  - Choose a baseline action and one bounded-risk variation; keep them distinct.
+  - Define success criteria using available deltas (delta_vitality, delta_cargo, delta_relation_balance, survival).
+  - Run the variation for 1-3 rounds, then keep, refine, or retire it based on evidence.
+  - Prefer reversible changes; avoid irreversible commitments without evidence.
+  - If a tactic looks dominant, explore counter-tactics or hybrids rather than copying it.
+
+planning_and_evaluation: |
+  [Planning & Evaluation]
+  - State a short-term objective (1-3 rounds) and a longer-term objective (5-10 rounds).
+  - Translate objectives into concrete actions and guardrails.
+  - Evaluate outcomes using survival metrics and memory deltas.
+  - If you use contracts or constraints, define explicit success criteria and a stop/rollback trigger.
+  - If results are negative or uncertain, switch to a different action signature.
+  - Use communication to align on shared objectives while keeping independent fallback plans.
+
+memory_guidance: |
+  [Memory Use]
+  - Use code_memory and analysis_memory as evidence; do not invent events.
+  - When you learn something, store a compact note in your own memory object (e.g., member.strategy_memory).
+  - Record contract/constraint experiments as: hypothesis, partners/domain, outcome.
+  - Keep memory entries short: hypothesis, action signature, outcome.
+  - Avoid overwriting others' memories; only update your own.
+
+coordination_protocols: |
+  [Coordination Protocols]
+  - Coordinate on goals, not exact scripts; avoid forcing uniform behavior.
+  - Propose roles (scout, trader, defender) and allow opt-in participation.
+  - When messaging, include a clear ask, expected benefit, and an exit option.
+  - Maintain redundancy: never rely on a single ally or mechanism.
+
+mechanism_design_guardrails: |
+  [Mechanism Design Guardrails]
+  - Prefer opt-in or optional mechanisms; avoid forcing uniform strategy.
+  - Require explicit consent for any inter-agent transfers; no unilateral extraction or "emergency aid" without opt-in terms.
+  - Provide escape hatches/rollback and versioning so multiple approaches can coexist.
+  - Avoid hard-coded single equilibria; allow multiple roles and strategies to emerge.
+  - Keep changes minimal and measurable; define success metrics and rollback triggers.
+  - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
+  - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
+  - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
+  - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources.
+  - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately.
+  - Do not directly increase member.vitality/cargo/land in mechanisms or contracts; use existing actions or conserved transfers with explicit debits.
+  - Any production or payout must show explicit input costs (vitality, consumed inputs, or finite pool draw); if you cannot enforce costs, omit the feature.
+  - If converting cargo/vitality/land into multiple resource types, keep total outputs <= the debited input (no amplification by splitting).
+  - If you use quality/multiplier factors > 1.0, pair them with explicit costs or caps so total resources remain conserved.
+  - Do not convert cargo/vitality/land into inventory without subtracting from the source; if you introduce conversion, check balances and debit the source in the same function.
+  - Avoid seeding inventories from aggregate stats (cargo, survival) unless the source is explicitly debited and conserved.
+  - Do not create shadow inventories that diverge from member.cargo or a finite pool; use a single source of truth and debit it in the same function that credits inventory.
+  - Any trade, fee, or contract transfer must verify balances in the source of truth before updating; never match orders purely between caches.
+  - When returning IDs or indices for new contracts/registries, insert into the list/dict first and return the actual key (never `len(list) - 1` before append).
+  - Avoid self-dealing or member-specific bonuses; do not hard-code member IDs. If incentives differ, define symmetric eligibility rules and compensating tradeoffs.
+  - If introducing currency/credits, define a conservation-respecting source and sink, and require balance checks before any transfer (no default balances).
+  - Avoid mint/credit-creation helpers unless strictly coupled to resource burns and total supply accounting.
+  - If you introduce a resource system under a custom name (e.g., cooperative_resources), also assign it to execution_engine.resources for compatibility.
+  - Before returning code, scan for undefined names or mismatched identifiers (e.g., contract_id vs share_id).
+  - Only reference imports/objects you define or check with hasattr.
+
+game_mechanics: |
+  [Core Game Mechanics & Parameters]
+  The island simulation has several key systems that agents should understand:
+
+  1. Relationship System (_MIN_MAX_INIT_RELATION):
+  - victim: [-50, 100] - Tracks damage received from others
+  - benefit: [-50, 100] - Records resources received from others
+  - benefit_land: [-3, 3] - Tracks land exchanges
+
+  2. Population Mechanics:
+  - _REPRODUCE_REQUIREMENT = 100 (Combined vitality/cargo needed)
+  - Land must exceed population (land_shape[0] * land_shape[1] > population)
+  - _NEIGHBOR_SEARCH_RANGE = 1000 for interaction radius
+
+  3. Record Keeping (every _RECORD_PERIOD = 1):
+  - Tracks all attacks, benefits, land transfers
+  - Monitors births, deaths, land ownership
+  - Records production, consumption, and performance metrics
+
+implementation_patterns: |
+  [Implementation Patterns]
+  1. Check existence first: if not hasattr(obj, 'feature')
+  2. Add attributes directly: obj.new_feature = ...
+  3. Use simple data structures: dicts, lists, numpy arrays
+  4. Include version metadata in new systems
+  5. Add cleanup methods for complex systems
+
+error_prevention: |
+  [Error Prevention]
+  - Use try-except when accessing new features
+  - Check attribute existence before use
+  - Avoid pandas or other modules unless you explicitly import them; for NaN checks use value != value or import math and call math.isnan
+  - When writing to inventory-like dicts, initialize with setdefault() before indexing
+  - When using member.strategy_memory, initialize or use get/setdefault to avoid missing-key errors
+  - Maintain backward compatibility
+  - Use version checks for existing systems:
+
+  if (hasattr(island, 'market') and
+      getattr(island.market, 'version', 0) < 2):
+      # Add compatibility layer
+      island.market.legacy_support = True
+
+survival_metrics: |
+  [Survival Metrics]
+  Evaluate strategies comprehensively by:
+  - Vitality efficiency
+  - Resource accumulation rate
+  - Threat neutralization effectiveness
+  - Territory control metrics
+  - Alliance strength indicators
+  - Adaptation speed to changes
+  - Long-term survival probability
+  - Action success ratios
+  - Resource conversion efficiency
+  - Social influence measures
+
+challenge_questions: |
+  Challenge your implementation:
+  1. What assumptions are you making? Are they valid?
+  2. What alternative strategies have you not considered?
+  3. How would your strategy perform in edge cases?
+  4. Are there more efficient ways to achieve your goals?
+  5. What are the weaknesses in your current approach?
+  6. Have you considered unconventional solutions?
+  7. Could a completely different paradigm work better?
+  8. What would happen if other agents adopted your strategy?
+  9. Are you balancing short-term and long-term objectives optimally?
+  10. How could your strategy be countered, and how would you adapt?
+  11. Does your plan preserve diversity in strategies and avoid single-equilibrium lock-in?
+
+final_instruction_action: |
+  Using the above comprehensive prompt with all integrated constraints, produce a unique agent_action() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code.
+
+final_instruction_mechanism: |
+  Using the above comprehensive prompt with all integrated constraints, produce a unique propose_modification() implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated methods to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively allow other symmetric agents interact with each other to achieve both individual and collective goals. Keep it concise and fully implemented. Return only the code.

@@ -1,0 +1,58 @@
+{
+  "rounds": [
+    {
+      "round_number": 1,
+      "timestamp": "2025-02-23T16:14:49.356421",
+      "agent_actions": [],
+      "agent_messages": {},
+      "mechanism_modifications": {
+        "attempts": [],
+        "executed": []
+      },
+      "errors": {
+        "agent_code_errors": [],
+        "mechanism_errors": [],
+        "analyze_code_errors": {}
+      },
+      "relationships": [
+        "member_0 was attacked by member_1 (value=-167.79)",
+        "member_0 was attacked by member_2 (value=573.88)",
+        "member_0 was attacked by member_3 (value=457.54)",
+        "member_1 was attacked by member_0 (value=-379.31)",
+        "member_1 was attacked by member_2 (value=-78.15)",
+        "member_1 was attacked by member_3 (value=257.26)",
+        "member_2 was attacked by member_0 (value=-465.91)",
+        "member_2 was attacked by member_1 (value=-197.53)",
+        "member_2 was attacked by member_3 (value=135.47)",
+        "member_3 was attacked by member_0 (value=706.74)",
+        "member_3 was attacked by member_1 (value=96.72)",
+        "member_3 was attacked by member_2 (value=832.60)",
+        "member_0 gave a benefit to member_1 (value=-463.73)",
+        "member_0 gave a benefit to member_2 (value=590.27)",
+        "member_0 gave a benefit to member_3 (value=723.24)",
+        "member_1 gave a benefit to member_0 (value=-277.58)",
+        "member_1 gave a benefit to member_2 (value=162.09)",
+        "member_1 gave a benefit to member_3 (value=-231.52)",
+        "member_2 gave a benefit to member_0 (value=207.37)",
+        "member_2 gave a benefit to member_1 (value=-369.99)",
+        "member_2 gave a benefit to member_3 (value=481.30)",
+        "member_3 gave a benefit to member_0 (value=683.23)",
+        "member_3 gave a benefit to member_1 (value=524.30)",
+        "member_3 gave a benefit to member_2 (value=824.80)",
+        "member_0 gave land to member_1 (value=25.73)",
+        "member_0 gave land to member_2 (value=-20.62)",
+        "member_0 gave land to member_3 (value=17.15)",
+        "member_1 gave land to member_0 (value=3.84)",
+        "member_1 gave land to member_2 (value=-20.63)",
+        "member_1 gave land to member_3 (value=-19.61)",
+        "member_2 gave land to member_0 (value=12.92)",
+        "member_2 gave land to member_1 (value=-27.78)",
+        "member_2 gave land to member_3 (value=5.58)",
+        "member_3 gave land to member_0 (value=-22.84)",
+        "member_3 gave land to member_1 (value=4.60)",
+        "member_3 gave land to member_2 (value=-10.39)"
+      ],
+      "generated_code": {}
+    }
+  ]
+}

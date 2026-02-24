@@ -1,0 +1,502 @@
+# Agent Action Templates - Contract and Market Interactions
+
+introduction: |
+  You now can interact with:
+  - execution_engine.contracts (ContractEngine)
+  - execution_engine.resources (if created by agents)
+  - execution_engine.market (if created by agents)
+  - execution_engine.businesses (if created by agents)
+  - execution_engine.physics (PhysicsEngine, if created by agents)
+
+  Notes:
+  - Contracts execute after actions; design terms with this timing in mind.
+  - Prefer small trials and diverse partners to preserve strategy diversity.
+  - If you construct custom action dicts in contracts, pass them through
+    execution_engine.physics.apply_constraints(...) before applying state changes.
+  - When writing to inventories, use setdefault() to avoid missing-key errors.
+  - When using member.strategy_memory, initialize defaults or use get/setdefault.
+  - Resource systems may expose extract() or extract_from_land(); check before calling.
+
+action_templates:
+  - name: "Propose Trade Contract"
+    description: "Propose trade contracts with other agents"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Propose trade contracts with other agents'''
+
+          if hasattr(execution_engine, 'contracts') and hasattr(execution_engine, 'resources'):
+              # Check my inventory
+              my_inv = execution_engine.resources.inventories.get(member_id, {})
+
+              # Find trading partners
+              for other_id in range(len(execution_engine.current_members)):
+                  if other_id == member_id:
+                      continue
+
+                  other_inv = execution_engine.resources.inventories.get(other_id, {})
+
+                  # Propose trade if I have food and they have materials
+                  if my_inv.get('food', 0) > 10 and other_inv.get('materials', 0) > 5:
+                      trade_contract = '''
+      def execute_contract(execution_engine, context):
+          contract = context.get('contract', {})
+          party_a = contract['parties'][0]  # Me
+          party_b = contract['parties'][1]  # Them
+          terms = contract['terms']
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
+
+              # I give food, get materials
+              if inv_a.get('food', 0) >= 10 and inv_b.get('materials', 0) >= 5:
+                  inv_a['food'] -= 10
+                  inv_b['materials'] -= 5
+                  inv_a['materials'] = inv_a.get('materials', 0) + 5
+                  inv_b['food'] = inv_b.get('food', 0) + 10
+                  return {"status": "success"}
+          return {"status": "failed"}
+      '''
+
+                      execution_engine.contracts.propose_contract(
+                          code=trade_contract,
+                          proposer_id=member_id,
+                          parties=[member_id, other_id],
+                          terms={'type': 'trade', 'my_offer': 'food', 'their_offer': 'materials'}
+                      )
+
+  - name: "Sign Pending Contracts"
+    description: "Review and sign beneficial contracts"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Review and sign beneficial contracts'''
+
+          if hasattr(execution_engine, 'contracts'):
+              # Get contracts I'm involved in
+              pending = execution_engine.contracts.get_contracts_for_party(member_id, 'pending')
+              max_signatures = 2  # avoid signing everything at once
+              signed = 0
+              signed_types = set()
+
+              for contract in pending:
+                  # Already signed by me?
+                  if member_id in contract.get('signatures', {}):
+                      continue
+
+                  # Evaluate if beneficial
+                  terms = contract.get('terms', {})
+                  contract_type = terms.get('type')
+                  if contract_type in signed_types:
+                      continue
+
+                  # Simple heuristic: sign if it's a trade and I have the resources
+                  if terms.get('type') == 'trade':
+                      if hasattr(execution_engine, 'resources'):
+                          my_inv = execution_engine.resources.inventories.get(member_id, {})
+
+                          # Check if I can fulfill my side
+                          my_offer = terms.get('my_offer', '')
+                          if my_inv.get(my_offer, 0) >= 10:  # Assuming quantity 10
+                              # Sign the contract
+                              execution_engine.contracts.sign_contract(
+                                  contract['id'], member_id
+                              )
+                              signed += 1
+                              if contract_type:
+                                  signed_types.add(contract_type)
+                              if signed >= max_signatures:
+                                  break
+
+  - name: "Trial Exchange Contract (Limited Term)"
+    description: "Start a small, reversible contract and auto-complete after a few executions"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Start a small, reversible contract and auto-complete after a few executions'''
+
+          if not hasattr(execution_engine, 'contracts') or not hasattr(execution_engine, 'resources'):
+              return
+
+          my_inv = execution_engine.resources.inventories.get(member_id, {})
+          if my_inv.get('food', 0) < 8:
+              return
+
+          # Pick a single partner (avoid broadcasting to all)
+          partner_id = None
+          for other_id in range(len(execution_engine.current_members)):
+              if other_id == member_id:
+                  continue
+              other_inv = execution_engine.resources.inventories.get(other_id, {})
+              if other_inv.get('materials', 0) >= 6:
+                  partner_id = other_id
+                  break
+
+          if partner_id is None:
+              return
+
+          trial_contract = '''
+      def execute_contract(execution_engine, context):
+          contract = context.get('contract', {})
+          party_a = contract['parties'][0]
+          party_b = contract['parties'][1]
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
+              if inv_a.get('food', 0) >= 4 and inv_b.get('materials', 0) >= 3:
+                  inv_a['food'] -= 4
+                  inv_b['materials'] -= 3
+                  inv_a['materials'] = inv_a.get('materials', 0) + 3
+                  inv_b['food'] = inv_b.get('food', 0) + 4
+
+                  # Auto-complete after 3 executions to keep it reversible
+                  if contract.get('execution_count', 0) >= 2:
+                      execution_engine.contracts.complete_contract(contract['id'], reason='trial_complete')
+
+                  return {"status": "success", "trial": True}
+          return {"status": "failed"}
+      '''
+
+          execution_engine.contracts.propose_contract(
+              code=trial_contract,
+              proposer_id=member_id,
+              parties=[member_id, partner_id],
+              terms={'type': 'trial_trade', 'limit': 3}
+          )
+
+  - name: "Market Saturation Analysis & Business Pivot"
+    description: "Analyze market and pivot if saturated"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Analyze market and pivot if saturated'''
+
+          if not hasattr(execution_engine, 'market'):
+              return
+
+          market = execution_engine.market
+
+          # Track my current business
+          my_product = 'food'  # What I currently produce
+
+          # Calculate market saturation for my product
+          if hasattr(market, 'orders') and my_product in market.orders:
+              orders = market.orders[my_product]
+
+              total_supply = sum(o['quantity'] for o in orders if o['type'] == 'sell')
+              total_demand = sum(o['quantity'] for o in orders if o['type'] == 'buy')
+
+              if total_supply > 0:
+                  saturation = total_supply / max(total_demand, 1)
+              else:
+                  saturation = 0
+
+              # Count competitors
+              competitors = len([o for o in orders if o['type'] == 'sell' and o['member_id'] != member_id])
+
+              # Get current price
+              current_price = market.get_market_price(my_product)
+              base_price = market.base_prices.get(my_product, 10)
+
+              profit_margin = (current_price - base_price) / base_price if base_price > 0 else 0
+
+              print(f"Market analysis for {my_product}:")
+              print(f"  Saturation: {saturation:.2f}")
+              print(f"  Competitors: {competitors}")
+              print(f"  Profit margin: {profit_margin:.2%}")
+
+              # Decision: Pivot if market is saturated
+              if saturation > 1.5 or profit_margin < 0.1:
+                  # Find less saturated market
+                  best_product = None
+                  best_saturation = float('inf')
+
+                  for product in ['food', 'materials', 'products']:
+                      if product == my_product:
+                          continue
+
+                      if product in market.orders:
+                          p_orders = market.orders[product]
+                          p_supply = sum(o['quantity'] for o in p_orders if o['type'] == 'sell')
+                          p_demand = sum(o['quantity'] for o in p_orders if o['type'] == 'buy')
+                          p_saturation = p_supply / max(p_demand, 1)
+
+                          if p_saturation < best_saturation:
+                              best_saturation = p_saturation
+                              best_product = product
+
+                  if best_product and best_saturation < saturation * 0.7:
+                      print(f"  PIVOTING from {my_product} to {best_product}")
+                      print(f"    New market saturation: {best_saturation:.2f}")
+
+                      # Store pivot decision (would implement retooling in mechanisms)
+                      if not hasattr(execution_engine, 'pivot_decisions'):
+                          execution_engine.pivot_decisions = {}
+                      execution_engine.pivot_decisions[member_id] = {
+                          'from': my_product,
+                          'to': best_product,
+                          'reason': 'market_saturation',
+                          'old_saturation': saturation,
+                          'new_saturation': best_saturation
+                      }
+
+  - name: "Join/Create Business Partnership"
+    description: "Form business partnerships"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Form business partnerships'''
+
+          if hasattr(execution_engine, 'businesses'):
+              businesses = execution_engine.businesses
+
+              # Look for existing businesses to join
+              for idx, business in enumerate(businesses.businesses):
+                  # Check if I can contribute
+                  if hasattr(execution_engine, 'resources'):
+                      my_inv = execution_engine.resources.inventories.get(member_id, {})
+                      needed = business.get('contributions', {})
+
+                      # If I have what they need and I'm not already a partner
+                      if member_id not in business.get('partners', []):
+                          can_contribute = all(
+                              my_inv.get(resource, 0) >= qty
+                              for resource, qty in needed.items()
+                          )
+
+                          if can_contribute:
+                              # Join business (would need contract)
+                              print(f"Joining business {idx}")
+                              # Business joining handled via contracts
+          else:
+              # Create a new business
+              if hasattr(execution_engine, 'contracts'):
+                  partnership_contract = \'\'\'
+      def execute_contract(execution_engine, context):
+          # Create a manufacturing partnership
+          contract = context.get('contract', {})
+          partners = contract['parties']
+
+          if not hasattr(execution_engine, 'businesses'):
+              return {"status": "failed", "reason": "no_business_system"}
+
+          # Create business
+          business_id = execution_engine.businesses.create_business(
+              partners=partners,
+              contributions={p: {'materials': 5, 'energy': 3} for p in partners},
+              profit_shares={p: 1.0/len(partners) for p in partners},
+              business_type='manufacturing'
+          )
+
+          return {"status": "success", "business_id": business_id}
+      \'\'\'
+
+                  # Propose to potential partners
+                  for other_id in range(len(execution_engine.current_members)):
+                      if other_id != member_id:
+                          execution_engine.contracts.propose_contract(
+                              code=partnership_contract,
+                              proposer_id=member_id,
+                              parties=[member_id, other_id],
+                              terms={'type': 'partnership', 'business': 'manufacturing'}
+                          )
+                          break  # Propose to first available partner
+
+  - name: "Extract Resources"
+    description: "Extract resources if system available"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Extract resources if system available'''
+
+          if hasattr(execution_engine, 'resources'):
+              resources = execution_engine.resources
+
+              # Extract food (costs vitality)
+              member = execution_engine.current_members[member_id]
+              if member.vitality > 20:  # Only if healthy enough
+                  # Optional physics gating
+                  allowed_yield = None
+                  if hasattr(execution_engine, 'physics'):
+                      base_yield = 1.0
+                      if hasattr(resources, 'resource_types'):
+                          base_yield = resources.resource_types.get('food', {}).get('base_yield', 1.0)
+                      action = {
+                          'type': 'extract',
+                          'resource': 'food',
+                          'member_id': member_id,
+                          'yield': base_yield
+                      }
+                      action = execution_engine.physics.apply_constraints(action, execution_engine)
+                      allowed_yield = action.get('yield')
+                      if allowed_yield is not None and allowed_yield <= 0:
+                          return
+
+                  pre_vitality = member.vitality
+                  extracted = 0
+                  if hasattr(resources, 'extract'):
+                      extracted = resources.extract(member_id, None, 'food')
+                  elif hasattr(resources, 'extract_from_land'):
+                      land_location = None
+                      if hasattr(member, 'owned_land') and member.owned_land:
+                          try:
+                              land_location = next(iter(member.owned_land))
+                          except TypeError:
+                              land_location = list(member.owned_land)[0] if member.owned_land else None
+                      if land_location is None:
+                          return
+                      result = resources.extract_from_land(member, land_location, 'food', quantity=1)
+                      if isinstance(result, dict):
+                          extracted = (result.get('quantity') or
+                                       result.get('yield') or
+                                       result.get('quantity_extracted') or 0)
+                      else:
+                          extracted = result
+                  else:
+                      return
+
+                  try:
+                      extracted = float(extracted)
+                  except (TypeError, ValueError):
+                      extracted = 0
+
+                  # Adjust inventory to respect physics-limited yield if provided
+                  if allowed_yield is not None and extracted > allowed_yield:
+                      inv = resources.inventories.setdefault(member_id, {})
+                      inv['food'] = max(0, inv.get('food', 0) - (extracted - allowed_yield))
+                      extracted = allowed_yield
+
+                  print(f"Extracted {extracted} food")
+
+                  # Pay vitality cost only if extraction did not already apply it
+                  resource_def = resources.resource_types.get('food', {}) if hasattr(resources, 'resource_types') else {}
+                  vitality_cost = resource_def.get('extraction_cost_vitality', resource_def.get('extraction_cost', 0))
+                  if vitality_cost and extracted > 0 and member.vitality == pre_vitality:
+                      member.vitality = max(0, member.vitality - vitality_cost)
+
+  - name: "Place Market Orders"
+    description: "Use market to buy/sell"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Use market to buy/sell'''
+
+          if hasattr(execution_engine, 'market') and hasattr(execution_engine, 'resources'):
+              market = execution_engine.market
+              my_inv = execution_engine.resources.inventories.get(member_id, {})
+
+              # Sell excess food
+              if my_inv.get('food', 0) > 20:
+                  current_price = market.get_market_price('food')
+                  # Undercut slightly to sell faster
+                  my_price = current_price * 0.95
+
+                  market.place_order(
+                      member_id=member_id,
+                      resource_type='food',
+                      order_type='sell',
+                      price=my_price,
+                      quantity=10
+                  )
+                  print(f"Placed sell order: 10 food at {my_price:.2f}")
+
+              # Buy materials if I need them
+              if my_inv.get('materials', 0) < 5:
+                  current_price = market.get_market_price('materials')
+                  # Willing to pay a bit more
+                  my_price = current_price * 1.05
+
+                  market.place_order(
+                      member_id=member_id,
+                      resource_type='materials',
+                      order_type='buy',
+                      price=my_price,
+                      quantity=5
+                  )
+                  print(f"Placed buy order: 5 materials at {my_price:.2f}")
+
+  - name: "Supply Chain Management"
+    description: "Build supply chain through contracts"
+    code: |
+      def agent_action(execution_engine, member_id):
+          '''Build supply chain through contracts'''
+
+          if not hasattr(execution_engine, 'resources') or not hasattr(execution_engine, 'contracts'):
+              return
+
+          my_inv = execution_engine.resources.inventories.get(member_id, {})
+
+          # I'm a manufacturer, need suppliers
+          if my_inv.get('materials', 0) < 10:  # Low on inputs
+              # Find raw material suppliers
+              for supplier_id in range(len(execution_engine.current_members)):
+                  if supplier_id == member_id:
+                      continue
+
+                  supplier_inv = execution_engine.resources.inventories.get(supplier_id, {})
+
+                  # They have materials
+                  if supplier_inv.get('materials', 0) > 20:
+                      # Propose ongoing supply contract
+                      supply_contract = \'\'\'
+      def execute_contract(execution_engine, context):
+          # Ongoing materials supply
+          contract = context.get('contract', {})
+          supplier = contract['parties'][0]
+          buyer = contract['parties'][1]
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              inv_supplier = inv.setdefault(supplier, {})
+              inv_buyer = inv.setdefault(buyer, {})
+
+              # Deliver materials
+              if inv_supplier.get('materials', 0) >= 5:
+                  inv_supplier['materials'] -= 5
+                  inv_buyer['materials'] = inv_buyer.get('materials', 0) + 5
+
+                  # Payment
+                  if inv_buyer.get('currency', 0) >= 20:
+                      inv_buyer['currency'] -= 20
+                      inv_supplier['currency'] = inv_supplier.get('currency', 0) + 20
+
+                  return {"status": "success", "delivered": 5}
+          return {"status": "failed"}
+      \'\'\'
+
+                      execution_engine.contracts.propose_contract(
+                          code=supply_contract,
+                          proposer_id=member_id,
+                          parties=[supplier_id, member_id],  # supplier first
+                          terms={'type': 'supply_chain', 'resource': 'materials', 'quantity': 5, 'payment': 20}
+                      )
+                      break
+
+economic_strategies:
+  - name: "Specialization Strategy"
+    description: "Focus on one product/service, build reputation and efficiency, rely on trade for other needs"
+
+  - name: "Diversification Strategy"
+    description: "Produce multiple products, hedge against market changes, higher operational complexity"
+
+  - name: "Middleman Strategy"
+    description: "Buy low, sell high, connect supply and demand, profit from market inefficiency"
+
+  - name: "Vertical Integration"
+    description: "Control entire supply chain from raw materials to finished goods, maximum profit capture"
+
+  - name: "Service Provider"
+    description: "Offer labor/services to others, predictable income stream, low capital requirements"
+
+implementation_guide:
+  steps:
+    - "Check what systems exist (resources, market, businesses)"
+    - "Analyze your current position (inventory, contracts, relationships)"
+    - "Identify opportunities (under-supplied markets, partnership gaps)"
+    - "Propose contracts that are mutually beneficial"
+    - "Monitor performance and adapt"
+
+  reminders:
+    - "Contracts must benefit both parties to be signed"
+    - "Use physics constraints when defining custom action dicts"
+    - "Market prices reflect supply/demand"
+    - "Pivot when profit margins drop"
+    - "Build supply chains for reliability"
+    - "Diversify risk across multiple relationships and contract terms"

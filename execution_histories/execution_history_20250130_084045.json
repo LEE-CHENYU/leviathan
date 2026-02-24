@@ -1,0 +1,719 @@
+{
+  "rounds": [
+    {
+      "timestamp": "2025-01-30T08:40:45.228197",
+      "actions": [
+        {
+          "member_id": 0,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Check who has attacked me and attack the top attacker\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and me.id < victim_matrix.shape[0]:\n        attacks_on_me = victim_matrix[me.id]\n        if attacks_on_me.size > 0:\n            attacker_id = attacks_on_me.argmax()\n            if attacker_id != member_id and attacker_id in execution_engine.current_members:\n                attacker = execution_engine.current_members[attacker_id]\n                execution_engine.attack(me, attacker)\n                return\n\n    # If vitality is high, attack the member with the highest productivity\n    if me.vitality > 70.0:\n        members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n        if members:\n            target = max(members, key=lambda m: m.overall_productivity)\n            execution_engine.attack(me, target)\n            return\n\n    # Otherwise, offer help to the member with the lowest vitality\n    members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n    if members:\n        target = min(members, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)",
+          "old_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 95.6187577388546
+          },
+          "new_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 95.6187577388546
+          },
+          "performance_change": 0.0
+        },
+        {
+          "member_id": 1,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Avoid targeting self\n    def get_valid_target(execution_engine, exclude_id):\n        members = execution_engine.current_members\n        for target_id, member in members.items():\n            if target_id != exclude_id:\n                return member\n        return None\n\n    # Analyze relationships\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is None or member_id >= victim_matrix.shape[0]:\n        return\n\n    attacks_received = victim_matrix[member_id]\n    total_attacks = attacks_received.sum()\n\n    if me.vitality < 50.0 and me.cargo > 20.0:\n        # Offer help to the most attacked member\n        most_attacked_id = attacks_received.argmax()\n        if most_attacked_id != member_id and most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    elif me.cargo > 30.0:\n        # Attack the member who has attacked me the most\n        most_attacker_id = attacks_received.argmax()\n        if most_attacker_id != member_id and most_attacker_id in execution_engine.current_members:\n            execution_engine.attack(me, execution_engine.current_members[most_attacker_id])\n    elif me.cargo > 40.0:\n        # Use bear action if the target has land and is valid\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            benefit_land_matrix = execution_engine.relationship_dict.get('benefit_land')\n            if benefit_land_matrix is not None and target_member.id < benefit_land_matrix.shape[0]:\n                if benefit_land_matrix[member_id][target_member.id] > 0:\n                    execution_engine.bear(me, target_member)\n    else:\n        # Default action: offer help to a random member\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            execution_engine.offer(me, target_member, True)",
+          "old_stats": {
+            "vitality": 33.02781433323713,
+            "cargo": 39.175257494005535,
+            "survival_chance": 72.71073280995253
+          },
+          "new_stats": {
+            "vitality": 33.02781433323713,
+            "cargo": 39.175257494005535,
+            "survival_chance": 72.71073280995253
+          },
+          "performance_change": 0.0
+        },
+        {
+          "member_id": 2,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    relationship_victim = execution_engine.relationship_dict.get('victim', {})\n    if not isinstance(relationship_victim, (dict, list,)):\n        return\n\n    # Get attackers and their attack counts\n    attackers = []\n    if isinstance(relationship_victim, dict):\n        attack_matrix = relationship_victim.get(me.id, {})\n        for attacker_id, count in attack_matrix.items():\n            attackers.append((attacker_id, count))\n    elif isinstance(relationship_victim, list):\n        if 0 <= me.id < len(relationship_victim):\n            attack_matrix = relationship_victim[me.id]\n            for attacker_id, count in enumerate(attack_matrix):\n                if count > 0:\n                    attackers.append((attacker_id, count))\n\n    attackers.sort(key=lambda x: x[1], reverse=True)\n\n    if attackers:\n        top_attacker_id = attackers[0][0]\n        if top_attacker_id == member_id:\n            top_attacker_id = None\n\n        if top_attacker_id and top_attacker_id in execution_engine.current_members:\n            relationship_benefit_land = execution_engine.relationship_dict.get('benefit_land', {})\n            has_land = False\n            if isinstance(relationship_benefit_land, dict):\n                has_land = relationship_benefit_land.get(me.id, {}).get(top_attacker_id, 0) > 0\n            elif isinstance(relationship_benefit_land, list):\n                if 0 <= me.id < len(relationship_benefit_land) and 0 <= top_attacker_id < len(relationship_benefit_land[me.id]):\n                    has_land = relationship_benefit_land[me.id][top_attacker_id] > 0\n\n            target = execution_engine.current_members.get(top_attacker_id)\n            if has_land and target:\n                execution_engine.bear(me, target)\n                return\n            elif target:\n                execution_engine.attack(me, target)\n                return\n\n    # If no attackers, offer help to the member with lowest vitality\n    min_vitality = float('inf')\n    target_member = None\n    for m_id, member in execution_engine.current_members.items():\n        if m_id != member_id and member.vitality < min_vitality:\n            min_vitality = member.vitality\n            target_member = member\n\n    if target_member:\n        execution_engine.offer(me, target_member, True)",
+          "old_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 32.2863455020685,
+            "survival_chance": 51.733034815166434
+          },
+          "new_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 32.2863455020685,
+            "survival_chance": 51.733034815166434
+          },
+          "performance_change": 0.0
+        },
+        {
+          "member_id": 3,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Check if member_id exists\n    if member_id not in execution_engine.current_members:\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Access the victim matrix\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is None or me.id >= victim_matrix.shape[0]:\n        return\n\n    # Get attack counts against me\n    attack_counts = victim_matrix[me.id]\n    if not hasattr(attack_counts, 'max') or attack_counts.max() <= 0:\n        return\n\n    # Find the member who attacked me the most\n    target_id = int(attack_counts.argmax())\n\n    # Ensure target is not self and exists\n    if target_id == me.id or target_id not in execution_engine.current_members:\n        return\n\n    # Decide action based on vitality\n    if me.vitality < 50.0:\n        # Offer to the member who attacked me the most\n        execution_engine.offer(me, execution_engine.current_members[target_id], True)\n    else:\n        # Attack the member who attacked me the most\n        execution_engine.attack(me, execution_engine.current_members[target_id])",
+          "old_stats": {
+            "vitality": 18.47747982181767,
+            "cargo": 37.4760063897966,
+            "survival_chance": 60.445830379527365
+          },
+          "new_stats": {
+            "vitality": 18.47747982181767,
+            "cargo": 37.4760063897966,
+            "survival_chance": 60.445830379527365
+          },
+          "performance_change": 0.0
+        },
+        {
+          "member_id": 4,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members[member_id]\n    relations = execution_engine.parse_relationship_matrix()\n\n    # Parse victim relationships\n    victim_matrix = execution_engine.relationship_dict['victim']\n    total_attacks_on_me = victim_matrix[me.id].sum()\n\n    # Determine potential targets excluding self and verifying member IDs\n    potential_targets = []\n    for target_id in execution_engine.current_members:\n        if target_id != me.id:\n            target = execution_engine.current_members[target_id]\n            potential_targets.append(target)\n\n    # If vitality is low, offer help to the most attacked member\n    if me.vitality < 50.0 and potential_targets:\n        most_attacked_id = victim_matrix[:, me.id].argmax()\n        if most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    else:\n        # Attack the member who has attacked me the most\n        attacker_id = victim_matrix[:, me.id].argmax()\n        if attacker_id in execution_engine.current_members and attacker_id != me.id:\n            execution_engine.attack(me, execution_engine.current_members[attacker_id])\n\n        # Optionally, use bear action if target has land\n        if victim_matrix[attacker_id, me.id] > 0 and 'land' in execution_engine.current_members[attacker_id].current_clear_list:\n            execution_engine.bear(me, execution_engine.current_members[attacker_id])",
+          "old_stats": {
+            "vitality": 78.50637096028503,
+            "cargo": 34.67729266578075,
+            "survival_chance": 141.34882044221456
+          },
+          "new_stats": {
+            "vitality": 78.50637096028503,
+            "cargo": 34.67729266578075,
+            "survival_chance": 141.34882044221456
+          },
+          "performance_change": 0.0
+        }
+      ],
+      "performance_changes": {},
+      "survival_changes": {}
+    }
+  ],
+  "generated_code": {
+    "0": {
+      "0": {
+        "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Check who has attacked me and attack the top attacker\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and me.id < victim_matrix.shape[0]:\n        attacks_on_me = victim_matrix[me.id]\n        if attacks_on_me.size > 0:\n            attacker_id = attacks_on_me.argmax()\n            if attacker_id != member_id and attacker_id in execution_engine.current_members:\n                attacker = execution_engine.current_members[attacker_id]\n                execution_engine.attack(me, attacker)\n                return\n\n    # If vitality is high, attack the member with the highest productivity\n    if me.vitality > 70.0:\n        members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n        if members:\n            target = max(members, key=lambda m: m.overall_productivity)\n            execution_engine.attack(me, target)\n            return\n\n    # Otherwise, offer help to the member with the lowest vitality\n    members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n    if members:\n        target = min(members, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 3,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 2,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 7.799514361095985,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_2 (value=38.40)",
+          "member_0 was attacked by member_3 (value=29.62)",
+          "member_0 was attacked by member_4 (value=50.87)",
+          "member_1 was attacked by member_0 (value=34.45)",
+          "member_1 was attacked by member_4 (value=23.17)",
+          "member_2 was attacked by member_0 (value=85.84)",
+          "member_2 was attacked by member_1 (value=28.99)",
+          "member_2 was attacked by member_3 (value=49.52)",
+          "member_2 was attacked by member_4 (value=18.07)",
+          "member_3 was attacked by member_0 (value=44.24)",
+          "member_3 was attacked by member_1 (value=65.23)",
+          "member_3 was attacked by member_4 (value=9.15)",
+          "member_4 was attacked by member_0 (value=12.29)",
+          "member_0 gave a benefit to member_1 (value=62.61)",
+          "member_0 gave a benefit to member_2 (value=56.24)",
+          "member_1 gave a benefit to member_0 (value=74.37)",
+          "member_1 gave a benefit to member_4 (value=16.10)",
+          "member_2 gave a benefit to member_1 (value=39.57)",
+          "member_2 gave a benefit to member_3 (value=26.33)",
+          "member_2 gave a benefit to member_4 (value=95.19)",
+          "member_3 gave a benefit to member_0 (value=96.55)",
+          "member_3 gave a benefit to member_1 (value=14.38)",
+          "member_3 gave a benefit to member_4 (value=89.48)",
+          "member_4 gave a benefit to member_0 (value=50.22)",
+          "member_4 gave a benefit to member_1 (value=41.71)",
+          "member_4 gave a benefit to member_3 (value=67.34)",
+          "member_0 gave land to member_1 (value=2.89)",
+          "member_2 gave land to member_0 (value=1.23)",
+          "member_2 gave land to member_3 (value=2.10)",
+          "member_2 gave land to member_4 (value=2.63)",
+          "member_3 gave land to member_1 (value=1.36)",
+          "member_3 gave land to member_2 (value=2.23)",
+          "member_3 gave land to member_4 (value=1.30)",
+          "member_4 gave land to member_0 (value=0.18)",
+          "member_4 gave land to member_3 (value=0.64)"
+        ]
+      },
+      "1": {
+        "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Avoid targeting self\n    def get_valid_target(execution_engine, exclude_id):\n        members = execution_engine.current_members\n        for target_id, member in members.items():\n            if target_id != exclude_id:\n                return member\n        return None\n\n    # Analyze relationships\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is None or member_id >= victim_matrix.shape[0]:\n        return\n\n    attacks_received = victim_matrix[member_id]\n    total_attacks = attacks_received.sum()\n\n    if me.vitality < 50.0 and me.cargo > 20.0:\n        # Offer help to the most attacked member\n        most_attacked_id = attacks_received.argmax()\n        if most_attacked_id != member_id and most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    elif me.cargo > 30.0:\n        # Attack the member who has attacked me the most\n        most_attacker_id = attacks_received.argmax()\n        if most_attacker_id != member_id and most_attacker_id in execution_engine.current_members:\n            execution_engine.attack(me, execution_engine.current_members[most_attacker_id])\n    elif me.cargo > 40.0:\n        # Use bear action if the target has land and is valid\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            benefit_land_matrix = execution_engine.relationship_dict.get('benefit_land')\n            if benefit_land_matrix is not None and target_member.id < benefit_land_matrix.shape[0]:\n                if benefit_land_matrix[member_id][target_member.id] > 0:\n                    execution_engine.bear(me, target_member)\n    else:\n        # Default action: offer help to a random member\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            execution_engine.offer(me, target_member, True)",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 3,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 2,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 7.799514361095985,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_2 (value=38.40)",
+          "member_0 was attacked by member_3 (value=29.62)",
+          "member_0 was attacked by member_4 (value=50.87)",
+          "member_1 was attacked by member_0 (value=34.45)",
+          "member_1 was attacked by member_4 (value=23.17)",
+          "member_2 was attacked by member_0 (value=85.84)",
+          "member_2 was attacked by member_1 (value=28.99)",
+          "member_2 was attacked by member_3 (value=49.52)",
+          "member_2 was attacked by member_4 (value=18.07)",
+          "member_3 was attacked by member_0 (value=44.24)",
+          "member_3 was attacked by member_1 (value=65.23)",
+          "member_3 was attacked by member_4 (value=9.15)",
+          "member_4 was attacked by member_0 (value=12.29)",
+          "member_0 gave a benefit to member_1 (value=62.61)",
+          "member_0 gave a benefit to member_2 (value=56.24)",
+          "member_1 gave a benefit to member_0 (value=74.37)",
+          "member_1 gave a benefit to member_4 (value=16.10)",
+          "member_2 gave a benefit to member_1 (value=39.57)",
+          "member_2 gave a benefit to member_3 (value=26.33)",
+          "member_2 gave a benefit to member_4 (value=95.19)",
+          "member_3 gave a benefit to member_0 (value=96.55)",
+          "member_3 gave a benefit to member_1 (value=14.38)",
+          "member_3 gave a benefit to member_4 (value=89.48)",
+          "member_4 gave a benefit to member_0 (value=50.22)",
+          "member_4 gave a benefit to member_1 (value=41.71)",
+          "member_4 gave a benefit to member_3 (value=67.34)",
+          "member_0 gave land to member_1 (value=2.89)",
+          "member_2 gave land to member_0 (value=1.23)",
+          "member_2 gave land to member_3 (value=2.10)",
+          "member_2 gave land to member_4 (value=2.63)",
+          "member_3 gave land to member_1 (value=1.36)",
+          "member_3 gave land to member_2 (value=2.23)",
+          "member_3 gave land to member_4 (value=1.30)",
+          "member_4 gave land to member_0 (value=0.18)",
+          "member_4 gave land to member_3 (value=0.64)"
+        ]
+      },
+      "2": {
+        "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    relationship_victim = execution_engine.relationship_dict.get('victim', {})\n    if not isinstance(relationship_victim, (dict, list,)):\n        return\n\n    # Get attackers and their attack counts\n    attackers = []\n    if isinstance(relationship_victim, dict):\n        attack_matrix = relationship_victim.get(me.id, {})\n        for attacker_id, count in attack_matrix.items():\n            attackers.append((attacker_id, count))\n    elif isinstance(relationship_victim, list):\n        if 0 <= me.id < len(relationship_victim):\n            attack_matrix = relationship_victim[me.id]\n            for attacker_id, count in enumerate(attack_matrix):\n                if count > 0:\n                    attackers.append((attacker_id, count))\n\n    attackers.sort(key=lambda x: x[1], reverse=True)\n\n    if attackers:\n        top_attacker_id = attackers[0][0]\n        if top_attacker_id == member_id:\n            top_attacker_id = None\n\n        if top_attacker_id and top_attacker_id in execution_engine.current_members:\n            relationship_benefit_land = execution_engine.relationship_dict.get('benefit_land', {})\n            has_land = False\n            if isinstance(relationship_benefit_land, dict):\n                has_land = relationship_benefit_land.get(me.id, {}).get(top_attacker_id, 0) > 0\n            elif isinstance(relationship_benefit_land, list):\n                if 0 <= me.id < len(relationship_benefit_land) and 0 <= top_attacker_id < len(relationship_benefit_land[me.id]):\n                    has_land = relationship_benefit_land[me.id][top_attacker_id] > 0\n\n            target = execution_engine.current_members.get(top_attacker_id)\n            if has_land and target:\n                execution_engine.bear(me, target)\n                return\n            elif target:\n                execution_engine.attack(me, target)\n                return\n\n    # If no attackers, offer help to the member with lowest vitality\n    min_vitality = float('inf')\n    target_member = None\n    for m_id, member in execution_engine.current_members.items():\n        if m_id != member_id and member.vitality < min_vitality:\n            min_vitality = member.vitality\n            target_member = member\n\n    if target_member:\n        execution_engine.offer(me, target_member, True)",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 3,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 2,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 7.799514361095985,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_2 (value=38.40)",
+          "member_0 was attacked by member_3 (value=29.62)",
+          "member_0 was attacked by member_4 (value=50.87)",
+          "member_1 was attacked by member_0 (value=34.45)",
+          "member_1 was attacked by member_4 (value=23.17)",
+          "member_2 was attacked by member_0 (value=85.84)",
+          "member_2 was attacked by member_1 (value=28.99)",
+          "member_2 was attacked by member_3 (value=49.52)",
+          "member_2 was attacked by member_4 (value=18.07)",
+          "member_3 was attacked by member_0 (value=44.24)",
+          "member_3 was attacked by member_1 (value=65.23)",
+          "member_3 was attacked by member_4 (value=9.15)",
+          "member_4 was attacked by member_0 (value=12.29)",
+          "member_0 gave a benefit to member_1 (value=62.61)",
+          "member_0 gave a benefit to member_2 (value=56.24)",
+          "member_1 gave a benefit to member_0 (value=74.37)",
+          "member_1 gave a benefit to member_4 (value=16.10)",
+          "member_2 gave a benefit to member_1 (value=39.57)",
+          "member_2 gave a benefit to member_3 (value=26.33)",
+          "member_2 gave a benefit to member_4 (value=95.19)",
+          "member_3 gave a benefit to member_0 (value=96.55)",
+          "member_3 gave a benefit to member_1 (value=14.38)",
+          "member_3 gave a benefit to member_4 (value=89.48)",
+          "member_4 gave a benefit to member_0 (value=50.22)",
+          "member_4 gave a benefit to member_1 (value=41.71)",
+          "member_4 gave a benefit to member_3 (value=67.34)",
+          "member_0 gave land to member_1 (value=2.89)",
+          "member_2 gave land to member_0 (value=1.23)",
+          "member_2 gave land to member_3 (value=2.10)",
+          "member_2 gave land to member_4 (value=2.63)",
+          "member_3 gave land to member_1 (value=1.36)",
+          "member_3 gave land to member_2 (value=2.23)",
+          "member_3 gave land to member_4 (value=1.30)",
+          "member_4 gave land to member_0 (value=0.18)",
+          "member_4 gave land to member_3 (value=0.64)"
+        ]
+      },
+      "3": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Check if member_id exists\n    if member_id not in execution_engine.current_members:\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Access the victim matrix\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is None or me.id >= victim_matrix.shape[0]:\n        return\n\n    # Get attack counts against me\n    attack_counts = victim_matrix[me.id]\n    if not hasattr(attack_counts, 'max') or attack_counts.max() <= 0:\n        return\n\n    # Find the member who attacked me the most\n    target_id = int(attack_counts.argmax())\n\n    # Ensure target is not self and exists\n    if target_id == me.id or target_id not in execution_engine.current_members:\n        return\n\n    # Decide action based on vitality\n    if me.vitality < 50.0:\n        # Offer to the member who attacked me the most\n        execution_engine.offer(me, execution_engine.current_members[target_id], True)\n    else:\n        # Attack the member who attacked me the most\n        execution_engine.attack(me, execution_engine.current_members[target_id])",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 3,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 2,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 7.799514361095985,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_2 (value=38.40)",
+          "member_0 was attacked by member_3 (value=29.62)",
+          "member_0 was attacked by member_4 (value=50.87)",
+          "member_1 was attacked by member_0 (value=34.45)",
+          "member_1 was attacked by member_4 (value=23.17)",
+          "member_2 was attacked by member_0 (value=85.84)",
+          "member_2 was attacked by member_1 (value=28.99)",
+          "member_2 was attacked by member_3 (value=49.52)",
+          "member_2 was attacked by member_4 (value=18.07)",
+          "member_3 was attacked by member_0 (value=44.24)",
+          "member_3 was attacked by member_1 (value=65.23)",
+          "member_3 was attacked by member_4 (value=9.15)",
+          "member_4 was attacked by member_0 (value=12.29)",
+          "member_0 gave a benefit to member_1 (value=62.61)",
+          "member_0 gave a benefit to member_2 (value=56.24)",
+          "member_1 gave a benefit to member_0 (value=74.37)",
+          "member_1 gave a benefit to member_4 (value=16.10)",
+          "member_2 gave a benefit to member_1 (value=39.57)",
+          "member_2 gave a benefit to member_3 (value=26.33)",
+          "member_2 gave a benefit to member_4 (value=95.19)",
+          "member_3 gave a benefit to member_0 (value=96.55)",
+          "member_3 gave a benefit to member_1 (value=14.38)",
+          "member_3 gave a benefit to member_4 (value=89.48)",
+          "member_4 gave a benefit to member_0 (value=50.22)",
+          "member_4 gave a benefit to member_1 (value=41.71)",
+          "member_4 gave a benefit to member_3 (value=67.34)",
+          "member_0 gave land to member_1 (value=2.89)",
+          "member_2 gave land to member_0 (value=1.23)",
+          "member_2 gave land to member_3 (value=2.10)",
+          "member_2 gave land to member_4 (value=2.63)",
+          "member_3 gave land to member_1 (value=1.36)",
+          "member_3 gave land to member_2 (value=2.23)",
+          "member_3 gave land to member_4 (value=1.30)",
+          "member_4 gave land to member_0 (value=0.18)",
+          "member_4 gave land to member_3 (value=0.64)"
+        ]
+      },
+      "4": {
+        "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members[member_id]\n    relations = execution_engine.parse_relationship_matrix()\n\n    # Parse victim relationships\n    victim_matrix = execution_engine.relationship_dict['victim']\n    total_attacks_on_me = victim_matrix[me.id].sum()\n\n    # Determine potential targets excluding self and verifying member IDs\n    potential_targets = []\n    for target_id in execution_engine.current_members:\n        if target_id != me.id:\n            target = execution_engine.current_members[target_id]\n            potential_targets.append(target)\n\n    # If vitality is low, offer help to the most attacked member\n    if me.vitality < 50.0 and potential_targets:\n        most_attacked_id = victim_matrix[:, me.id].argmax()\n        if most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    else:\n        # Attack the member who has attacked me the most\n        attacker_id = victim_matrix[:, me.id].argmax()\n        if attacker_id in execution_engine.current_members and attacker_id != me.id:\n            execution_engine.attack(me, execution_engine.current_members[attacker_id])\n\n        # Optionally, use bear action if target has land\n        if victim_matrix[attacker_id, me.id] > 0 and 'land' in execution_engine.current_members[attacker_id].current_clear_list:\n            execution_engine.bear(me, execution_engine.current_members[attacker_id])",
+        "features_at_generation": [
+          {
+            "self_productivity": 9.851974486110818,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 8.077967059825381,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 3,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 7.968737200820967,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 2,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 9.205662089622338,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 7.799514361095985,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": [
+          "member_0 was attacked by member_2 (value=38.40)",
+          "member_0 was attacked by member_3 (value=29.62)",
+          "member_0 was attacked by member_4 (value=50.87)",
+          "member_1 was attacked by member_0 (value=34.45)",
+          "member_1 was attacked by member_4 (value=23.17)",
+          "member_2 was attacked by member_0 (value=85.84)",
+          "member_2 was attacked by member_1 (value=28.99)",
+          "member_2 was attacked by member_3 (value=49.52)",
+          "member_2 was attacked by member_4 (value=18.07)",
+          "member_3 was attacked by member_0 (value=44.24)",
+          "member_3 was attacked by member_1 (value=65.23)",
+          "member_3 was attacked by member_4 (value=9.15)",
+          "member_4 was attacked by member_0 (value=12.29)",
+          "member_0 gave a benefit to member_1 (value=62.61)",
+          "member_0 gave a benefit to member_2 (value=56.24)",
+          "member_1 gave a benefit to member_0 (value=74.37)",
+          "member_1 gave a benefit to member_4 (value=16.10)",
+          "member_2 gave a benefit to member_1 (value=39.57)",
+          "member_2 gave a benefit to member_3 (value=26.33)",
+          "member_2 gave a benefit to member_4 (value=95.19)",
+          "member_3 gave a benefit to member_0 (value=96.55)",
+          "member_3 gave a benefit to member_1 (value=14.38)",
+          "member_3 gave a benefit to member_4 (value=89.48)",
+          "member_4 gave a benefit to member_0 (value=50.22)",
+          "member_4 gave a benefit to member_1 (value=41.71)",
+          "member_4 gave a benefit to member_3 (value=67.34)",
+          "member_0 gave land to member_1 (value=2.89)",
+          "member_2 gave land to member_0 (value=1.23)",
+          "member_2 gave land to member_3 (value=2.10)",
+          "member_2 gave land to member_4 (value=2.63)",
+          "member_3 gave land to member_1 (value=1.36)",
+          "member_3 gave land to member_2 (value=2.23)",
+          "member_3 gave land to member_4 (value=1.30)",
+          "member_4 gave land to member_0 (value=0.18)",
+          "member_4 gave land to member_3 (value=0.64)"
+        ]
+      }
+    }
+  },
+  "performance_metrics": {},
+  "errors": [
+    {
+      "round": 0,
+      "member_id": 0,
+      "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Check who has attacked me and attack the top attacker\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is not None and me.id < victim_matrix.shape[0]:\n        attacks_on_me = victim_matrix[me.id]\n        if attacks_on_me.size > 0:\n            attacker_id = attacks_on_me.argmax()\n            if attacker_id != member_id and attacker_id in execution_engine.current_members:\n                attacker = execution_engine.current_members[attacker_id]\n                execution_engine.attack(me, attacker)\n                return\n\n    # If vitality is high, attack the member with the highest productivity\n    if me.vitality > 70.0:\n        members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n        if members:\n            target = max(members, key=lambda m: m.overall_productivity)\n            execution_engine.attack(me, target)\n            return\n\n    # Otherwise, offer help to the member with the lowest vitality\n    members = [m for m in execution_engine.current_members.values() if m.id != member_id]\n    if members:\n        target = min(members, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)",
+      "error": "'list' object has no attribute 'get'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_agent_code_generation.py\", line 342, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 2, in agent_action\nAttributeError: 'list' object has no attribute 'get'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 1,
+      "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    # Avoid targeting self\n    def get_valid_target(execution_engine, exclude_id):\n        members = execution_engine.current_members\n        for target_id, member in members.items():\n            if target_id != exclude_id:\n                return member\n        return None\n\n    # Analyze relationships\n    victim_matrix = execution_engine.relationship_dict.get('victim')\n    if victim_matrix is None or member_id >= victim_matrix.shape[0]:\n        return\n\n    attacks_received = victim_matrix[member_id]\n    total_attacks = attacks_received.sum()\n\n    if me.vitality < 50.0 and me.cargo > 20.0:\n        # Offer help to the most attacked member\n        most_attacked_id = attacks_received.argmax()\n        if most_attacked_id != member_id and most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    elif me.cargo > 30.0:\n        # Attack the member who has attacked me the most\n        most_attacker_id = attacks_received.argmax()\n        if most_attacker_id != member_id and most_attacker_id in execution_engine.current_members:\n            execution_engine.attack(me, execution_engine.current_members[most_attacker_id])\n    elif me.cargo > 40.0:\n        # Use bear action if the target has land and is valid\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            benefit_land_matrix = execution_engine.relationship_dict.get('benefit_land')\n            if benefit_land_matrix is not None and target_member.id < benefit_land_matrix.shape[0]:\n                if benefit_land_matrix[member_id][target_member.id] > 0:\n                    execution_engine.bear(me, target_member)\n    else:\n        # Default action: offer help to a random member\n        target_member = get_valid_target(execution_engine, member_id)\n        if target_member:\n            execution_engine.offer(me, target_member, True)",
+      "error": "'list' object has no attribute 'get'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_agent_code_generation.py\", line 342, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 2, in agent_action\nAttributeError: 'list' object has no attribute 'get'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 2,
+      "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members.get(member_id)\n    if not me:\n        return\n\n    relationship_victim = execution_engine.relationship_dict.get('victim', {})\n    if not isinstance(relationship_victim, (dict, list,)):\n        return\n\n    # Get attackers and their attack counts\n    attackers = []\n    if isinstance(relationship_victim, dict):\n        attack_matrix = relationship_victim.get(me.id, {})\n        for attacker_id, count in attack_matrix.items():\n            attackers.append((attacker_id, count))\n    elif isinstance(relationship_victim, list):\n        if 0 <= me.id < len(relationship_victim):\n            attack_matrix = relationship_victim[me.id]\n            for attacker_id, count in enumerate(attack_matrix):\n                if count > 0:\n                    attackers.append((attacker_id, count))\n\n    attackers.sort(key=lambda x: x[1], reverse=True)\n\n    if attackers:\n        top_attacker_id = attackers[0][0]\n        if top_attacker_id == member_id:\n            top_attacker_id = None\n\n        if top_attacker_id and top_attacker_id in execution_engine.current_members:\n            relationship_benefit_land = execution_engine.relationship_dict.get('benefit_land', {})\n            has_land = False\n            if isinstance(relationship_benefit_land, dict):\n                has_land = relationship_benefit_land.get(me.id, {}).get(top_attacker_id, 0) > 0\n            elif isinstance(relationship_benefit_land, list):\n                if 0 <= me.id < len(relationship_benefit_land) and 0 <= top_attacker_id < len(relationship_benefit_land[me.id]):\n                    has_land = relationship_benefit_land[me.id][top_attacker_id] > 0\n\n            target = execution_engine.current_members.get(top_attacker_id)\n            if has_land and target:\n                execution_engine.bear(me, target)\n                return\n            elif target:\n                execution_engine.attack(me, target)\n                return\n\n    # If no attackers, offer help to the member with lowest vitality\n    min_vitality = float('inf')\n    target_member = None\n    for m_id, member in execution_engine.current_members.items():\n        if m_id != member_id and member.vitality < min_vitality:\n            min_vitality = member.vitality\n            target_member = member\n\n    if target_member:\n        execution_engine.offer(me, target_member, True)",
+      "error": "'list' object has no attribute 'get'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_agent_code_generation.py\", line 342, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 2, in agent_action\nAttributeError: 'list' object has no attribute 'get'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 4,
+      "code": "def agent_action(execution_engine, member_id):\n    me = execution_engine.current_members[member_id]\n    relations = execution_engine.parse_relationship_matrix()\n\n    # Parse victim relationships\n    victim_matrix = execution_engine.relationship_dict['victim']\n    total_attacks_on_me = victim_matrix[me.id].sum()\n\n    # Determine potential targets excluding self and verifying member IDs\n    potential_targets = []\n    for target_id in execution_engine.current_members:\n        if target_id != me.id:\n            target = execution_engine.current_members[target_id]\n            potential_targets.append(target)\n\n    # If vitality is low, offer help to the most attacked member\n    if me.vitality < 50.0 and potential_targets:\n        most_attacked_id = victim_matrix[:, me.id].argmax()\n        if most_attacked_id in execution_engine.current_members:\n            execution_engine.offer(me, execution_engine.current_members[most_attacked_id], True)\n    else:\n        # Attack the member who has attacked me the most\n        attacker_id = victim_matrix[:, me.id].argmax()\n        if attacker_id in execution_engine.current_members and attacker_id != me.id:\n            execution_engine.attack(me, execution_engine.current_members[attacker_id])\n\n        # Optionally, use bear action if target has land\n        if victim_matrix[attacker_id, me.id] > 0 and 'land' in execution_engine.current_members[attacker_id].current_clear_list:\n            execution_engine.bear(me, execution_engine.current_members[attacker_id])",
+      "error": "IslandExecution.parse_relationship_matrix() missing 1 required positional argument: 'relationship_dict'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_agent_code_generation.py\", line 342, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 3, in agent_action\nTypeError: IslandExecution.parse_relationship_matrix() missing 1 required positional argument: 'relationship_dict'\n"
+    }
+  ],
+  "relationships": {
+    "round_0_0": [
+      "member_0 was attacked by member_2 (value=38.40)",
+      "member_0 was attacked by member_3 (value=29.62)",
+      "member_0 was attacked by member_4 (value=50.87)",
+      "member_1 was attacked by member_0 (value=34.45)",
+      "member_1 was attacked by member_4 (value=23.17)",
+      "member_2 was attacked by member_0 (value=85.84)",
+      "member_2 was attacked by member_1 (value=28.99)",
+      "member_2 was attacked by member_3 (value=49.52)",
+      "member_2 was attacked by member_4 (value=18.07)",
+      "member_3 was attacked by member_0 (value=44.24)",
+      "member_3 was attacked by member_1 (value=65.23)",
+      "member_3 was attacked by member_4 (value=9.15)",
+      "member_4 was attacked by member_0 (value=12.29)",
+      "member_0 gave a benefit to member_1 (value=62.61)",
+      "member_0 gave a benefit to member_2 (value=56.24)",
+      "member_1 gave a benefit to member_0 (value=74.37)",
+      "member_1 gave a benefit to member_4 (value=16.10)",
+      "member_2 gave a benefit to member_1 (value=39.57)",
+      "member_2 gave a benefit to member_3 (value=26.33)",
+      "member_2 gave a benefit to member_4 (value=95.19)",
+      "member_3 gave a benefit to member_0 (value=96.55)",
+      "member_3 gave a benefit to member_1 (value=14.38)",
+      "member_3 gave a benefit to member_4 (value=89.48)",
+      "member_4 gave a benefit to member_0 (value=50.22)",
+      "member_4 gave a benefit to member_1 (value=41.71)",
+      "member_4 gave a benefit to member_3 (value=67.34)",
+      "member_0 gave land to member_1 (value=2.89)",
+      "member_2 gave land to member_0 (value=1.23)",
+      "member_2 gave land to member_3 (value=2.10)",
+      "member_2 gave land to member_4 (value=2.63)",
+      "member_3 gave land to member_1 (value=1.36)",
+      "member_3 gave land to member_2 (value=2.23)",
+      "member_3 gave land to member_4 (value=1.30)",
+      "member_4 gave land to member_0 (value=0.18)",
+      "member_4 gave land to member_3 (value=0.64)"
+    ],
+    "round_0_1": [
+      "member_0 was attacked by member_2 (value=38.40)",
+      "member_0 was attacked by member_3 (value=29.62)",
+      "member_0 was attacked by member_4 (value=50.87)",
+      "member_1 was attacked by member_0 (value=34.45)",
+      "member_1 was attacked by member_4 (value=23.17)",
+      "member_2 was attacked by member_0 (value=85.84)",
+      "member_2 was attacked by member_1 (value=28.99)",
+      "member_2 was attacked by member_3 (value=49.52)",
+      "member_2 was attacked by member_4 (value=18.07)",
+      "member_3 was attacked by member_0 (value=44.24)",
+      "member_3 was attacked by member_1 (value=65.23)",
+      "member_3 was attacked by member_4 (value=9.15)",
+      "member_4 was attacked by member_0 (value=12.29)",
+      "member_0 gave a benefit to member_1 (value=62.61)",
+      "member_0 gave a benefit to member_2 (value=56.24)",
+      "member_1 gave a benefit to member_0 (value=74.37)",
+      "member_1 gave a benefit to member_4 (value=16.10)",
+      "member_2 gave a benefit to member_1 (value=39.57)",
+      "member_2 gave a benefit to member_3 (value=26.33)",
+      "member_2 gave a benefit to member_4 (value=95.19)",
+      "member_3 gave a benefit to member_0 (value=96.55)",
+      "member_3 gave a benefit to member_1 (value=14.38)",
+      "member_3 gave a benefit to member_4 (value=89.48)",
+      "member_4 gave a benefit to member_0 (value=50.22)",
+      "member_4 gave a benefit to member_1 (value=41.71)",
+      "member_4 gave a benefit to member_3 (value=67.34)",
+      "member_0 gave land to member_1 (value=2.89)",
+      "member_2 gave land to member_0 (value=1.23)",
+      "member_2 gave land to member_3 (value=2.10)",
+      "member_2 gave land to member_4 (value=2.63)",
+      "member_3 gave land to member_1 (value=1.36)",
+      "member_3 gave land to member_2 (value=2.23)",
+      "member_3 gave land to member_4 (value=1.30)",
+      "member_4 gave land to member_0 (value=0.18)",
+      "member_4 gave land to member_3 (value=0.64)"
+    ],
+    "round_0_2": [
+      "member_0 was attacked by member_2 (value=38.40)",
+      "member_0 was attacked by member_3 (value=29.62)",
+      "member_0 was attacked by member_4 (value=50.87)",
+      "member_1 was attacked by member_0 (value=34.45)",
+      "member_1 was attacked by member_4 (value=23.17)",
+      "member_2 was attacked by member_0 (value=85.84)",
+      "member_2 was attacked by member_1 (value=28.99)",
+      "member_2 was attacked by member_3 (value=49.52)",
+      "member_2 was attacked by member_4 (value=18.07)",
+      "member_3 was attacked by member_0 (value=44.24)",
+      "member_3 was attacked by member_1 (value=65.23)",
+      "member_3 was attacked by member_4 (value=9.15)",
+      "member_4 was attacked by member_0 (value=12.29)",
+      "member_0 gave a benefit to member_1 (value=62.61)",
+      "member_0 gave a benefit to member_2 (value=56.24)",
+      "member_1 gave a benefit to member_0 (value=74.37)",
+      "member_1 gave a benefit to member_4 (value=16.10)",
+      "member_2 gave a benefit to member_1 (value=39.57)",
+      "member_2 gave a benefit to member_3 (value=26.33)",
+      "member_2 gave a benefit to member_4 (value=95.19)",
+      "member_3 gave a benefit to member_0 (value=96.55)",
+      "member_3 gave a benefit to member_1 (value=14.38)",
+      "member_3 gave a benefit to member_4 (value=89.48)",
+      "member_4 gave a benefit to member_0 (value=50.22)",
+      "member_4 gave a benefit to member_1 (value=41.71)",
+      "member_4 gave a benefit to member_3 (value=67.34)",
+      "member_0 gave land to member_1 (value=2.89)",
+      "member_2 gave land to member_0 (value=1.23)",
+      "member_2 gave land to member_3 (value=2.10)",
+      "member_2 gave land to member_4 (value=2.63)",
+      "member_3 gave land to member_1 (value=1.36)",
+      "member_3 gave land to member_2 (value=2.23)",
+      "member_3 gave land to member_4 (value=1.30)",
+      "member_4 gave land to member_0 (value=0.18)",
+      "member_4 gave land to member_3 (value=0.64)"
+    ],
+    "round_0_3": [
+      "member_0 was attacked by member_2 (value=38.40)",
+      "member_0 was attacked by member_3 (value=29.62)",
+      "member_0 was attacked by member_4 (value=50.87)",
+      "member_1 was attacked by member_0 (value=34.45)",
+      "member_1 was attacked by member_4 (value=23.17)",
+      "member_2 was attacked by member_0 (value=85.84)",
+      "member_2 was attacked by member_1 (value=28.99)",
+      "member_2 was attacked by member_3 (value=49.52)",
+      "member_2 was attacked by member_4 (value=18.07)",
+      "member_3 was attacked by member_0 (value=44.24)",
+      "member_3 was attacked by member_1 (value=65.23)",
+      "member_3 was attacked by member_4 (value=9.15)",
+      "member_4 was attacked by member_0 (value=12.29)",
+      "member_0 gave a benefit to member_1 (value=62.61)",
+      "member_0 gave a benefit to member_2 (value=56.24)",
+      "member_1 gave a benefit to member_0 (value=74.37)",
+      "member_1 gave a benefit to member_4 (value=16.10)",
+      "member_2 gave a benefit to member_1 (value=39.57)",
+      "member_2 gave a benefit to member_3 (value=26.33)",
+      "member_2 gave a benefit to member_4 (value=95.19)",
+      "member_3 gave a benefit to member_0 (value=96.55)",
+      "member_3 gave a benefit to member_1 (value=14.38)",
+      "member_3 gave a benefit to member_4 (value=89.48)",
+      "member_4 gave a benefit to member_0 (value=50.22)",
+      "member_4 gave a benefit to member_1 (value=41.71)",
+      "member_4 gave a benefit to member_3 (value=67.34)",
+      "member_0 gave land to member_1 (value=2.89)",
+      "member_2 gave land to member_0 (value=1.23)",
+      "member_2 gave land to member_3 (value=2.10)",
+      "member_2 gave land to member_4 (value=2.63)",
+      "member_3 gave land to member_1 (value=1.36)",
+      "member_3 gave land to member_2 (value=2.23)",
+      "member_3 gave land to member_4 (value=1.30)",
+      "member_4 gave land to member_0 (value=0.18)",
+      "member_4 gave land to member_3 (value=0.64)"
+    ],
+    "round_0_4": [
+      "member_0 was attacked by member_2 (value=38.40)",
+      "member_0 was attacked by member_3 (value=29.62)",
+      "member_0 was attacked by member_4 (value=50.87)",
+      "member_1 was attacked by member_0 (value=34.45)",
+      "member_1 was attacked by member_4 (value=23.17)",
+      "member_2 was attacked by member_0 (value=85.84)",
+      "member_2 was attacked by member_1 (value=28.99)",
+      "member_2 was attacked by member_3 (value=49.52)",
+      "member_2 was attacked by member_4 (value=18.07)",
+      "member_3 was attacked by member_0 (value=44.24)",
+      "member_3 was attacked by member_1 (value=65.23)",
+      "member_3 was attacked by member_4 (value=9.15)",
+      "member_4 was attacked by member_0 (value=12.29)",
+      "member_0 gave a benefit to member_1 (value=62.61)",
+      "member_0 gave a benefit to member_2 (value=56.24)",
+      "member_1 gave a benefit to member_0 (value=74.37)",
+      "member_1 gave a benefit to member_4 (value=16.10)",
+      "member_2 gave a benefit to member_1 (value=39.57)",
+      "member_2 gave a benefit to member_3 (value=26.33)",
+      "member_2 gave a benefit to member_4 (value=95.19)",
+      "member_3 gave a benefit to member_0 (value=96.55)",
+      "member_3 gave a benefit to member_1 (value=14.38)",
+      "member_3 gave a benefit to member_4 (value=89.48)",
+      "member_4 gave a benefit to member_0 (value=50.22)",
+      "member_4 gave a benefit to member_1 (value=41.71)",
+      "member_4 gave a benefit to member_3 (value=67.34)",
+      "member_0 gave land to member_1 (value=2.89)",
+      "member_2 gave land to member_0 (value=1.23)",
+      "member_2 gave land to member_3 (value=2.10)",
+      "member_2 gave land to member_4 (value=2.63)",
+      "member_3 gave land to member_1 (value=1.36)",
+      "member_3 gave land to member_2 (value=2.23)",
+      "member_3 gave land to member_4 (value=1.30)",
+      "member_4 gave land to member_0 (value=0.18)",
+      "member_4 gave land to member_3 (value=0.64)"
+    ]
+  },
+  "survival_tracking": {}
+}

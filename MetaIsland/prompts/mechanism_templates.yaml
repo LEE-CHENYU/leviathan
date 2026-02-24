@@ -1,0 +1,574 @@
+# Mechanism Proposal Templates - Economic Systems
+
+introduction: |
+  You now have access to powerful new systems for building economic mechanisms:
+
+  1. CONTRACT SYSTEM (execution_engine.contracts)
+     - Create bilateral/multilateral agreements
+     - Define resource exchanges, services, partnerships
+     - Contracts execute automatically when conditions met
+
+  2. PHYSICS ENGINE (execution_engine.physics)
+     - Define physical constraints for your domain
+     - Create realistic resource extraction/transformation rules
+     - Propose conservation laws
+
+  3. JUDGE SYSTEM
+     - Your code will be validated for realism
+     - No free resources or exploits allowed
+     - Must follow conservation laws
+     - If you create a resource system under a custom name, also set execution_engine.resources for compatibility
+     - Never seed inventories from cargo/vitality/land without deducting the source
+     - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources
+     - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately
+     - Use a single source of truth (member.cargo or a finite pool); do not let inventory caches diverge
+     - Verify balances in the source of truth before any transfer/trade/fee
+     - If converting cargo/vitality/land into multiple resources, total outputs must not exceed the debited input
+     - If using multipliers > 1.0, pair them with explicit costs or caps to preserve conservation
+     - When writing to inventories, use setdefault() before indexing
+     - Inter-agent transfers must be opt-in; no unilateral extraction
+     - If using currency/credits, require explicit balances and checks (no default balances)
+     - When returning IDs or indices, insert into the list/dict first and return the actual key
+
+contract_templates:
+  - name: "Resource Definition & Extraction"
+    description: "Define a new resource type with extraction rules"
+    code: |
+      def propose_modification(execution_engine):
+          '''Define a new resource type with extraction rules'''
+
+          if not hasattr(execution_engine, 'resources'):
+              class ResourceSystem:
+                  def __init__(self, execution_engine):
+                      self.execution_engine = execution_engine
+                      self.resource_types = {}
+                      self.inventories = {}  # {member_id: {resource: quantity}} backed by resource_pools
+                      self.resource_pools = {}  # {resource: remaining}
+
+                  def define_resource(self, name, extraction_params, initial_pool=0.0):
+                      self.resource_types[name] = extraction_params
+                      self.resource_pools[name] = float(initial_pool)
+
+                  def extract(self, member_id, land_location, resource_type, execution_engine=None):
+                      if resource_type not in self.resource_types:
+                          return 0
+
+                      params = self.resource_types[resource_type]
+                      # Apply extraction constraints
+                      base_yield = params.get('base_yield', 1.0)
+                      land_quality = params.get('land_quality_factor', 1.0)
+                      extraction_cost = params.get('extraction_cost_vitality', 0)
+
+                      exec_engine = execution_engine or self.execution_engine
+                      member = None
+                      if (exec_engine is not None and hasattr(exec_engine, 'current_members') and
+                              member_id is not None and member_id < len(exec_engine.current_members)):
+                          member = exec_engine.current_members[member_id]
+
+                      if member is not None:
+                          if member.vitality < extraction_cost:
+                              return 0
+                          member.vitality = max(0.0, member.vitality - extraction_cost)
+
+                      pool = self.resource_pools.get(resource_type, 0.0)
+                      if pool <= 0:
+                          return 0
+
+                      extracted = min(pool, base_yield * land_quality)
+                      if extracted <= 0:
+                          return 0
+
+                      self.resource_pools[resource_type] = max(0.0, pool - extracted)
+
+                      # Update inventory
+                      inv = self.inventories.setdefault(member_id, {})
+                      inv[resource_type] = inv.get(resource_type, 0) + extracted
+
+                      return extracted
+
+              execution_engine.resources = ResourceSystem(execution_engine)
+
+              # Define initial resources
+              execution_engine.resources.define_resource('food', {
+                  'base_yield': 5.0,
+                  'land_quality_factor': 1.0,
+                  'extraction_cost_vitality': 2.0
+              }, initial_pool=200.0)
+
+              execution_engine.resources.define_resource('materials', {
+                  'base_yield': 3.0,
+                  'land_quality_factor': 0.8,
+                  'extraction_cost_vitality': 3.0
+              }, initial_pool=120.0)
+
+  - name: "Simple Trade Contract"
+    description: "Create a contract template for resource trading"
+    code: |
+      def propose_modification(execution_engine):
+          '''Create a contract template for resource trading'''
+
+          if not hasattr(execution_engine, 'contract_templates'):
+              execution_engine.contract_templates = {}
+
+          # Define trade contract template
+          trade_contract_template = \'\'\'
+      def execute_contract(execution_engine, context):
+          # Execute a simple resource trade between two parties
+          contract = context.get('contract', {})
+          party_a = contract['parties'][0]
+          party_b = contract['parties'][1]
+          terms = contract['terms']
+
+          # Party A gives resource_a, gets resource_b
+          resource_a = terms['party_a_gives']
+          resource_b = terms['party_b_gives']
+
+          # Check both parties have resources
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
+
+              if inv_a.get(resource_a['type'], 0) >= resource_a['quantity'] and \
+                 inv_b.get(resource_b['type'], 0) >= resource_b['quantity']:
+
+                  # Execute trade
+                  inv_a[resource_a['type']] -= resource_a['quantity']
+                  inv_b[resource_b['type']] -= resource_b['quantity']
+
+                  inv_a[resource_b['type']] = inv_a.get(resource_b['type'], 0) + resource_b['quantity']
+                  inv_b[resource_a['type']] = inv_b.get(resource_a['type'], 0) + resource_a['quantity']
+
+                  return {"status": "success", "trade": "completed"}
+
+          return {"status": "failed", "reason": "insufficient_resources"}
+      \'\'\'
+
+          execution_engine.contract_templates['trade'] = trade_contract_template
+
+  - name: "Trial Trade Contract (Limited Term)"
+    description: "Create a reversible trade contract with an explicit stop condition"
+    code: |
+      def propose_modification(execution_engine):
+          '''Create a reversible trade contract with an explicit stop condition'''
+
+          if not hasattr(execution_engine, 'contract_templates'):
+              execution_engine.contract_templates = {}
+
+          trial_trade_template = \'\'\'
+      def execute_contract(execution_engine, context):
+          contract = context.get('contract', {})
+          terms = contract.get('terms', {})
+          party_a = contract['parties'][0]
+          party_b = contract['parties'][1]
+          max_exec = terms.get('max_exec', 3)
+
+          if hasattr(execution_engine, 'resources'):
+              inv = execution_engine.resources.inventories
+              inv_a = inv.setdefault(party_a, {})
+              inv_b = inv.setdefault(party_b, {})
+              give_a = terms.get('party_a_gives', {'type': 'food', 'quantity': 3})
+              give_b = terms.get('party_b_gives', {'type': 'materials', 'quantity': 2})
+
+              if inv_a.get(give_a['type'], 0) >= give_a['quantity'] and \
+                 inv_b.get(give_b['type'], 0) >= give_b['quantity']:
+                  inv_a[give_a['type']] -= give_a['quantity']
+                  inv_b[give_b['type']] -= give_b['quantity']
+                  inv_a[give_b['type']] = inv_a.get(give_b['type'], 0) + give_b['quantity']
+                  inv_b[give_a['type']] = inv_b.get(give_a['type'], 0) + give_a['quantity']
+
+                  if contract.get('execution_count', 0) >= max_exec - 1:
+                      execution_engine.contracts.complete_contract(contract['id'], reason='trial_complete')
+
+                  return {"status": "success", "trial": True}
+
+          return {"status": "failed"}
+      \'\'\'
+
+          execution_engine.contract_templates['trial_trade'] = trial_trade_template
+
+  - name: "Service Contract (Labor/Production)"
+    description: "Create ongoing service contracts"
+    code: |
+      def propose_modification(execution_engine):
+          '''Create ongoing service contracts'''
+
+          if not hasattr(execution_engine, 'service_contracts'):
+              class ServiceManager:
+                  def __init__(self):
+                      self.active_services = []  # List of {provider, client, service_type, payment}
+
+                  def register_service(self, provider_id, client_id, service_type, payment_per_round):
+                      service = {
+                          'provider': provider_id,
+                          'client': client_id,
+                          'type': service_type,
+                          'payment': payment_per_round,
+                          'rounds_active': 0
+                      }
+                      self.active_services.append(service)
+                      return len(self.active_services) - 1
+
+                  def execute_services(self, execution_engine):
+                      for service in self.active_services:
+                          # Provider performs service
+                          if service['type'] == 'resource_extraction':
+                              if hasattr(execution_engine, 'resources'):
+                                  extracted = execution_engine.resources.extract(
+                                      service['provider'], None, 'food'
+                                  )
+                                  # Transfer from provider inventory (conserved)
+                                  inv = execution_engine.resources.inventories
+                                  inv_provider = inv.setdefault(service['provider'], {})
+                                  inv_client = inv.setdefault(service['client'], {})
+                                  transfer_qty = extracted * 0.8
+                                  if inv_provider.get('food', 0) >= transfer_qty and transfer_qty > 0:
+                                      inv_provider['food'] -= transfer_qty
+                                      inv_client['food'] = inv_client.get('food', 0) + transfer_qty
+
+                          # Client pays provider
+                          if hasattr(execution_engine, 'resources'):
+                              inv = execution_engine.resources.inventories
+                              if service['client'] in inv and 'currency' in inv[service['client']]:
+                                  if inv[service['client']]['currency'] >= service['payment']:
+                                      inv[service['client']]['currency'] -= service['payment']
+                                      if service['provider'] not in inv:
+                                          inv[service['provider']] = {}
+                                      inv[service['provider']]['currency'] = \
+                                          inv[service['provider']].get('currency', 0) + service['payment']
+
+                          service['rounds_active'] += 1
+
+              execution_engine.service_contracts = ServiceManager()
+
+  - name: "Business/Partnership"
+    description: "Multi-party business with profit sharing"
+    code: |
+      def propose_modification(execution_engine):
+          '''Multi-party business with profit sharing'''
+
+          if not hasattr(execution_engine, 'businesses'):
+              class BusinessSystem:
+                  def __init__(self):
+                      self.businesses = []
+
+                  def create_business(self, partners, contributions, profit_shares, business_type):
+                      business = {
+                          'partners': partners,
+                          'contributions': contributions,  # {partner_id: {resource: qty}}
+                          'profit_shares': profit_shares,  # {partner_id: percentage}
+                          'type': business_type,
+                          'inventory': {},
+                          'output_ledger': {}
+                      }
+                      self.businesses.append(business)
+                      return len(self.businesses) - 1
+
+                  def operate_business(self, business_id, execution_engine):
+                      if business_id >= len(self.businesses):
+                          return
+
+                      business = self.businesses[business_id]
+
+                      # Collect contributions
+                      for partner_id, contrib in business['contributions'].items():
+                          if hasattr(execution_engine, 'resources'):
+                              inv = execution_engine.resources.inventories.setdefault(partner_id, {})
+                              for resource, qty in contrib.items():
+                                  if inv.get(resource, 0) >= qty:
+                                      inv[resource] -= qty
+                                      business['inventory'][resource] = \
+                                          business['inventory'].get(resource, 0) + qty
+
+                      # Produce outputs (simplified)
+                      if business['type'] == 'manufacturing':
+                          inputs_needed = {'materials': 10, 'energy': 5}
+                          can_produce = all(
+                              business['inventory'].get(r, 0) >= q
+                              for r, q in inputs_needed.items()
+                          )
+
+                          if can_produce:
+                              for r, q in inputs_needed.items():
+                                  business['inventory'][r] -= q
+                              business['inventory']['products'] = \
+                                  business['inventory'].get('products', 0) + 5
+                              business['output_ledger']['products'] = \
+                                  business['output_ledger'].get('products', 0) + 5
+
+                      # Distribute output (conserved goods, not free currency)
+                      total_share = sum(business['profit_shares'].values()) or 0
+                      if total_share > 0 and hasattr(execution_engine, 'resources'):
+                          inv = execution_engine.resources.inventories
+                          available = business['inventory'].get('products', 0)
+                          for partner_id, share in business['profit_shares'].items():
+                              payout = available * (share / total_share)
+                              if payout <= 0:
+                                  continue
+                              partner_inv = inv.setdefault(partner_id, {})
+                              partner_inv['products'] = partner_inv.get('products', 0) + payout
+                              business['inventory']['products'] = \
+                                  business['inventory'].get('products', 0) - payout
+
+              execution_engine.businesses = BusinessSystem()
+
+physics_templates:
+  - name: "Agricultural Physics"
+    description: "Realistic agricultural constraints"
+    code: |
+      def propose_modification(execution_engine):
+          '''Realistic agricultural constraints'''
+
+          # Propose to physics engine
+          constraint_code = '''
+      class AgriculturalConstraints:
+          def __init__(self):
+              self.soil_depletion_rate = 0.05
+              self.water_requirement = 3.0
+              self.growth_cycles = {}  # {land_id: cycles_used}
+              self.max_sustainable_cycles = 20
+
+          def apply_constraint(self, action, execution_engine):
+              if action.get('type') == 'extract' and action.get('resource') == 'food':
+                  land_id = action.get('land_id')
+
+                  # Track soil degradation
+                  cycles = self.growth_cycles.get(land_id, 0)
+                  degradation_factor = max(0.2, 1.0 - (cycles / self.max_sustainable_cycles) * 0.8)
+
+                  # Apply diminishing returns
+                  original_yield = action.get('yield', 0)
+                  action['yield'] = original_yield * degradation_factor
+
+                  # Require water
+                  action['water_required'] = self.water_requirement
+
+                  # Update cycles
+                  self.growth_cycles[land_id] = cycles + 1
+
+              return action
+      '''
+
+          if hasattr(execution_engine, 'physics'):
+              execution_engine.physics.propose_constraint(
+                  code=constraint_code,
+                  proposer_id=MEMBER_ID,
+                  domain='agriculture',
+                  description='Realistic agricultural constraints with soil depletion and water requirements'
+              )
+
+  - name: "Tagged Constraint (Opt-in)"
+    description: "Apply only when actions include a matching tag"
+    code: |
+      def propose_modification(execution_engine):
+          '''Apply only when actions include a matching tag'''
+
+          constraint_code = '''
+      class TaggedConstraint:
+          def __init__(self):
+              self.tag = "soil_guard"
+              self.max_yield = 4.0
+
+          def apply_constraint(self, action, execution_engine):
+              tags = action.get('tags', [])
+              if self.tag not in tags:
+                  return action
+
+              if action.get('type') == 'extract' and action.get('resource') == 'food':
+                  action['yield'] = min(action.get('yield', 0), self.max_yield)
+
+              return action
+      '''
+
+          if hasattr(execution_engine, 'physics'):
+              execution_engine.physics.propose_constraint(
+                  code=constraint_code,
+                  proposer_id=MEMBER_ID,
+                  domain='agriculture',
+                  description='Opt-in extraction cap via action tags'
+              )
+
+  - name: "Manufacturing Physics"
+    description: "Manufacturing with input/output ratios"
+    code: |
+      def propose_modification(execution_engine):
+          '''Manufacturing with input/output ratios'''
+
+          constraint_code = '''
+      class ManufacturingPhysics:
+          def __init__(self):
+              self.recipes = {
+                  'tools': {'materials': 5, 'energy': 3},
+                  'products': {'materials': 10, 'energy': 5, 'labor_hours': 8},
+                  'advanced_goods': {'products': 3, 'tools': 1, 'energy': 10}
+              }
+              self.efficiency_base = 0.7  # 70% efficiency
+
+          def apply_constraint(self, action, execution_engine):
+              if action.get('type') == 'manufacture':
+                  product = action.get('product')
+
+                  if product in self.recipes:
+                      recipe = self.recipes[product]
+                      action['inputs_required'] = recipe
+                      action['efficiency'] = self.efficiency_base
+
+                      # Check if inputs available
+                      member_id = action.get('member_id')
+                      if hasattr(execution_engine, 'resources'):
+                          inv = execution_engine.resources.inventories.get(member_id, {})
+
+                          can_produce = all(
+                              inv.get(resource, 0) >= quantity
+                              for resource, quantity in recipe.items()
+                          )
+
+                          action['can_execute'] = can_produce
+
+              return action
+      '''
+
+          if hasattr(execution_engine, 'physics'):
+              execution_engine.physics.propose_constraint(
+                  code=constraint_code,
+                  proposer_id=MEMBER_ID,
+                  domain='manufacturing',
+                  description='Manufacturing recipes with input requirements and efficiency'
+              )
+
+  - name: "Market & Pricing Mechanism"
+    description: "Simple market with supply/demand pricing"
+    code: |
+      def propose_modification(execution_engine):
+          '''Simple market with supply/demand pricing'''
+
+          if not hasattr(execution_engine, 'market'):
+              class MarketSystem:
+                  def __init__(self):
+                      self.orders = {}  # {resource_type: [{member_id, type, price, quantity}]}
+                      self.price_history = {}
+                      self.base_prices = {'food': 10, 'materials': 15, 'products': 50}
+
+                  def place_order(self, member_id, resource_type, order_type, price, quantity):
+                      if resource_type not in self.orders:
+                          self.orders[resource_type] = []
+
+                      order = {
+                          'member_id': member_id,
+                          'type': order_type,  # 'buy' or 'sell'
+                          'price': price,
+                          'quantity': quantity,
+                          'filled': 0
+                      }
+                      self.orders[resource_type].append(order)
+
+                  def match_orders(self, execution_engine):
+                      '''Match buy and sell orders'''
+                      for resource_type, orders in self.orders.items():
+                          buys = [o for o in orders if o['type'] == 'buy']
+                          sells = [o for o in orders if o['type'] == 'sell']
+
+                          # Sort: buys by price descending, sells by price ascending
+                          buys.sort(key=lambda x: x['price'], reverse=True)
+                          sells.sort(key=lambda x: x['price'])
+
+                          # Match orders
+                          for buy_order in buys:
+                              for sell_order in sells:
+                                  if buy_order['price'] >= sell_order['price']:
+                                      # Execute trade
+                                      trade_qty = min(
+                                          buy_order['quantity'] - buy_order['filled'],
+                                          sell_order['quantity'] - sell_order['filled']
+                                      )
+
+                                      if trade_qty > 0 and hasattr(execution_engine, 'resources'):
+                                          # Transfer resources and currency
+                                          inv = execution_engine.resources.inventories
+                                          buyer = buy_order['member_id']
+                                          seller = sell_order['member_id']
+                                          inv_buyer = inv.setdefault(buyer, {})
+                                          inv_seller = inv.setdefault(seller, {})
+                                          price = (buy_order['price'] + sell_order['price']) / 2
+
+                                          # Execute transfer
+                                          trade_cost = price * trade_qty
+                                          buyer_currency = inv_buyer.get('currency', 0)
+                                          if (inv_seller.get(resource_type, 0) >= trade_qty and
+                                                  buyer_currency >= trade_cost):
+                                              inv_seller[resource_type] -= trade_qty
+                                              inv_buyer[resource_type] = inv_buyer.get(resource_type, 0) + trade_qty
+
+                                              inv_buyer['currency'] = buyer_currency - trade_cost
+                                              inv_seller['currency'] = inv_seller.get('currency', 0) + trade_cost
+
+                                              buy_order['filled'] += trade_qty
+                                              sell_order['filled'] += trade_qty
+
+                          # Clear filled orders
+                          self.orders[resource_type] = [
+                              o for o in orders if o['filled'] < o['quantity']
+                          ]
+
+                  def get_market_price(self, resource_type):
+                      '''Calculate current market price based on supply/demand'''
+                      if resource_type not in self.orders:
+                          return self.base_prices.get(resource_type, 10)
+
+                      orders = self.orders[resource_type]
+                      buy_volume = sum(o['quantity'] for o in orders if o['type'] == 'buy')
+                      sell_volume = sum(o['quantity'] for o in orders if o['type'] == 'sell')
+
+                      if sell_volume == 0:
+                          return self.base_prices.get(resource_type, 10) * 1.5
+
+                      demand_ratio = buy_volume / sell_volume
+                      base_price = self.base_prices.get(resource_type, 10)
+
+                      # Price increases with demand
+                      return base_price * (0.5 + demand_ratio * 0.5)
+
+              execution_engine.market = MarketSystem()
+
+usage_guidelines:
+  steps:
+    - title: "START WITH RESOURCES"
+      items:
+        - "Define what resources exist in your domain"
+        - "Specify extraction costs and yields"
+        - "Set up inventories backed by finite pools or cargo"
+
+    - title: "ADD PHYSICS CONSTRAINTS"
+      items:
+        - "Propose realistic constraints for your domain"
+        - "Include diminishing returns, depletion, requirements"
+        - "Judge will verify realism"
+
+    - title: "CREATE CONTRACT TEMPLATES"
+      items:
+        - "Define standard contracts others can use"
+        - "Trade, services, partnerships, supply chains"
+        - "Make them mutually beneficial"
+
+    - title: "BUILD MARKET MECHANISMS"
+      items:
+        - "Allow price discovery"
+        - "Enable supply/demand dynamics"
+        - "Create liquidity"
+
+  reminders:
+    - "Judge will reject unrealistic physics (free resources, no costs)"
+    - "No unilateral transfers or member-specific bonuses; use opt-in contracts"
+    - "Do not default currency balances; require explicit funding and balance checks"
+    - "Avoid minting credits/currency unless strictly tied to resource burn and conserved supply"
+    - "Do not directly increase member.vitality/cargo/land; use conserved transfers or explicit debits"
+    - "Defense/support contracts should trigger existing actions or transfers, not free vitality boosts"
+    - "Do not convert cargo/vitality/land into inventory without subtracting from the source"
+    - "Avoid shadow inventories; always debit the source of truth when crediting inventory"
+    - "If splitting inputs into multiple resources, keep total outputs <= inputs (no amplification)"
+    - "Cap or cost any multipliers > 1.0 so totals remain conserved"
+    - "Contracts must be mutually beneficial to be signed"
+    - "Build systems that help ALL agents, not just you"
+    - "Focus on creating realistic, sustainable economics"
+    - "Prefer opt-in, parameterized mechanisms that preserve multiple viable strategies"
+    - "Add explicit rollback/stop conditions for trials (cancel/complete)"

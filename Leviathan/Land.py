@@ -45,9 +45,9 @@ class Land():
 
     def _find_neighbors(
         self, 
-        clear_list: List[Member.Member],
-        self_blocked_list: List[Member.Member],
-        neighbor_blocked_list: List[Tuple(Member.Member, Member.Member)],
+        clear_list: List[int],
+        self_blocked_list: List[int],
+        neighbor_blocked_list: List[Tuple[int, int]],
         empty_loc_list: List[Tuple[int, int]],
         location: Tuple[int, int], 
         member: Member.Member, 
@@ -55,7 +55,8 @@ class Land():
         iteration_cnt: int,
         max_iter: int,
         island: Island.Island,
-        decision_threshold: int = 1,
+        # decision_threshold: int = 1,
+        backend: Optional[str] = None,
     ) -> None:
 
         if iteration_cnt >= max_iter:
@@ -100,16 +101,16 @@ class Land():
                 continue
 
             # 如果成员曾经阻拦
-            if member_to_pass in self_blocked_list:
+            if member_to_pass.id in self_blocked_list:
                 continue
-            if (land_owner, member_to_pass) in neighbor_blocked_list:
+            if (land_owner.id, member_to_pass.id) in neighbor_blocked_list:
                 if in_owned_land:
-                    neighbor_blocked_list.remove((land_owner, member_to_pass))
-                    self_blocked_list.append(member_to_pass)
+                    neighbor_blocked_list.remove((land_owner.id, member_to_pass.id))
+                    self_blocked_list.append(member_to_pass.id)
                 continue
 
             # 如果成员曾经放行，或遇到自己领地
-            if member_to_pass in clear_list or member_to_pass == member:
+            if member_to_pass.id in clear_list or member_to_pass == member:
                 self._find_neighbors(
                     clear_list,
                     self_blocked_list,
@@ -120,7 +121,8 @@ class Land():
                     is_passed,
                     iteration_cnt + 1,
                     max_iter,
-                    island
+                    island,
+                    backend,
                 )
                 continue
 
@@ -128,9 +130,12 @@ class Land():
                 "clear", 
                 member,
                 island,
-                threshold=decision_threshold,
+                # threshold=decision_threshold,
+                backend = backend,
             ):
-                clear_list.append(member_to_pass)
+                clear_list.append(member_to_pass.id)
+                if hasattr(island, "round_action_dict") and "clear" in island.round_action_dict:
+                    island._record_actions("clear", member_to_pass, member, 1.0)
                 self._find_neighbors(
                     clear_list,
                     self_blocked_list,
@@ -141,14 +146,15 @@ class Land():
                     is_passed,
                     iteration_cnt + 1,
                     max_iter,
-                    island
+                    island,
+                    backend
                 )
                 continue
             else:
                 if in_owned_land:
-                    self_blocked_list.append(member_to_pass)
+                    self_blocked_list.append(member_to_pass.id)
                 else:
-                    neighbor_blocked_list.append((land_owner, member_to_pass))
+                    neighbor_blocked_list.append((land_owner.id, member_to_pass.id))
                 continue
 
         return 
@@ -156,9 +162,10 @@ class Land():
     def neighbors(
         self, 
         member: Member.Member, 
-        island: Island,
-        max_iter: int = np.inf,
-        decision_threshold: int = 1,
+        island: Island, 
+        max_iter: int = np.inf, 
+        # decision_threshold: int = 1,
+        backend: Optional[str] = None,
     ):
         """
         返回四个列表：
@@ -188,7 +195,8 @@ class Land():
                 iteration_cnt = 0,
                 max_iter = max_iter,
                 island = island,
-                decision_threshold = decision_threshold,
+                # decision_threshold = decision_threshold,
+                backend = backend,
             )
 
         return (
@@ -240,7 +248,7 @@ class Land():
 
         for (i, j), owner in np.ndenumerate(self.owner):
             if owner is not None:
-                ax.text(j, i, f"{owner.surviver_id:d}", ha='center', va='center', c="white", fontsize=5)
+                ax.text(j, i, f"{owner.id:d}", ha='center', va='center', c="white", fontsize=5)
 
     def plot(
         self,
@@ -257,4 +265,3 @@ class Land():
         ax = axs[1]
         current_map = self._color_map(original_color=False)
         self._plot_map(ax, current_map, show_id)
-

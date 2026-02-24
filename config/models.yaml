@@ -1,0 +1,26 @@
+# Centralized model routing configuration
+# Use logical keys (e.g., "default", "benchmark", "deepseek") mapped to provider/model_id pairs.
+
+default:
+  provider: openrouter
+  model_id: minimax/minimax-m2.1
+  # base_url: "http://localhost:8000/v1"  # optional gateway override
+
+benchmark:
+  provider: openai
+  model_id: gpt-5.2
+  # base_url: "http://localhost:8000/v1"  # optional gateway override
+
+routes:
+  minimax:
+    provider: openrouter
+    model_id: minimax/minimax-m2.1
+  deepseek:
+    provider: openrouter
+    model_id: minimax/minimax-m2.1
+  high:
+    provider: openai
+    model_id: gpt-5.2
+  gpt-5.2:
+    provider: openai
+    model_id: gpt-5.2
