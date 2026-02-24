@@ -884,3 +884,94 @@ class TestPendingProposal:
         proposals = rs.drain_proposals()
         assert len(proposals) == 1
         assert rs.drain_proposals() == []
+
+
+# ──────────────────────────────────────────────
+# Phase 3 — Mechanism endpoint tests
+# ──────────────────────────────────────────────
+
+
+class TestMechanismEndpoints:
+    def _make_client(self):
+        from scripts.run_server import build_app
+        from starlette.testclient import TestClient
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        return TestClient(app), app
+
+    def _register_agent(self, client):
+        resp = client.post("/v1/agents/register", json={"name": "Bot"})
+        return resp.json()
+
+    def test_propose_mechanism_accepted(self):
+        client, app = self._make_client()
+        agent = self._register_agent(client)
+        rs = app.state.leviathan["round_state"]
+        rs.open_submissions(round_id=1, pace=60.0)
+        resp = client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "def propose_modification(e): pass", "description": "test", "idempotency_key": "m-1"},
+            headers={"X-API-Key": agent["api_key"]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "submitted"
+        assert data["mechanism_id"] != ""
+
+    def test_propose_mechanism_rejected_outside_window(self):
+        client, app = self._make_client()
+        agent = self._register_agent(client)
+        resp = client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "code", "description": "test", "idempotency_key": "m-1"},
+            headers={"X-API-Key": agent["api_key"]},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "rejected"
+
+    def test_propose_mechanism_unauthorized(self):
+        client, app = self._make_client()
+        resp = client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "code", "description": "test", "idempotency_key": "m-1"},
+        )
+        assert resp.status_code == 401
+
+    def test_list_mechanisms(self):
+        client, app = self._make_client()
+        agent = self._register_agent(client)
+        rs = app.state.leviathan["round_state"]
+        rs.open_submissions(round_id=1, pace=60.0)
+        client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "code", "description": "d", "idempotency_key": "m-1"},
+            headers={"X-API-Key": agent["api_key"]},
+        )
+        resp = client.get("/v1/world/mechanisms")
+        assert resp.status_code == 200
+        assert len(resp.json()) >= 1
+
+    def test_list_mechanisms_with_status_filter(self):
+        client, app = self._make_client()
+        resp = client.get("/v1/world/mechanisms?status=active")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_get_mechanism_by_id(self):
+        client, app = self._make_client()
+        agent = self._register_agent(client)
+        rs = app.state.leviathan["round_state"]
+        rs.open_submissions(round_id=1, pace=60.0)
+        resp = client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "code", "description": "d", "idempotency_key": "m-1"},
+            headers={"X-API-Key": agent["api_key"]},
+        )
+        mech_id = resp.json()["mechanism_id"]
+        resp = client.get(f"/v1/world/mechanisms/{mech_id}")
+        assert resp.status_code == 200
+        assert resp.json()["mechanism_id"] == mech_id
+
+    def test_get_mechanism_not_found(self):
+        client, app = self._make_client()
+        resp = client.get("/v1/world/mechanisms/nonexistent")
+        assert resp.status_code == 404

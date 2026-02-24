@@ -9,6 +9,7 @@ from api.deps import create_app_state
 from api.routes.actions import router as actions_router
 from api.routes.agents import router as agents_router
 from api.routes.discovery import router as discovery_router
+from api.routes.mechanisms import router as mechanisms_router
 from api.routes.world import router as world_router
 from kernel.world_kernel import WorldKernel
 
@@ -47,5 +48,6 @@ def create_app(
     app.include_router(discovery_router)
     app.include_router(agents_router)
     app.include_router(actions_router)
+    app.include_router(mechanisms_router)
 
     return app
