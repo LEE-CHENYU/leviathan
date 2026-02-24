@@ -78,3 +78,40 @@ class TestModels:
         assert discovery.version == "0.1.0"
         assert len(discovery.capabilities) == 2
         assert discovery.endpoints["/health"] == "GET"
+
+
+# ──────────────────────────────────────────────
+# Task 2 – Dependency injection tests
+# ──────────────────────────────────────────────
+
+from api.deps import create_app_state, get_event_log, get_kernel
+from kernel.schemas import WorldConfig
+from kernel.world_kernel import WorldKernel
+
+
+class TestDeps:
+    def test_create_app_state(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        state = create_app_state(kernel)
+        assert "kernel" in state
+        assert "event_log" in state
+        assert state["kernel"] is kernel
+        assert state["event_log"] == []
+
+    def test_get_kernel_returns_kernel(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        state = create_app_state(kernel)
+        assert get_kernel(state) is kernel
+
+    def test_get_event_log_returns_list(self):
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        state = create_app_state(kernel)
+        log = get_event_log(state)
+        assert isinstance(log, list)
+        assert len(log) == 0
