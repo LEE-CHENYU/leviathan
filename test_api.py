@@ -1,5 +1,6 @@
 """Tests for the Phase 1 Read API (api package)."""
 
+import dataclasses
 import tempfile
 from typing import Any, Dict, List
 
@@ -169,3 +170,56 @@ class TestWorldEndpoints:
         assert len(data["members"]) == 5
         assert "land" in data
         assert len(data["state_hash"]) == 64
+
+
+# ──────────────────────────────────────────────
+# Task 5 – Round info and round-by-id endpoints
+# ──────────────────────────────────────────────
+
+
+def _settle_rounds(kernel, app, n=1):
+    """Run n rounds and append events to the app's event log."""
+    event_log = app.state.leviathan["event_log"]
+    for i in range(n):
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=kernel.round_id)
+        event_log.append(EventEnvelope(
+            event_id=len(event_log) + 1,
+            event_type="round_settled",
+            round_id=receipt.round_id,
+            timestamp=receipt.timestamp,
+            payload=dataclasses.asdict(receipt),
+        ))
+
+
+class TestRoundEndpoints:
+    def test_rounds_current_before_any_round(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world/rounds/current")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["round_id"] == 0
+        assert data["last_receipt"] is None
+
+    def test_rounds_current_after_settle(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=1)
+        resp = client.get("/v1/world/rounds/current")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["round_id"] == 1
+        assert data["last_receipt"] is not None
+        assert data["last_receipt"]["round_id"] == 1
+
+    def test_round_by_id(self):
+        client, kernel = _make_test_client()
+        _settle_rounds(kernel, client.app, n=2)
+        resp = client.get("/v1/world/rounds/1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["round_id"] == 1
+
+    def test_round_not_found(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world/rounds/999")
+        assert resp.status_code == 404
