@@ -286,3 +286,22 @@ class TestDiscovery:
         assert "read_events" in data["capabilities"]
         assert "read_receipts" in data["capabilities"]
         assert data["endpoints"]["base"] == "/v1/world"
+
+
+# ──────────────────────────────────────────────
+# Task 8 – Server runner integration test
+# ──────────────────────────────────────────────
+
+
+class TestServerIntegration:
+    def test_build_app_creates_working_api(self):
+        from scripts.run_server import build_app
+
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        client = TestClient(app)
+        assert client.get("/health").status_code == 200
+        resp = client.get("/v1/world")
+        assert resp.status_code == 200
+        assert resp.json()["member_count"] == 5
+        resp = client.get("/.well-known/leviathan-agent.json")
+        assert resp.status_code == 200
