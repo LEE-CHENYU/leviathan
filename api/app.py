@@ -5,6 +5,7 @@ from typing import Dict
 from fastapi import FastAPI
 
 from api.deps import create_app_state
+from api.routes.discovery import router as discovery_router
 from api.routes.world import router as world_router
 from kernel.world_kernel import WorldKernel
 
@@ -23,5 +24,6 @@ def create_app(kernel: WorldKernel) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(world_router)
+    app.include_router(discovery_router)
 
     return app

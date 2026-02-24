@@ -266,3 +266,23 @@ class TestEventsEndpoint:
         assert len(event_ids) == 3
         assert event_ids == sorted(event_ids)
         assert len(set(event_ids)) == 3
+
+
+# ──────────────────────────────────────────────
+# Task 7 – Agent discovery endpoint
+# ──────────────────────────────────────────────
+
+
+class TestDiscovery:
+    def test_discovery_manifest(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/.well-known/leviathan-agent.json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "Leviathan"
+        assert data["version"] == "0.1.0"
+        assert data["api_version"] == "v1"
+        assert "read_snapshot" in data["capabilities"]
+        assert "read_events" in data["capabilities"]
+        assert "read_receipts" in data["capabilities"]
+        assert data["endpoints"]["base"] == "/v1/world"
