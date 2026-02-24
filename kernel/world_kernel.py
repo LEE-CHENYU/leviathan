@@ -16,6 +16,8 @@ from kernel.schemas import (
 )
 from kernel.receipt import compute_state_hash, compute_receipt_hash
 from kernel.execution_sandbox import InProcessSandbox, SandboxContext
+from kernel.dag_runner import KernelDAGRunner
+from kernel.round_metrics import compute_round_metrics
 
 
 class WorldKernel:
@@ -273,12 +275,18 @@ class WorldKernel:
                 results.append({"action": action_type, "applied": False, "error": str(e)})
         return results
 
-    def settle_round(self, seed: int) -> RoundReceipt:
-        """Run produce/consume and build a deterministic round receipt."""
+    def settle_round(
+        self,
+        seed: int,
+        judge_results: Optional[list] = None,
+        mechanism_proposals: int = 0,
+        mechanism_approvals: int = 0,
+    ) -> RoundReceipt:
+        """Run all settlement phases via DAG runner and build a round receipt."""
         snap_before = self.get_snapshot()
 
-        self._execution.produce()
-        self._execution.consume()
+        runner = KernelDAGRunner(self._execution)
+        runner.run_settlement_phases()
 
         snap_after = self.get_snapshot()
 
@@ -294,6 +302,13 @@ class WorldKernel:
             key for key, res in self._idempotency_cache.items() if not res.success
         ]
 
+        # Compute round metrics
+        metrics = compute_round_metrics(
+            members=snap_after.members,
+            mechanism_proposals=mechanism_proposals,
+            mechanism_approvals=mechanism_approvals,
+        )
+
         receipt = RoundReceipt(
             round_id=self._round_id,
             seed=seed,
@@ -302,8 +317,8 @@ class WorldKernel:
             accepted_action_ids=accepted_ids,
             rejected_action_ids=rejected_ids,
             activated_mechanism_ids=[],
-            judge_results=[],
-            round_metrics={},
+            judge_results=judge_results or [],
+            round_metrics=metrics,
             timestamp=deterministic_ts,
         )
         self._last_receipt = receipt

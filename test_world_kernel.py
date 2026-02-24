@@ -1300,3 +1300,53 @@ class TestKernelDAGRunner:
         log = runner.run_settlement_phases()
         assert "analyze" not in log
         assert "agent_decisions" not in log
+
+
+# ──────────────────────────────────────────────
+# Phase 3 Task 5 – KernelDAGSettlement tests
+# ──────────────────────────────────────────────
+
+
+class TestKernelDAGSettlement:
+    def _make_kernel(self, tmp_path):
+        from kernel.schemas import WorldConfig
+        from kernel.world_kernel import WorldKernel
+        config = WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42)
+        return WorldKernel(config, save_path=str(tmp_path))
+
+    def test_receipt_has_metrics(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        assert "total_vitality" in receipt.round_metrics
+        assert "gini_coefficient" in receipt.round_metrics
+        assert "population" in receipt.round_metrics
+        snap = kernel.get_snapshot()
+        assert receipt.round_metrics["population"] == len(snap.members)
+
+    def test_receipt_metrics_total_vitality(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        snap = kernel.get_snapshot()
+        expected = sum(m["vitality"] for m in snap.members)
+        assert receipt.round_metrics["total_vitality"] == pytest.approx(expected)
+
+    def test_judge_results_empty_by_default(self, tmp_path):
+        kernel = self._make_kernel(tmp_path)
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        assert receipt.judge_results == []
+
+    def test_settle_round_still_deterministic(self, tmp_path):
+        from kernel.schemas import WorldConfig
+        from kernel.world_kernel import WorldKernel
+        config = WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42)
+        k1 = WorldKernel(config, save_path=str(tmp_path / "k1"))
+        k1.begin_round()
+        r1 = k1.settle_round(seed=1)
+        k2 = WorldKernel(config, save_path=str(tmp_path / "k2"))
+        k2.begin_round()
+        r2 = k2.settle_round(seed=1)
+        assert r1.snapshot_hash_after == r2.snapshot_hash_after
+        assert r1.round_metrics == r2.round_metrics
