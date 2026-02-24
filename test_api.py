@@ -144,3 +144,28 @@ class TestHealthEndpoint:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+# ──────────────────────────────────────────────
+# Task 4 – World info and snapshot endpoints
+# ──────────────────────────────────────────────
+
+
+class TestWorldEndpoints:
+    def test_world_info(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["round_id"] == 0
+        assert data["member_count"] == 5
+        assert len(data["state_hash"]) == 64
+
+    def test_snapshot(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world/snapshot")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["members"]) == 5
+        assert "land" in data
+        assert len(data["state_hash"]) == 64
