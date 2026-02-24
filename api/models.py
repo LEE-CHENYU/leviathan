@@ -99,3 +99,53 @@ class DeadlineResponse(BaseModel):
     state: str
     deadline_utc: Optional[str] = None
     seconds_remaining: float
+
+
+# ── Phase 3: Governance models ────────────────
+
+
+class MechanismProposeRequest(BaseModel):
+    """Request body for POST /v1/world/mechanisms/propose."""
+    code: str
+    description: str
+    idempotency_key: str
+
+
+class MechanismProposeResponse(BaseModel):
+    """Response from POST /v1/world/mechanisms/propose."""
+    mechanism_id: str
+    status: str
+
+
+class MechanismResponse(BaseModel):
+    """Full mechanism detail response."""
+    mechanism_id: str
+    proposer_id: int
+    code: str
+    description: str
+    status: str
+    submitted_round: int
+    judged_round: Optional[int] = None
+    judge_reason: Optional[str] = None
+    activated_round: Optional[int] = None
+
+
+class MetricsResponse(BaseModel):
+    """Response from GET /v1/world/metrics."""
+    round_id: int
+    total_vitality: float
+    gini_coefficient: float
+    trade_volume: int
+    conflict_count: int
+    mechanism_proposals: int
+    mechanism_approvals: int
+    population: int
+
+
+class JudgeStatsResponse(BaseModel):
+    """Response from GET /v1/world/judge/stats."""
+    total_judgments: int
+    approved: int
+    rejected: int
+    approval_rate: float
+    recent_rejections: List[Dict[str, Any]]

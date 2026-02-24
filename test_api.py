@@ -801,3 +801,86 @@ class TestSimLoopIntegration:
 
         assert receipt.round_id == 1
         assert round_state.state == "settled"
+
+
+# ──────────────────────────────────────────────
+# Phase 3 — Mechanism models + round state proposals
+# ──────────────────────────────────────────────
+
+from api.models import (
+    MechanismProposeRequest,
+    MechanismProposeResponse,
+    MechanismResponse,
+    MetricsResponse,
+    JudgeStatsResponse,
+)
+from api.round_state import PendingProposal
+
+
+class TestPhase3Models:
+    def test_mechanism_propose_request(self):
+        req = MechanismProposeRequest(
+            code="def propose_modification(e): pass",
+            description="test mechanism",
+            idempotency_key="mech-1",
+        )
+        assert req.code.startswith("def ")
+        assert req.idempotency_key == "mech-1"
+
+    def test_mechanism_propose_response(self):
+        resp = MechanismProposeResponse(mechanism_id="abc123", status="submitted")
+        assert resp.mechanism_id == "abc123"
+
+    def test_mechanism_response(self):
+        resp = MechanismResponse(
+            mechanism_id="abc", proposer_id=1, code="code", description="desc",
+            status="active", submitted_round=1, judged_round=2,
+            judge_reason="ok", activated_round=2,
+        )
+        assert resp.status == "active"
+
+    def test_metrics_response(self):
+        resp = MetricsResponse(
+            round_id=1, total_vitality=100.0, gini_coefficient=0.3,
+            trade_volume=5, conflict_count=2, mechanism_proposals=1,
+            mechanism_approvals=1, population=10,
+        )
+        assert resp.population == 10
+
+    def test_judge_stats_response(self):
+        resp = JudgeStatsResponse(
+            total_judgments=10, approved=7, rejected=3,
+            approval_rate=0.7, recent_rejections=[],
+        )
+        assert resp.approval_rate == pytest.approx(0.7)
+
+
+class TestPendingProposal:
+    def test_creation(self):
+        pp = PendingProposal(
+            agent_id=1, member_id=5, code="def propose_modification(e): pass",
+            description="test", idempotency_key="pk-1",
+        )
+        assert pp.agent_id == 1
+        assert pp.member_id == 5
+
+    def test_round_state_submit_proposal(self):
+        from api.round_state import RoundState
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=10.0)
+        pp = PendingProposal(
+            agent_id=1, member_id=5, code="code", description="d", idempotency_key="pk-1"
+        )
+        assert rs.submit_proposal(pp) is True
+
+    def test_round_state_drain_proposals(self):
+        from api.round_state import RoundState
+        rs = RoundState()
+        rs.open_submissions(round_id=1, pace=10.0)
+        pp = PendingProposal(
+            agent_id=1, member_id=5, code="code", description="d", idempotency_key="pk-1"
+        )
+        rs.submit_proposal(pp)
+        proposals = rs.drain_proposals()
+        assert len(proposals) == 1
+        assert rs.drain_proposals() == []

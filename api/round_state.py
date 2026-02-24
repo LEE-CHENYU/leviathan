@@ -15,6 +15,16 @@ class PendingAction:
     idempotency_key: str
 
 
+@dataclass
+class PendingProposal:
+    """A mechanism proposal submitted by an external agent, waiting for judge."""
+    agent_id: int
+    member_id: int
+    code: str
+    description: str
+    idempotency_key: str
+
+
 class RoundState:
     """Manages the submission window between begin_round and settle_round.
     Thread-safe: all public methods acquire self._lock."""
@@ -25,6 +35,7 @@ class RoundState:
         self.round_id: int = 0
         self.deadline: Optional[datetime] = None
         self._pending: List[PendingAction] = []
+        self._pending_proposals: List[PendingProposal] = []
         self._seen_keys: Dict[str, bool] = {}
 
     def open_submissions(self, round_id: int, pace: float) -> None:
@@ -33,6 +44,7 @@ class RoundState:
             self.round_id = round_id
             self.deadline = datetime.now(timezone.utc) + timedelta(seconds=pace)
             self._pending = []
+            self._pending_proposals = []
             self._seen_keys = {}
 
     def submit_action(self, action: PendingAction) -> bool:
@@ -69,3 +81,19 @@ class RoundState:
                 return 0.0
             remaining = (self.deadline - datetime.now(timezone.utc)).total_seconds()
             return max(0.0, remaining)
+
+    def submit_proposal(self, proposal: PendingProposal) -> bool:
+        with self._lock:
+            if self.state != "accepting":
+                return False
+            if proposal.idempotency_key in self._seen_keys:
+                return True
+            self._seen_keys[proposal.idempotency_key] = True
+            self._pending_proposals.append(proposal)
+            return True
+
+    def drain_proposals(self) -> List[PendingProposal]:
+        with self._lock:
+            proposals = list(self._pending_proposals)
+            self._pending_proposals = []
+            return proposals
