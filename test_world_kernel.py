@@ -319,3 +319,98 @@ class TestComputeReceiptHash:
         r1 = {"round_id": 1, "seed": 42}
         r2 = {"round_id": 2, "seed": 42}
         assert compute_receipt_hash(r1) != compute_receipt_hash(r2)
+
+
+# ──────────────────────────────────────────────
+# Task 3 – ExecutionSandbox tests
+# ──────────────────────────────────────────────
+
+from kernel.execution_sandbox import (
+    InProcessSandbox,
+    SandboxContext,
+    SandboxResult,
+)
+
+
+class TestSandboxResult:
+    def test_creation_defaults(self):
+        sr = SandboxResult(success=True)
+        assert sr.success is True
+        assert sr.error is None
+        assert sr.traceback_str is None
+
+    def test_creation_with_error(self):
+        sr = SandboxResult(success=False, error="oops", traceback_str="line 1\nline 2")
+        assert sr.success is False
+        assert sr.error == "oops"
+
+
+class TestSandboxContext:
+    def test_creation_defaults(self):
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        assert ctx.extra_env == {}
+
+    def test_creation_with_extra_env(self):
+        ctx = SandboxContext(
+            execution_engine=None, member_index=3, extra_env={"key": "val"}
+        )
+        assert ctx.extra_env == {"key": "val"}
+
+
+class TestInProcessSandbox:
+    def setup_method(self):
+        self.sandbox = InProcessSandbox()
+
+    def test_sandbox_execute_simple_code(self):
+        """Code defines agent_action; sandbox returns success."""
+        code = "def agent_action(engine):\n    return {'move': 'north'}\n"
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        result = self.sandbox.execute_agent_code(code, ctx)
+        assert isinstance(result, SandboxResult)
+        assert result.success is True
+        assert result.error is None
+
+    def test_sandbox_captures_error(self):
+        """Code raises ValueError; sandbox returns success=False with error."""
+        code = "def agent_action(engine):\n    raise ValueError('bad value')\n"
+
+        class FakeEngine:
+            pass
+
+        ctx = SandboxContext(execution_engine=FakeEngine(), member_index=0)
+        result = self.sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "bad value" in result.error
+
+    def test_sandbox_no_agent_action(self):
+        """Code doesn't define agent_action; sandbox returns error."""
+        code = "x = 42\n"
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        result = self.sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert "agent_action" in result.error
+
+    def test_sandbox_mechanism_code(self):
+        """Code defines propose_modification; sandbox returns success."""
+        code = "def propose_modification(engine):\n    return {'rule': 'new'}\n"
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        result = self.sandbox.execute_mechanism_code(code, ctx)
+        assert isinstance(result, SandboxResult)
+        assert result.success is True
+        assert result.error is None
+
+    def test_sandbox_mechanism_no_function(self):
+        """Mechanism code without propose_modification returns error."""
+        code = "y = 99\n"
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        result = self.sandbox.execute_mechanism_code(code, ctx)
+        assert result.success is False
+        assert "propose_modification" in result.error
+
+    def test_sandbox_syntax_error(self):
+        """Syntax error in code is captured gracefully."""
+        code = "def agent_action(engine)\n"  # missing colon
+        ctx = SandboxContext(execution_engine=None, member_index=0)
+        result = self.sandbox.execute_agent_code(code, ctx)
+        assert result.success is False
+        assert result.error is not None
