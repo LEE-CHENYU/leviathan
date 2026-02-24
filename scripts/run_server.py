@@ -9,7 +9,7 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Set
 
 from fastapi import FastAPI
 
@@ -25,7 +25,14 @@ from kernel.world_kernel import WorldKernel
 logger = logging.getLogger(__name__)
 
 
-def build_app(members: int, land_w: int, land_h: int, seed: int) -> FastAPI:
+def build_app(
+    members: int,
+    land_w: int,
+    land_h: int,
+    seed: int,
+    api_keys: Optional[Set[str]] = None,
+    rate_limit: int = 60,
+) -> FastAPI:
     """Create a WorldKernel and return a fully configured FastAPI app.
 
     This is the testable entry point -- no threads, no uvicorn,
@@ -38,7 +45,7 @@ def build_app(members: int, land_w: int, land_h: int, seed: int) -> FastAPI:
         random_seed=seed,
     )
     kernel = WorldKernel(config, save_path=save_path)
-    return create_app(kernel)
+    return create_app(kernel, api_keys=api_keys, rate_limit=rate_limit)
 
 
 def _simulation_loop(
@@ -98,10 +105,33 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--rounds", type=int, default=0, help="0 = infinite")
     parser.add_argument("--pace", type=float, default=2.0)
+    parser.add_argument(
+        "--api-keys",
+        type=str,
+        default="",
+        help="Comma-separated API keys (empty = open access)",
+    )
+    parser.add_argument(
+        "--rate-limit",
+        type=int,
+        default=60,
+        help="Max requests per minute per client IP",
+    )
     args = parser.parse_args()
 
     land_w, land_h = args.land
-    app = build_app(members=args.members, land_w=land_w, land_h=land_h, seed=args.seed)
+    api_keys: Optional[Set[str]] = None
+    if args.api_keys:
+        api_keys = {k.strip() for k in args.api_keys.split(",") if k.strip()}
+
+    app = build_app(
+        members=args.members,
+        land_w=land_w,
+        land_h=land_h,
+        seed=args.seed,
+        api_keys=api_keys,
+        rate_limit=args.rate_limit,
+    )
 
     kernel = app.state.leviathan["kernel"]
     event_log = app.state.leviathan["event_log"]

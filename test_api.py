@@ -305,3 +305,110 @@ class TestServerIntegration:
         assert resp.json()["member_count"] == 5
         resp = client.get("/.well-known/leviathan-agent.json")
         assert resp.status_code == 200
+
+
+# ──────────────────────────────────────────────
+# A6 – API key auth and rate limiting tests
+# ──────────────────────────────────────────────
+
+from fastapi import Depends, Request
+
+from api.auth import APIKeyAuth
+from api.deps import get_auth
+
+
+def _add_protected_route(app):
+    """Add a protected test route that invokes the APIKeyAuth dependency."""
+
+    @app.get("/v1/world/protected-test")
+    def protected_test(request: Request, auth: APIKeyAuth = Depends(get_auth)):
+        # Invoke the auth check manually since get_auth only retrieves
+        # the instance — actual validation happens when we call it.
+        auth(request)
+        return {"protected": True}
+
+
+class TestAuth:
+    """Auth and rate-limiting tests with default (open) configuration."""
+
+    def test_no_auth_by_default(self):
+        """When no API keys configured, all endpoints are open."""
+        client, _ = _make_test_client()
+        assert client.get("/v1/world").status_code == 200
+
+    def test_rate_limiter_allows_normal_traffic(self):
+        """Rate limiter doesn't block under normal load."""
+        client, _ = _make_test_client()
+        for _ in range(10):
+            assert client.get("/health").status_code == 200
+
+    def test_rate_limiter_blocks_when_exhausted(self):
+        """Rate limiter returns 429 after exceeding the limit."""
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(10, 10), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        app = create_app(kernel, rate_limit=3)
+        client = TestClient(app)
+
+        statuses = []
+        for _ in range(6):
+            statuses.append(client.get("/health").status_code)
+
+        assert 429 in statuses
+        assert statuses.count(200) >= 3
+
+
+class TestAuthEnabled:
+    """Auth tests with API key validation enabled."""
+
+    def _make_app_with_auth(self):
+        """Create an app with auth enabled and a protected route."""
+        tmpdir = tempfile.mkdtemp()
+        config = WorldConfig(init_member_number=3, land_shape=(10, 10), random_seed=1)
+        kernel = WorldKernel(config, save_path=tmpdir)
+        app = create_app(kernel, api_keys={"test-key-123", "backup-key"})
+        _add_protected_route(app)
+        return TestClient(app)
+
+    def test_unprotected_routes_remain_open(self):
+        """Read-only routes work without auth even when keys are configured."""
+        client = self._make_app_with_auth()
+        assert client.get("/health").status_code == 200
+        assert client.get("/v1/world").status_code == 200
+
+    def test_auth_rejects_missing_key(self):
+        """When auth is enabled, missing key returns 401."""
+        client = self._make_app_with_auth()
+        resp = client.get("/v1/world/protected-test")
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Missing API key"
+
+    def test_auth_rejects_invalid_key(self):
+        """When auth is enabled, invalid key returns 403."""
+        client = self._make_app_with_auth()
+        resp = client.get(
+            "/v1/world/protected-test",
+            headers={"X-API-Key": "wrong-key"},
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Invalid API key"
+
+    def test_auth_accepts_valid_header_key(self):
+        """Valid X-API-Key header passes auth."""
+        client = self._make_app_with_auth()
+        resp = client.get(
+            "/v1/world/protected-test",
+            headers={"X-API-Key": "test-key-123"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["protected"] is True
+
+    def test_auth_accepts_valid_query_key(self):
+        """Valid api_key query param passes auth."""
+        client = self._make_app_with_auth()
+        resp = client.get(
+            "/v1/world/protected-test",
+            params={"api_key": "backup-key"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["protected"] is True

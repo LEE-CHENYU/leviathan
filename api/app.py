@@ -1,23 +1,41 @@
 """FastAPI application factory for the Leviathan Read API."""
 
-from typing import Dict
+from typing import Dict, Optional, Set
 
 from fastapi import FastAPI
 
+from api.auth import APIKeyAuth, RateLimiterMiddleware
 from api.deps import create_app_state
 from api.routes.discovery import router as discovery_router
 from api.routes.world import router as world_router
 from kernel.world_kernel import WorldKernel
 
 
-def create_app(kernel: WorldKernel) -> FastAPI:
+def create_app(
+    kernel: WorldKernel,
+    api_keys: Optional[Set[str]] = None,
+    rate_limit: int = 60,
+) -> FastAPI:
     """Build and return a configured FastAPI application.
 
     The kernel and shared state are stored on ``app.state.leviathan``
     so that route handlers can access them without global variables.
+
+    Parameters
+    ----------
+    kernel:
+        The simulation kernel instance.
+    api_keys:
+        Optional set of valid API keys.  When ``None`` or empty,
+        authentication is disabled (open access).
+    rate_limit:
+        Maximum requests per minute per client IP.
     """
     app = FastAPI(title="Leviathan Read API", version="0.1.0")
     app.state.leviathan = create_app_state(kernel)
+    app.state.auth = APIKeyAuth(api_keys)
+
+    app.add_middleware(RateLimiterMiddleware, requests_per_minute=rate_limit)
 
     @app.get("/health")
     def health() -> Dict[str, str]:
