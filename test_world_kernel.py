@@ -1023,3 +1023,224 @@ class TestApplyIntendedActions:
         kernel.begin_round()
         results = kernel.apply_intended_actions([])
         assert results == []
+
+
+# ──────────────────────────────────────────────
+# Phase 3 Task 1 – MechanismRegistry tests
+# ──────────────────────────────────────────────
+
+from kernel.mechanism_registry import MechanismRecord, MechanismRegistry
+
+
+class TestMechanismRegistry:
+    def test_submit_mechanism(self):
+        """Submit a mechanism and verify it returns a valid record."""
+        reg = MechanismRegistry()
+        rec = reg.submit(proposer_id=1, code="def f(): pass", description="test mech")
+        assert rec is not None
+        assert isinstance(rec, MechanismRecord)
+        assert rec.proposer_id == 1
+        assert rec.code == "def f(): pass"
+        assert rec.description == "test mech"
+        assert rec.status == "submitted"
+        assert rec.submitted_round == 0
+
+    def test_submit_with_round(self):
+        """Submit with explicit round_id."""
+        reg = MechanismRegistry()
+        rec = reg.submit(proposer_id=2, code="x=1", description="round mech", round_id=5)
+        assert rec is not None
+        assert rec.submitted_round == 5
+
+    def test_get_pending(self):
+        """get_pending returns only submitted records."""
+        reg = MechanismRegistry()
+        rec1 = reg.submit(proposer_id=1, code="a", description="d1", round_id=0)
+        rec2 = reg.submit(proposer_id=2, code="b", description="d2", round_id=0)
+        pending = reg.get_pending()
+        assert len(pending) == 2
+        assert all(r.status == "submitted" for r in pending)
+
+    def test_approve_and_activate(self):
+        """Approve then activate a mechanism."""
+        reg = MechanismRegistry()
+        rec = reg.submit(proposer_id=1, code="c", description="d3")
+        reg.mark_approved(rec.mechanism_id, round_id=1, reason="looks good")
+        assert rec.status == "approved"
+        assert rec.judged_round == 1
+        assert rec.judge_reason == "looks good"
+        reg.activate(rec.mechanism_id, round_id=2)
+        assert rec.status == "active"
+        assert rec.activated_round == 2
+
+    def test_reject(self):
+        """Reject a mechanism."""
+        reg = MechanismRegistry()
+        rec = reg.submit(proposer_id=1, code="d", description="d4")
+        reg.mark_rejected(rec.mechanism_id, round_id=1, reason="too risky")
+        assert rec.status == "rejected"
+        assert rec.judge_reason == "too risky"
+
+    def test_get_active(self):
+        """get_active returns only active mechanisms."""
+        reg = MechanismRegistry()
+        rec1 = reg.submit(proposer_id=1, code="a", description="d1", round_id=0)
+        rec2 = reg.submit(proposer_id=2, code="b", description="d2", round_id=0)
+        reg.mark_approved(rec1.mechanism_id, round_id=1, reason="ok")
+        reg.activate(rec1.mechanism_id, round_id=2)
+        active = reg.get_active()
+        assert len(active) == 1
+        assert active[0].mechanism_id == rec1.mechanism_id
+
+    def test_get_all(self):
+        """get_all returns all records regardless of status."""
+        reg = MechanismRegistry()
+        reg.submit(proposer_id=1, code="a", description="d1", round_id=0)
+        reg.submit(proposer_id=2, code="b", description="d2", round_id=0)
+        reg.submit(proposer_id=3, code="c", description="d3", round_id=0)
+        assert len(reg.get_all()) == 3
+
+    def test_get_by_id(self):
+        """get_by_id returns the correct record."""
+        reg = MechanismRegistry()
+        rec = reg.submit(proposer_id=1, code="a", description="d1")
+        found = reg.get_by_id(rec.mechanism_id)
+        assert found is rec
+
+    def test_get_by_id_not_found(self):
+        """get_by_id returns None for unknown id."""
+        reg = MechanismRegistry()
+        assert reg.get_by_id("nonexistent") is None
+
+    def test_one_proposal_per_agent_per_round(self):
+        """Same agent cannot submit twice in same round."""
+        reg = MechanismRegistry()
+        rec1 = reg.submit(proposer_id=1, code="a", description="d1", round_id=0)
+        rec2 = reg.submit(proposer_id=1, code="b", description="d2", round_id=0)
+        assert rec1 is not None
+        assert rec2 is None
+
+    def test_same_agent_different_rounds(self):
+        """Same agent can submit in different rounds."""
+        reg = MechanismRegistry()
+        rec1 = reg.submit(proposer_id=1, code="a", description="d1", round_id=0)
+        rec2 = reg.submit(proposer_id=1, code="b", description="d2", round_id=1)
+        assert rec1 is not None
+        assert rec2 is not None
+        assert rec1.mechanism_id != rec2.mechanism_id
+
+
+# ──────────────────────────────────────────────
+# Phase 3 Task 2 – JudgeAdapter tests
+# ──────────────────────────────────────────────
+
+from kernel.judge_adapter import DummyJudge, JudgeAdapter, JudgmentResult
+
+
+class TestJudgmentResult:
+    def test_creation(self):
+        """JudgmentResult stores all fields correctly."""
+        jr = JudgmentResult(approved=True, reason="ok", latency_ms=12.5)
+        assert jr.approved is True
+        assert jr.reason == "ok"
+        assert jr.latency_ms == 12.5
+        assert jr.error is None
+
+    def test_with_error(self):
+        """JudgmentResult with error field."""
+        jr = JudgmentResult(approved=False, reason="failed", latency_ms=5.0, error="timeout")
+        assert jr.approved is False
+        assert jr.error == "timeout"
+
+
+class TestDummyJudge:
+    def test_approves_everything(self):
+        """DummyJudge always returns approved=True."""
+        judge = DummyJudge()
+        result = judge.evaluate(code="x=1", proposer_id=1, proposal_type="mechanism")
+        assert result.approved is True
+        assert result.reason == "dummy-approved"
+
+    def test_approves_with_context(self):
+        """DummyJudge approves even with context."""
+        judge = DummyJudge()
+        result = judge.evaluate(code="x=1", proposer_id=1, proposal_type="mechanism", context={"key": "val"})
+        assert result.approved is True
+
+
+class TestJudgeAdapter:
+    def test_timeout_returns_rejected(self):
+        """Without LLM config, subprocess errors -> fail-closed -> rejected."""
+        adapter = JudgeAdapter(timeout=10.0, use_dummy=False)
+        result = adapter.evaluate(code="x=1", proposer_id=1, proposal_type="mechanism")
+        assert result.approved is False
+        assert result.latency_ms >= 0.0
+
+    def test_dummy_mode(self):
+        """JudgeAdapter in dummy mode delegates to DummyJudge."""
+        adapter = JudgeAdapter(use_dummy=True)
+        result = adapter.evaluate(code="x=1", proposer_id=1, proposal_type="mechanism")
+        assert result.approved is True
+        assert result.reason == "dummy-approved"
+
+
+# ──────────────────────────────────────────────
+# Phase 3 Task 3 – Round Metrics tests
+# ──────────────────────────────────────────────
+
+from kernel.round_metrics import compute_gini, compute_round_metrics
+
+
+class TestGiniCoefficient:
+    def test_equal_distribution(self):
+        """All equal values -> Gini = 0.0."""
+        assert compute_gini([10, 10, 10, 10]) == pytest.approx(0.0)
+
+    def test_one_has_all(self):
+        """One member has everything -> Gini = 0.75."""
+        assert compute_gini([0, 0, 0, 100]) == pytest.approx(0.75)
+
+    def test_two_members_unequal(self):
+        """[0, 100] -> Gini = 0.5."""
+        assert compute_gini([0, 100]) == pytest.approx(0.5)
+
+    def test_single_member(self):
+        """Single member -> Gini = 0.0."""
+        assert compute_gini([100]) == pytest.approx(0.0)
+
+    def test_empty(self):
+        """Empty list -> Gini = 0.0."""
+        assert compute_gini([]) == pytest.approx(0.0)
+
+    def test_all_zeros(self):
+        """All zeros -> Gini = 0.0."""
+        assert compute_gini([0, 0, 0]) == pytest.approx(0.0)
+
+
+class TestComputeRoundMetrics:
+    def test_basic_metrics(self):
+        """3 members, check all expected keys are present and correct."""
+        members = [
+            {"vitality": 10.0},
+            {"vitality": 20.0},
+            {"vitality": 30.0},
+        ]
+        metrics = compute_round_metrics(
+            members, trade_volume=5, conflict_count=2,
+            mechanism_proposals=3, mechanism_approvals=1,
+        )
+        assert metrics["total_vitality"] == pytest.approx(60.0)
+        assert metrics["population"] == 3
+        assert metrics["trade_volume"] == 5
+        assert metrics["conflict_count"] == 2
+        assert metrics["mechanism_proposals"] == 3
+        assert metrics["mechanism_approvals"] == 1
+        assert "gini_coefficient" in metrics
+        assert metrics["gini_coefficient"] >= 0.0
+
+    def test_empty_members(self):
+        """Empty members list -> total_vitality=0, population=0."""
+        metrics = compute_round_metrics([])
+        assert metrics["total_vitality"] == 0.0
+        assert metrics["population"] == 0
+        assert metrics["gini_coefficient"] == 0.0
