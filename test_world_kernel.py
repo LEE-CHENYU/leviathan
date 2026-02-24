@@ -800,3 +800,85 @@ class TestKernelIslandEquivalence:
                 island_members = _sorted_member_attrs(ie)
 
                 _assert_members_equivalent(kernel_members, island_members)
+
+
+# ──────────────────────────────────────────────
+# SubprocessSandbox — EngineProxy tests
+# ──────────────────────────────────────────────
+
+from kernel.engine_proxy import EngineProxy, MemberProxy, LandProxy
+
+
+class TestEngineProxy:
+    """Verify the EngineProxy records actions instead of executing them."""
+
+    def _make_state(self, n_members=3):
+        members = []
+        for i in range(n_members):
+            members.append({"id": i + 1, "vitality": 50.0, "cargo": 20.0, "land_num": 2})
+        return {"members": members, "land": {"shape": [10, 10]}}
+
+    def test_member_proxy_attributes(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        member = proxy.current_members[0]
+        assert isinstance(member, MemberProxy)
+        assert member.id == 1
+        assert member.vitality == 50.0
+        assert member.cargo == 20.0
+        assert member.land_num == 2
+
+    def test_land_proxy_shape(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        assert isinstance(proxy.land, LandProxy)
+        assert proxy.land.shape == (10, 10)
+
+    def test_attack_records_action(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        me = proxy.current_members[0]
+        target = proxy.current_members[1]
+        proxy.attack(me, target)
+        assert len(proxy.actions) == 1
+        assert proxy.actions[0] == {"action": "attack", "member_id": 1, "target_id": 2}
+
+    def test_offer_records_action(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        me = proxy.current_members[0]
+        target = proxy.current_members[1]
+        proxy.offer(me, target)
+        assert proxy.actions[0] == {"action": "offer", "member_id": 1, "target_id": 2}
+
+    def test_offer_land_records_action(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        me = proxy.current_members[0]
+        target = proxy.current_members[1]
+        proxy.offer_land(me, target)
+        assert proxy.actions[0] == {"action": "offer_land", "member_id": 1, "target_id": 2}
+
+    def test_expand_records_action(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        me = proxy.current_members[0]
+        proxy.expand(me)
+        assert proxy.actions[0] == {"action": "expand", "member_id": 1}
+
+    def test_send_message_records_action(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        proxy.send_message(1, 2, "hello")
+        assert proxy.actions[0] == {"action": "message", "from_id": 1, "to_id": 2, "message": "hello"}
+
+    def test_multiple_actions_recorded_in_order(self):
+        state = self._make_state()
+        proxy = EngineProxy(state)
+        me = proxy.current_members[0]
+        target = proxy.current_members[1]
+        proxy.attack(me, target)
+        proxy.offer(me, target)
+        proxy.expand(me)
+        assert len(proxy.actions) == 3
+        assert [a["action"] for a in proxy.actions] == ["attack", "offer", "expand"]
