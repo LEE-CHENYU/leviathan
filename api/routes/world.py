@@ -20,6 +20,7 @@ def get_world_info(request: Request) -> WorldInfo:
         round_id=snapshot.round_id,
         member_count=len(snapshot.members),
         state_hash=snapshot.state_hash,
+        world_public_key=kernel.oracle.world_public_key,
     )
 
 

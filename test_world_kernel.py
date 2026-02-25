@@ -1514,3 +1514,48 @@ class TestReceiptNewFields:
         assert receipt.bridge_channel_id is None
         assert receipt.bridge_seq is None
         assert receipt.notary_signature is None
+
+
+class TestKernelConstitutionAndSigning:
+    @pytest.fixture
+    def kernel(self, tmp_path):
+        config = WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42)
+        return WorldKernel(config, save_path=str(tmp_path))
+
+    def test_kernel_has_constitution(self, kernel):
+        assert kernel.constitution is not None
+        assert "energy_conservation" in kernel.constitution.kernel_clauses
+
+    def test_kernel_has_oracle(self, kernel):
+        assert kernel.oracle is not None
+        assert len(kernel.oracle.world_public_key) == 64
+
+    def test_deterministic_oracle_from_seed(self, tmp_path):
+        k1 = WorldKernel(WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42), str(tmp_path / "a"))
+        k2 = WorldKernel(WorldConfig(init_member_number=5, land_shape=(10, 10), random_seed=42), str(tmp_path / "b"))
+        assert k1.oracle.world_public_key == k2.oracle.world_public_key
+
+    def test_receipt_has_constitution_hash_from_kernel(self, kernel):
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        assert receipt.constitution_hash is not None
+        assert receipt.constitution_hash == kernel.constitution.compute_hash()
+
+    def test_receipt_is_signed(self, kernel):
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        assert receipt.oracle_signature is not None
+        assert receipt.world_public_key == kernel.oracle.world_public_key
+
+    def test_receipt_signature_is_verifiable(self, kernel):
+        import json as _json
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+        d = dataclasses.asdict(receipt)
+        d["oracle_signature"] = None
+        canonical = _json.dumps(d, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=False, default=str).encode("utf-8")
+        from kernel.oracle import OracleIdentity
+        assert OracleIdentity.verify_with_public_key(
+            receipt.world_public_key, canonical, receipt.oracle_signature
+        ) is True

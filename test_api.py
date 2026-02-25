@@ -1145,3 +1145,31 @@ class TestEventEnvelopeEnrichment:
         assert event.phase == "settlement"
         assert event.payload_hash == "aa" * 32
         assert event.prev_event_hash == "bb" * 32
+
+
+class TestPhase4WorldEndpoint:
+    @pytest.fixture
+    def client(self):
+        from scripts.run_server import build_app
+        from fastapi.testclient import TestClient
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        return TestClient(app)
+
+    def test_world_info_has_public_key(self, client):
+        resp = client.get("/v1/world")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "world_public_key" in data
+        assert len(data["world_public_key"]) == 64
+
+    def test_receipt_fields_in_api(self, client):
+        kernel = client.app.state.leviathan["kernel"]
+        kernel.begin_round()
+        kernel.settle_round(seed=1)
+        resp = client.get("/v1/world/rounds/current")
+        assert resp.status_code == 200
+        data = resp.json()
+        lr = data["last_receipt"]
+        assert lr["constitution_hash"] is not None
+        assert lr["oracle_signature"] is not None
+        assert lr["world_public_key"] is not None

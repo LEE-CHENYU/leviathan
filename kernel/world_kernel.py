@@ -2,6 +2,7 @@
 
 import dataclasses
 import hashlib
+import json
 import uuid
 from typing import Dict, List, Optional, Tuple
 
@@ -18,6 +19,8 @@ from kernel.receipt import compute_state_hash, compute_receipt_hash
 from kernel.execution_sandbox import InProcessSandbox, SandboxContext
 from kernel.dag_runner import KernelDAGRunner
 from kernel.round_metrics import compute_round_metrics
+from kernel.constitution import Constitution
+from kernel.oracle import OracleIdentity
 
 
 class WorldKernel:
@@ -51,12 +54,25 @@ class WorldKernel:
         self._sandbox = InProcessSandbox()
         self._idempotency_cache: Dict[str, ActionResult] = {}
         self._last_receipt: Optional[RoundReceipt] = None
+        self._constitution = Constitution.default()
+        if config.random_seed is not None:
+            self._oracle = OracleIdentity.from_seed(config.random_seed)
+        else:
+            self._oracle = OracleIdentity.generate()
 
     # ── Properties ────────────────────────────────
 
     @property
     def round_id(self) -> int:
         return self._round_id
+
+    @property
+    def constitution(self) -> Constitution:
+        return self._constitution
+
+    @property
+    def oracle(self) -> OracleIdentity:
+        return self._oracle
 
     # ── Snapshot ──────────────────────────────────
 
@@ -320,7 +336,17 @@ class WorldKernel:
             judge_results=judge_results or [],
             round_metrics=metrics,
             timestamp=deterministic_ts,
+            constitution_hash=self._constitution.compute_hash(),
+            world_public_key=self._oracle.world_public_key,
         )
+
+        # Sign the receipt: serialize with oracle_signature=None, then sign
+        receipt_dict = dataclasses.asdict(receipt)
+        receipt_dict["oracle_signature"] = None
+        canonical = json.dumps(receipt_dict, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=False, default=str).encode("utf-8")
+        receipt.oracle_signature = self._oracle.sign(canonical)
+
         self._last_receipt = receipt
         return receipt
 

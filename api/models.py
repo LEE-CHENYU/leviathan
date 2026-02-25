@@ -12,6 +12,7 @@ class WorldInfo(BaseModel):
     round_id: int
     member_count: int
     state_hash: str
+    world_public_key: Optional[str] = None
 
 
 class RoundReceiptResponse(BaseModel):
