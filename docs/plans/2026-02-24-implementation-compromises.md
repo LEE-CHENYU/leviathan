@@ -3,7 +3,7 @@
 Date: 2026-02-24
 Status: Living document — update as items are resolved
 
-This document tracks every simplification, shortcut, and deferred decision made during Phase 0 and Phase 1 implementation. Each item notes what the design docs prescribed, what we actually built, why, and when it should be revisited.
+This document tracks every simplification, shortcut, and deferred decision made during implementation. Each item notes what the design docs prescribed, what we actually built, why, and when it should be revisited.
 
 ---
 
@@ -20,26 +20,17 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** Snapshots are incomplete for full state reconstruction or detailed agent observation.
 - **When to fix:** When the API needs to serve richer agent state (Phase 2 SDK, or dashboard features). Extend `get_snapshot()` to collect more fields from `Member` objects.
 
-### K3. Active mechanisms tracking is shallow
+### ~~K3. Active mechanisms tracking is shallow~~ RESOLVED
 
-- **Design says:** `active_mechanisms` should list currently active world rules.
-- **What we built:** Only pulls from `execution_history["rounds"][-1]["mechanism_modifications"]["executed"]` — only shows mechanisms executed in the *last round*, not a cumulative registry of all active mechanisms.
-- **Risk:** Clients see an incomplete picture of world rules. Mechanisms from earlier rounds that are still active won't appear.
-- **When to fix:** When mechanism governance becomes important (Phase 3). Needs a proper mechanism registry in the kernel tracking activation, deactivation, and rollback state.
+- **Resolved:** 2026-02-24. Added `MechanismRegistry` in `kernel/mechanism_registry.py` with full lifecycle tracking (submitted -> approved/rejected -> active). Registry provides `get_pending()`, `get_active()`, `get_all()`, `get_by_id()`. One-proposal-per-agent-per-round enforcement. API endpoints at `/v1/world/mechanisms/`. 11 registry tests + 7 endpoint tests.
 
-### K4. settle_round only runs produce/consume
+### ~~K4. settle_round only runs produce/consume~~ RESOLVED
 
-- **Design says:** Settlement should run the full round phase sequence (produce, consume, environment, etc.).
-- **What we built:** `settle_round()` calls only `self._execution.produce()` and `self._execution.consume()`. Missing: `fight`, `trade`, `reproduce`, `environment` phase, contract settlement, physics enforcement.
-- **Risk:** Round settlement in the kernel doesn't match the full simulation loop. The kernel's golden tests verify determinism for a limited phase set.
-- **When to fix:** When the kernel needs to fully replace the manual simulation loop. Either: (a) call all phase methods in `settle_round`, or (b) integrate with the DAG graph engine's `execute()` which already handles phase ordering.
+- **Resolved:** 2026-02-24. Added `KernelDAGRunner` in `kernel/dag_runner.py` that executes infrastructure phases in topological order (contracts -> produce -> consume -> environment). `settle_round()` now delegates to the DAG runner instead of manually calling `produce()` + `consume()`. 4 DAG runner tests + 4 settlement tests verify phase ordering and determinism.
 
-### K5. No round_metrics or judge_results populated
+### ~~K5. No round_metrics or judge_results populated~~ RESOLVED
 
-- **Design says:** `RoundReceipt` has `round_metrics: Dict[str, float]` and `judge_results: List[Dict]`.
-- **What we built:** Both are always empty (`{}` and `[]`). The kernel has no judge integration and doesn't compute per-round metrics.
-- **Risk:** Receipts lack observability data. Consumers of receipts see no performance, fairness, or governance data.
-- **When to fix:** Phase 3 (judge integration) for `judge_results`. Metrics should be added when eval_metrics is wired into the kernel.
+- **Resolved:** 2026-02-24. `round_metrics` computed by `compute_round_metrics()` in `kernel/round_metrics.py` (total_vitality, gini_coefficient, trade_volume, conflict_count, mechanism_proposals, mechanism_approvals, population). `judge_results` populated from `JudgeAdapter` evaluations in the simulation loop. Both included in `RoundReceipt`. API endpoints at `/v1/world/metrics`, `/v1/world/metrics/history`, `/v1/world/judge/stats`. 8 metrics tests + 5 endpoint tests + 1 governance integration test.
 
 ### K6. Idempotency cache is per-round only, in-memory
 
@@ -163,10 +154,10 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **K6** (persistent idempotency) — cross-restart deduplication, nice-to-have not blocker
 - **A10** (thread safety) — Python GIL makes most ops safe enough for dev; add locking before production
 
-### Should fix before Phase 3 (governance)
-- **K3** (mechanism registry) — governance needs full mechanism tracking
-- **K4** (full settlement) — kernel settlement must match the real sim loop
-- **K5** (metrics + judge) — governance needs observability
+### ~~Should fix before Phase 3 (governance)~~ ALL RESOLVED
+- ~~**K3** (mechanism registry)~~ RESOLVED — MechanismRegistry with lifecycle tracking
+- ~~**K4** (full settlement)~~ RESOLVED — KernelDAGRunner with topological phase ordering
+- ~~**K5** (metrics + judge)~~ RESOLVED — round_metrics + judge_results + JudgeAdapter
 
 ### Should fix before Phase 4 (multi-tenant / federation)
 - **K7** (receipt signing) — trust requires cryptographic verification
@@ -185,3 +176,49 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **A7** (memory eviction) — add before long-running deployments
 - **A8** (OpenAPI pinning) — add before SDK release
 - ~~**A9** (headless sim)~~ RESOLVED — Phase 2 write path adds submission window
+
+---
+
+## Phase 3: Governance
+
+### P3-1. JudgeAdapter timeout is hardcoded
+
+- **What we built:** 30s timeout, not configurable at runtime.
+- **Risk:** Different proposal types may need different timeouts.
+- **When to fix:** When dynamic judge configuration is needed.
+
+### P3-2. No LLM cost tracking per judgment
+
+- **What we built:** JudgeAdapter doesn't track token usage or cost per judgment.
+- **Risk:** No visibility into judge operational costs.
+- **When to fix:** When cost budgeting for judge operations matters.
+
+### P3-3. Gini coefficient only over vitality
+
+- **What we built:** Gini computed over member vitality only. Doesn't consider cargo, land, or total wealth.
+- **Risk:** Inequality metric is one-dimensional.
+- **When to fix:** When a more nuanced inequality metric is needed.
+
+### P3-4. MechanismRegistry is in-memory only
+
+- **What we built:** No persistence. Mechanism history lost on restart.
+- **Risk:** Can't audit governance decisions across server restarts.
+- **When to fix:** Before production. Can share SQLite store with event log (A2).
+
+### P3-5. No mechanism rollback or deactivation
+
+- **What we built:** Once active, mechanisms are permanent. No way to deactivate or roll back.
+- **Risk:** Bad mechanisms can't be undone.
+- **When to fix:** Phase 4 governance features.
+
+### P3-6. Single-judge LLM evaluation
+
+- **What we built:** One LLM call per proposal. No multi-judge consensus, appeal, or human override.
+- **Risk:** Single point of failure for governance decisions.
+- **When to fix:** When trust guarantees require multi-party validation.
+
+### P3-7. No mechanism versioning
+
+- **What we built:** Can't update an active mechanism. Must propose a new one.
+- **Risk:** No evolution path for existing mechanisms.
+- **When to fix:** When mechanism evolution patterns emerge.
