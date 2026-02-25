@@ -115,6 +115,19 @@ class PromptLoader:
             sections.append(code)
             sections.append("")
 
+        # Safety templates
+        if templates.get('safety_templates'):
+            sections.append("="*66)
+            sections.append("SAFETY TEMPLATES")
+            sections.append("="*66 + "\n")
+
+            for i, template in enumerate(templates['safety_templates'], 1):
+                sections.append(f"[Safety Template {i}: {template['name']}]")
+                if template.get('description'):
+                    sections.append(f"Description: {template['description']}")
+                sections.append(template['code'])
+                sections.append("")
+
         # Usage guidelines
         sections.append("="*66)
         sections.append("USAGE GUIDELINES")
@@ -157,7 +170,10 @@ class PromptLoader:
         communication_summary: str,
         base_code: str,
         population_state_summary: str = "No population state summary available.",
-        contract_summary: str = "Contract activity: unavailable."
+        contract_summary: str = "Contract activity: unavailable.",
+        canary_summary: str = "",
+        pending_proposals_summary: str = "",
+        checkpoint_summary: str = "",
     ) -> str:
         """
         Build complete action decision prompt
@@ -259,6 +275,30 @@ class PromptLoader:
             "Contract activity (your participation):",
             contract_summary,
             "",
+        ]
+
+        if canary_summary:
+            sections += [
+                "Canary test results (current round):",
+                canary_summary,
+                "",
+            ]
+
+        if pending_proposals_summary:
+            sections += [
+                "Pending proposals awaiting votes:",
+                pending_proposals_summary,
+                "",
+            ]
+
+        if checkpoint_summary:
+            sections += [
+                "Available checkpoints:",
+                checkpoint_summary,
+                "",
+            ]
+
+        sections += [
             "Analysis Memory:",
             analysis_memory,
             "",
@@ -382,7 +422,10 @@ class PromptLoader:
         message_context: str,
         communication_summary: str,
         base_code: str,
-        population_state_summary: str = "No population state summary available."
+        population_state_summary: str = "No population state summary available.",
+        canary_summary: str = "",
+        pending_proposals_summary: str = "",
+        checkpoint_summary: str = "",
     ) -> str:
         """
         Build complete mechanism proposal prompt
@@ -459,6 +502,30 @@ class PromptLoader:
             "Population state snapshot:",
             population_state_summary,
             "",
+        ]
+
+        if canary_summary:
+            sections += [
+                "Canary test results (current round):",
+                canary_summary,
+                "",
+            ]
+
+        if pending_proposals_summary:
+            sections += [
+                "Pending proposals awaiting votes:",
+                pending_proposals_summary,
+                "",
+            ]
+
+        if checkpoint_summary:
+            sections += [
+                "Available checkpoints:",
+                checkpoint_summary,
+                "",
+            ]
+
+        sections += [
             "Strategy profile:",
             strategy_profile,
             "",
@@ -534,8 +601,16 @@ class PromptLoader:
             ""
         ]
 
-        if base.get('mechanism_design_guardrails'):
-            sections.append(base['mechanism_design_guardrails'])
+        if base.get('mechanism_design_principles'):
+            sections.append(base['mechanism_design_principles'])
+            sections.append("")
+
+        if base.get('canary_awareness'):
+            sections.append(base['canary_awareness'])
+            sections.append("")
+
+        if base.get('checkpoint_awareness'):
+            sections.append(base['checkpoint_awareness'])
             sections.append("")
 
         if base.get('coordination_protocols'):

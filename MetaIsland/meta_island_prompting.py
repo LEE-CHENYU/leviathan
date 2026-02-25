@@ -559,6 +559,29 @@ class IslandExecutionPromptingMixin:
                 'population_state_summary'
             ] = population_state_summary
 
+        # Canary reports from current round
+        canary_reports = []
+        if self.execution_history.get('rounds'):
+            current = self.execution_history['rounds'][-1]
+            mods = current.get('mechanism_modifications', {})
+            canary_reports = mods.get('canary_reports', [])
+
+        # Pending proposals awaiting votes
+        pending_proposals_summary = []
+        if hasattr(self, 'pending_proposals'):
+            for pid, entry in self.pending_proposals.items():
+                pending_proposals_summary.append({
+                    'proposal_id': pid,
+                    'round_submitted': entry.get('round_submitted'),
+                    'canary_report': entry['proposal'].get('canary_report', {}) if isinstance(entry.get('proposal'), dict) else {},
+                    'votes': entry.get('votes', {}),
+                })
+
+        # Available checkpoints
+        checkpoint_info = []
+        if hasattr(self, 'get_available_checkpoints'):
+            checkpoint_info = self.get_available_checkpoints()
+
         return {
             'member': member,
             'relations': relations,
@@ -580,7 +603,10 @@ class IslandExecutionPromptingMixin:
             'population_exploration_summary': population_exploration_summary,
             'strategy_recommendations': strategy_recommendations,
             'contextual_strategy_summary': contextual_strategy_summary,
-            'population_state_summary': population_state_summary
+            'population_state_summary': population_state_summary,
+            'canary_reports': canary_reports,
+            'pending_proposals': pending_proposals_summary,
+            'checkpoint_info': checkpoint_info,
         }
 
     ## Prompting Agents

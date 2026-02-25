@@ -13,6 +13,12 @@ class WorldInfo(BaseModel):
     member_count: int
     state_hash: str
     world_public_key: Optional[str] = None
+    total_vitality: float = 0.0
+    active_mechanisms_count: int = 0
+    active_contracts_count: int = 0
+    pending_proposals_count: int = 0
+    checkpoints_available: int = 0
+    governance: Dict[str, Any] = {}
 
 
 class RoundReceiptResponse(BaseModel):

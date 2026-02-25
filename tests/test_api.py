@@ -160,6 +160,31 @@ class TestWorldEndpoints:
         assert data["round_id"] == 0
         assert data["member_count"] == 5
         assert len(data["state_hash"]) == 64
+        # Enriched fields
+        assert "total_vitality" in data
+        assert data["total_vitality"] > 0
+        assert data["active_mechanisms_count"] == 0
+        assert data["active_contracts_count"] == 0
+        assert data["pending_proposals_count"] == 0
+        assert data["checkpoints_available"] >= 0
+
+    def test_world_info_has_governance(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world")
+        assert resp.status_code == 200
+        data = resp.json()
+        gov = data["governance"]
+        assert gov["judge_role"] == "advisory"
+        assert gov["voting_threshold"] == "majority"
+        assert "activation_timing" in gov
+
+    def test_world_info_has_vitality(self):
+        client, kernel = _make_test_client()
+        resp = client.get("/v1/world")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data["total_vitality"], (int, float))
+        assert data["total_vitality"] > 0
 
     def test_snapshot(self):
         client, kernel = _make_test_client()

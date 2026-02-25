@@ -379,6 +379,38 @@ async def _agent_code_decision(self, member_id) -> None:
         report = data['report']
         report_text = report if report else "No analysis available"
 
+        # Extract canary/checkpoint/pending context
+        canary_reports = data.get('canary_reports', [])
+        pending_proposals = data.get('pending_proposals', [])
+        checkpoint_info = data.get('checkpoint_info', [])
+
+        canary_summary = ""
+        if canary_reports:
+            lines = []
+            for cr in canary_reports:
+                lines.append(f"- vitality_change: {cr.get('vitality_change_pct', 'N/A')}%, "
+                             f"died: {cr.get('agents_died', [])}, "
+                             f"flags: {cr.get('divergence_flags', [])}")
+            canary_summary = "\n".join(lines)
+
+        pending_proposals_summary = ""
+        if pending_proposals:
+            lines = []
+            for pp in pending_proposals:
+                lines.append(f"- Proposal {pp.get('proposal_id', '?')}: "
+                             f"submitted round {pp.get('round_submitted', '?')}, "
+                             f"votes: {pp.get('votes', {})}")
+            pending_proposals_summary = "\n".join(lines)
+
+        checkpoint_summary = ""
+        if checkpoint_info:
+            lines = []
+            for cp in checkpoint_info:
+                lines.append(f"- Round {cp.get('round_id', '?')}: "
+                             f"{cp.get('member_count', '?')} members, "
+                             f"vitality {cp.get('total_vitality', '?')}")
+            checkpoint_summary = "\n".join(lines)
+
         loader = get_prompt_loader()
         current_mechanisms_text = self.format_mechanisms_for_prompt(current_mechanisms)
 
@@ -404,7 +436,10 @@ async def _agent_code_decision(self, member_id) -> None:
             communication_summary=communication_summary,
             base_code=base_code,
             population_state_summary=population_state_summary,
-            contract_summary=contract_summary
+            contract_summary=contract_summary,
+            canary_summary=canary_summary,
+            pending_proposals_summary=pending_proposals_summary,
+            checkpoint_summary=checkpoint_summary,
         )
         prompt_sections = {
             "base_code": base_code,

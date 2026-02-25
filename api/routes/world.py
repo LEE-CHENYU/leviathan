@@ -18,12 +18,44 @@ def get_world_info(request: Request) -> WorldInfo:
     """Return summary information about the current world state."""
     kernel = request.app.state.leviathan["kernel"]
     snapshot = kernel.get_snapshot()
+
+    # Compute total vitality from snapshot members
+    total_vitality = sum(m.get("vitality", 0.0) for m in snapshot.members)
+
+    # Count active mechanisms and contracts from snapshot
+    active_mechanisms_count = len(snapshot.active_mechanisms)
+    active_contracts_count = len(snapshot.active_contracts)
+
+    # Count pending proposals from execution state
+    pending_proposals_count = 0
+    execution = kernel._execution
+    if hasattr(execution, 'pending_proposals'):
+        pending_proposals_count = len(execution.pending_proposals)
+
+    # Count available checkpoints
+    checkpoints_available = 0
+    if hasattr(execution, 'get_available_checkpoints'):
+        checkpoints_available = len(execution.get_available_checkpoints())
+
+    # Governance defaults (amendable layer)
+    governance = {
+        "judge_role": "advisory",
+        "voting_threshold": "majority",
+        "activation_timing": "deferred until threshold met",
+    }
+
     return WorldInfo(
         world_id=snapshot.world_id,
         round_id=snapshot.round_id,
         member_count=len(snapshot.members),
         state_hash=snapshot.state_hash,
         world_public_key=kernel.oracle.world_public_key,
+        total_vitality=total_vitality,
+        active_mechanisms_count=active_mechanisms_count,
+        active_contracts_count=active_contracts_count,
+        pending_proposals_count=pending_proposals_count,
+        checkpoints_available=checkpoints_available,
+        governance=governance,
     )
 
 
