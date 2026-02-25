@@ -1360,3 +1360,98 @@ class TestModeratorState:
         assert isinstance(h, str)
         assert len(h) == 16
         assert h != "test_key"
+
+
+# ──────────────────────────────────────────────
+# Phase 4 – Integration tests
+# ──────────────────────────────────────────────
+
+
+class TestPhase4Integration:
+    @pytest.fixture
+    def full_client(self):
+        from scripts.run_server import build_app
+        from fastapi.testclient import TestClient
+        app = build_app(
+            members=5, land_w=10, land_h=10, seed=42,
+            api_keys=set(), moderator_keys={"mod1"},
+        )
+        return TestClient(app)
+
+    def test_full_moderator_workflow(self, full_client):
+        """Pause -> ban -> unban -> resume -> update quotas -> verify events."""
+        c = full_client
+        h = {"X-API-Key": "mod1"}
+
+        # Pause
+        assert c.post("/v1/admin/pause", headers=h).status_code == 200
+        assert c.get("/v1/admin/status", headers=h).json()["paused"] is True
+
+        # Ban agent 1
+        assert c.post("/v1/admin/ban/1", headers=h).status_code == 200
+        status = c.get("/v1/admin/status", headers=h).json()
+        assert 1 in status["banned_agents"]
+
+        # Unban agent 1
+        assert c.post("/v1/admin/unban/1", headers=h).status_code == 200
+
+        # Update quotas
+        assert c.put("/v1/admin/quotas", json={"max_actions_per_round": 5}, headers=h).status_code == 200
+
+        # Resume
+        assert c.post("/v1/admin/resume", headers=h).status_code == 200
+
+        # Verify events
+        events = c.get("/v1/world/events").json()
+        admin_types = [e["event_type"] for e in events if e["event_type"].startswith("admin_")]
+        assert "admin_pause" in admin_types
+        assert "admin_ban" in admin_types
+        assert "admin_unban" in admin_types
+        assert "admin_quotas" in admin_types
+        assert "admin_resume" in admin_types
+
+    def test_constitution_hash_in_receipt_via_api(self, full_client):
+        """Settle a round and verify constitution_hash flows through API."""
+        kernel = full_client.app.state.leviathan["kernel"]
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+
+        resp = full_client.get("/v1/world/rounds/current")
+        assert resp.status_code == 200
+        lr = resp.json()["last_receipt"]
+        assert lr["constitution_hash"] == receipt.constitution_hash
+        assert lr["oracle_signature"] == receipt.oracle_signature
+        assert lr["world_public_key"] is not None
+
+    def test_world_public_key_in_world_info(self, full_client):
+        resp = full_client.get("/v1/world")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "world_public_key" in data
+        assert len(data["world_public_key"]) == 64
+
+    def test_receipt_signature_verifiable(self, full_client):
+        """Verify that a receipt's signature can be cryptographically verified."""
+        import dataclasses
+        import json as _json
+        from kernel.oracle import OracleIdentity
+
+        kernel = full_client.app.state.leviathan["kernel"]
+        kernel.begin_round()
+        receipt = kernel.settle_round(seed=1)
+
+        # Verify using the kernel receipt directly (avoids Pydantic serialization differences)
+        d = dataclasses.asdict(receipt)
+        sig = d.pop("oracle_signature")
+        d["oracle_signature"] = None
+        canonical = _json.dumps(d, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=False, default=str).encode("utf-8")
+
+        assert OracleIdentity.verify_with_public_key(
+            receipt.world_public_key, canonical, sig
+        ) is True
+
+        # Also verify the API exposes the signature
+        resp = full_client.get("/v1/world/rounds/current")
+        lr = resp.json()["last_receipt"]
+        assert lr["oracle_signature"] == receipt.oracle_signature
