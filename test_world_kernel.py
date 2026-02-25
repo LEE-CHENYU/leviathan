@@ -222,6 +222,15 @@ class TestRoundReceipt:
             "judge_results",
             "round_metrics",
             "timestamp",
+            # Phase 4 fields
+            "constitution_hash",
+            "oracle_signature",
+            "world_public_key",
+            "origin_world_id",
+            "origin_receipt_hash",
+            "bridge_channel_id",
+            "bridge_seq",
+            "notary_signature",
         }
         assert field_names == expected
 
@@ -1456,3 +1465,52 @@ class TestOracleIdentity:
         assert OracleIdentity.verify_with_public_key(
             oracle.world_public_key, data, sig
         ) is True
+
+
+class TestReceiptNewFields:
+    def test_receipt_has_constitution_hash(self):
+        receipt = RoundReceipt(
+            round_id=1, seed=42,
+            snapshot_hash_before="aa" * 32, snapshot_hash_after="bb" * 32,
+            accepted_action_ids=[], rejected_action_ids=[],
+            activated_mechanism_ids=[], judge_results=[], round_metrics={},
+            timestamp="t1", constitution_hash="cc" * 32,
+        )
+        assert receipt.constitution_hash == "cc" * 32
+
+    def test_receipt_has_oracle_signature(self):
+        receipt = RoundReceipt(
+            round_id=1, seed=42,
+            snapshot_hash_before="aa" * 32, snapshot_hash_after="bb" * 32,
+            accepted_action_ids=[], rejected_action_ids=[],
+            activated_mechanism_ids=[], judge_results=[], round_metrics={},
+            timestamp="t1", oracle_signature="dd" * 32,
+        )
+        assert receipt.oracle_signature == "dd" * 32
+
+    def test_receipt_has_world_public_key(self):
+        receipt = RoundReceipt(
+            round_id=1, seed=42,
+            snapshot_hash_before="aa" * 32, snapshot_hash_after="bb" * 32,
+            accepted_action_ids=[], rejected_action_ids=[],
+            activated_mechanism_ids=[], judge_results=[], round_metrics={},
+            timestamp="t1", world_public_key="ee" * 16,
+        )
+        assert receipt.world_public_key == "ee" * 16
+
+    def test_receipt_federation_fields_default_none(self):
+        receipt = RoundReceipt(
+            round_id=1, seed=42,
+            snapshot_hash_before="a", snapshot_hash_after="b",
+            accepted_action_ids=[], rejected_action_ids=[],
+            activated_mechanism_ids=[], judge_results=[], round_metrics={},
+            timestamp="t",
+        )
+        assert receipt.constitution_hash is None
+        assert receipt.oracle_signature is None
+        assert receipt.world_public_key is None
+        assert receipt.origin_world_id is None
+        assert receipt.origin_receipt_hash is None
+        assert receipt.bridge_channel_id is None
+        assert receipt.bridge_seq is None
+        assert receipt.notary_signature is None

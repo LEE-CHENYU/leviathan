@@ -27,6 +27,15 @@ class RoundReceiptResponse(BaseModel):
     judge_results: List[Dict[str, Any]]
     round_metrics: Dict[str, float]
     timestamp: str
+    # Phase 4 fields
+    constitution_hash: Optional[str] = None
+    oracle_signature: Optional[str] = None
+    world_public_key: Optional[str] = None
+    origin_world_id: Optional[str] = None
+    origin_receipt_hash: Optional[str] = None
+    bridge_channel_id: Optional[str] = None
+    bridge_seq: Optional[int] = None
+    notary_signature: Optional[str] = None
 
 
 class RoundInfo(BaseModel):
@@ -44,6 +53,11 @@ class EventEnvelope(BaseModel):
     round_id: int
     timestamp: str
     payload: Dict[str, Any]
+    # Phase 4: Federation-prep fields (A4)
+    world_id: Optional[str] = None
+    phase: Optional[str] = None
+    payload_hash: Optional[str] = None
+    prev_event_hash: Optional[str] = None
 
 
 class AgentDiscovery(BaseModel):

@@ -84,3 +84,13 @@ class RoundReceipt:
     judge_results: List[Dict]
     round_metrics: Dict[str, float]
     timestamp: str
+    # Phase 4: Constitution + signing + federation prep
+    constitution_hash: Optional[str] = None
+    oracle_signature: Optional[str] = None
+    world_public_key: Optional[str] = None
+    # Federation fields (K8) — reserved, populated in Phase 5
+    origin_world_id: Optional[str] = None
+    origin_receipt_hash: Optional[str] = None
+    bridge_channel_id: Optional[str] = None
+    bridge_seq: Optional[int] = None
+    notary_signature: Optional[str] = None

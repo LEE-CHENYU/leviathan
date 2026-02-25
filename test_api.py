@@ -1117,3 +1117,31 @@ class TestGovernanceIntegration:
         assert last_event.event_type == "round_settled"
         assert "total_vitality" in last_event.payload.get("round_metrics", {})
         assert "population" in last_event.payload.get("round_metrics", {})
+
+
+# ──────────────────────────────────────────────
+# Phase 4 – EventEnvelope enrichment tests
+# ──────────────────────────────────────────────
+
+class TestEventEnvelopeEnrichment:
+    def test_event_envelope_new_fields_default_none(self):
+        event = EventEnvelope(
+            event_id=1, event_type="test", round_id=1,
+            timestamp="t", payload={},
+        )
+        assert event.world_id is None
+        assert event.phase is None
+        assert event.payload_hash is None
+        assert event.prev_event_hash is None
+
+    def test_event_envelope_with_enriched_fields(self):
+        event = EventEnvelope(
+            event_id=1, event_type="round_settled", round_id=1,
+            timestamp="t", payload={"key": "val"},
+            world_id="w-123", phase="settlement",
+            payload_hash="aa" * 32, prev_event_hash="bb" * 32,
+        )
+        assert event.world_id == "w-123"
+        assert event.phase == "settlement"
+        assert event.payload_hash == "aa" * 32
+        assert event.prev_event_hash == "bb" * 32
