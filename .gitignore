@@ -1,5 +1,6 @@
 __pycache__
 .DS_Store
+.playwright-mcp/
 codex_24h.log
 codex_24h.pid
 codex_24h.stop
