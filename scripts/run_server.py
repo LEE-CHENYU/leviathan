@@ -52,7 +52,12 @@ def build_app(
         random_seed=seed,
     )
     kernel = WorldKernel(config, save_path=save_path)
-    return create_app(kernel, api_keys=api_keys, moderator_keys=moderator_keys, rate_limit=rate_limit, data_dir=data_dir)
+    app = create_app(kernel, api_keys=api_keys, moderator_keys=moderator_keys, rate_limit=rate_limit, data_dir=data_dir)
+    # Wire the store into the kernel for persistent idempotency
+    store = app.state.leviathan.get("store")
+    if store:
+        kernel._store = store
+    return app
 
 
 def _simulation_loop(

@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS snapshots (
     round_id    INTEGER PRIMARY KEY,
     data        TEXT    NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    idempotency_key TEXT    PRIMARY KEY,
+    round_id        INTEGER NOT NULL,
+    result_json     TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_round ON idempotency_keys(round_id);
 """
 
 
@@ -242,3 +250,39 @@ class Store:
     def snapshot_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) FROM snapshots").fetchone()
         return row[0]
+
+    # ── Idempotency Keys ─────────────────────────
+
+    def store_idempotency_key(
+        self, key: str, round_id: int, result_json: str
+    ) -> None:
+        """Store an idempotency key with its result."""
+        self._conn.execute(
+            "INSERT OR REPLACE INTO idempotency_keys (idempotency_key, round_id, result_json) VALUES (?, ?, ?)",
+            (key, round_id, result_json),
+        )
+        self._conn.commit()
+
+    def get_idempotency_result(self, key: str) -> Optional[str]:
+        """Return the stored result JSON for a key, or None."""
+        row = self._conn.execute(
+            "SELECT result_json FROM idempotency_keys WHERE idempotency_key = ?",
+            (key,),
+        ).fetchone()
+        return row["result_json"] if row else None
+
+    def get_idempotency_keys_for_round(self, round_id: int) -> Dict[str, str]:
+        """Return all idempotency keys and results for a given round."""
+        rows = self._conn.execute(
+            "SELECT idempotency_key, result_json FROM idempotency_keys WHERE round_id = ?",
+            (round_id,),
+        ).fetchall()
+        return {r["idempotency_key"]: r["result_json"] for r in rows}
+
+    def clear_idempotency_keys_before_round(self, round_id: int) -> int:
+        """Delete idempotency keys from rounds before the given round. Returns count deleted."""
+        cur = self._conn.execute(
+            "DELETE FROM idempotency_keys WHERE round_id < ?", (round_id,)
+        )
+        self._conn.commit()
+        return cur.rowcount

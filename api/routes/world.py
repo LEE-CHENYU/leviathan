@@ -1,9 +1,12 @@
 """World state and round endpoints for the Leviathan Read API."""
 
+import asyncio
 import dataclasses
+import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
 
 from api.models import DeadlineResponse, EventEnvelope, RoundInfo, RoundReceiptResponse, WorldInfo
 
@@ -74,3 +77,45 @@ def get_events(
     if since_round is None:
         return list(event_log)
     return [e for e in event_log if e.round_id > since_round]
+
+
+@router.get("/events/stream")
+async def stream_events(request: Request, since_round: Optional[int] = None):
+    """Server-Sent Events stream for real-time event observation.
+
+    Sends all existing events matching the filter, then pushes new
+    events as they are appended to the event log.  The client receives
+    one SSE message per ``round_settled`` event with the JSON payload.
+    """
+    event_log = request.app.state.leviathan["event_log"]
+
+    async def event_generator():
+        cursor = 0
+        # Replay existing events that match the filter
+        for i, event in enumerate(event_log):
+            if since_round is not None and event.round_id <= since_round:
+                cursor = i + 1
+                continue
+            yield {
+                "event": event.event_type,
+                "id": str(event.event_id),
+                "data": json.dumps(dataclasses.asdict(event), default=str),
+            }
+            cursor = i + 1
+
+        # Stream new events as they arrive
+        while True:
+            await asyncio.sleep(1.0)
+            if await request.is_disconnected():
+                break
+            current_len = len(event_log)
+            while cursor < current_len:
+                event = event_log[cursor]
+                yield {
+                    "event": event.event_type,
+                    "id": str(event.event_id),
+                    "data": json.dumps(dataclasses.asdict(event), default=str),
+                }
+                cursor += 1
+
+    return EventSourceResponse(event_generator())
