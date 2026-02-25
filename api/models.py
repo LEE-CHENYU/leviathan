@@ -164,3 +164,20 @@ class JudgeStatsResponse(BaseModel):
     rejected: int
     approval_rate: float
     recent_rejections: List[Dict[str, Any]]
+
+
+# ── Phase 4: Moderator / Admin models ────────────
+
+
+class AdminStatusResponse(BaseModel):
+    """Response from GET /v1/admin/status."""
+    paused: bool
+    banned_agents: List[int]
+    quotas: Dict[str, Any]
+    snapshot_history_size: int
+
+
+class QuotaUpdateRequest(BaseModel):
+    """Request body for PUT /v1/admin/quotas."""
+    max_actions_per_round: Optional[int] = None
+    max_proposals_per_round: Optional[int] = None

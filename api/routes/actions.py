@@ -21,6 +21,11 @@ def submit_action(body: ActionSubmitRequest, request: Request):
     if record is None:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
+    # Check if agent is banned
+    mod_state = request.app.state.leviathan["moderator"]
+    if mod_state.is_banned(record.member_id):
+        raise HTTPException(status_code=403, detail="Agent is banned")
+
     pa = PendingAction(
         agent_id=record.agent_id,
         member_id=record.member_id,

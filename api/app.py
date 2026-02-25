@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from api.auth import APIKeyAuth, RateLimiterMiddleware
 from api.deps import create_app_state
 from api.routes.actions import router as actions_router
+from api.routes.admin import router as admin_router
 from api.routes.agents import router as agents_router
 from api.routes.discovery import router as discovery_router
 from api.routes.mechanisms import router as mechanisms_router
@@ -18,6 +19,7 @@ from kernel.world_kernel import WorldKernel
 def create_app(
     kernel: WorldKernel,
     api_keys: Optional[Set[str]] = None,
+    moderator_keys: Optional[Set[str]] = None,
     rate_limit: int = 60,
 ) -> FastAPI:
     """Build and return a configured FastAPI application.
@@ -32,12 +34,15 @@ def create_app(
     api_keys:
         Optional set of valid API keys.  When ``None`` or empty,
         authentication is disabled (open access).
+    moderator_keys:
+        Optional set of moderator API keys.  Moderator keys also
+        pass regular authentication checks.
     rate_limit:
         Maximum requests per minute per client IP.
     """
     app = FastAPI(title="Leviathan Read API", version="0.1.0")
     app.state.leviathan = create_app_state(kernel)
-    app.state.auth = APIKeyAuth(api_keys)
+    app.state.auth = APIKeyAuth(api_keys, moderator_keys)
 
     app.add_middleware(RateLimiterMiddleware, requests_per_minute=rate_limit)
 
@@ -51,5 +56,6 @@ def create_app(
     app.include_router(actions_router)
     app.include_router(mechanisms_router)
     app.include_router(metrics_router)
+    app.include_router(admin_router)
 
     return app

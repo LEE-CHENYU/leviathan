@@ -1173,3 +1173,152 @@ class TestPhase4WorldEndpoint:
         assert lr["constitution_hash"] is not None
         assert lr["oracle_signature"] is not None
         assert lr["world_public_key"] is not None
+
+
+# ── Phase 4: Moderator Auth, Admin Routes, Ban Enforcement Tests ──
+
+
+from api.auth import APIKeyAuth
+
+
+class TestModeratorAuth:
+    def test_moderator_key_is_valid(self):
+        auth = APIKeyAuth(api_keys={"agent1"}, moderator_keys={"mod1"})
+        assert auth.is_moderator_key("mod1") is True
+        assert auth.is_moderator_key("agent1") is False
+        assert auth.is_moderator_key("unknown") is False
+
+    def test_moderator_key_also_valid_as_regular(self):
+        auth = APIKeyAuth(api_keys={"agent1"}, moderator_keys={"mod1"})
+        assert auth.is_valid_key("mod1") is True
+        assert auth.is_valid_key("agent1") is True
+        assert auth.is_valid_key("unknown") is False
+
+    def test_auth_disabled_when_no_keys(self):
+        auth = APIKeyAuth()
+        assert auth.enabled is False
+
+
+class TestAdminEndpoints:
+    @pytest.fixture
+    def mod_client(self):
+        from scripts.run_server import build_app
+        from fastapi.testclient import TestClient
+        app = build_app(
+            members=5, land_w=10, land_h=10, seed=42,
+            api_keys={"agent1"}, moderator_keys={"mod1"},
+        )
+        return TestClient(app)
+
+    def test_admin_status(self, mod_client):
+        resp = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["paused"] is False
+        assert data["banned_agents"] == []
+        assert "quotas" in data
+
+    def test_admin_status_rejects_agent_key(self, mod_client):
+        resp = mod_client.get("/v1/admin/status", headers={"X-API-Key": "agent1"})
+        assert resp.status_code == 403
+
+    def test_pause_and_resume(self, mod_client):
+        resp = mod_client.post("/v1/admin/pause", headers={"X-API-Key": "mod1"})
+        assert resp.status_code == 200
+        status = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"}).json()
+        assert status["paused"] is True
+        resp = mod_client.post("/v1/admin/resume", headers={"X-API-Key": "mod1"})
+        assert resp.status_code == 200
+        status = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"}).json()
+        assert status["paused"] is False
+
+    def test_ban_and_unban(self, mod_client):
+        resp = mod_client.post("/v1/admin/ban/1", headers={"X-API-Key": "mod1"})
+        assert resp.status_code == 200
+        status = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"}).json()
+        assert 1 in status["banned_agents"]
+        resp = mod_client.post("/v1/admin/unban/1", headers={"X-API-Key": "mod1"})
+        assert resp.status_code == 200
+        status = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"}).json()
+        assert 1 not in status["banned_agents"]
+
+    def test_update_quotas(self, mod_client):
+        resp = mod_client.put(
+            "/v1/admin/quotas",
+            json={"max_actions_per_round": 3, "max_proposals_per_round": 1},
+            headers={"X-API-Key": "mod1"},
+        )
+        assert resp.status_code == 200
+        status = mod_client.get("/v1/admin/status", headers={"X-API-Key": "mod1"}).json()
+        assert status["quotas"]["max_actions_per_round"] == 3
+
+    def test_admin_actions_emit_events(self, mod_client):
+        mod_client.post("/v1/admin/pause", headers={"X-API-Key": "mod1"})
+        mod_client.post("/v1/admin/ban/1", headers={"X-API-Key": "mod1"})
+        events = mod_client.get("/v1/world/events").json()
+        admin_events = [e for e in events if e["event_type"].startswith("admin_")]
+        assert len(admin_events) >= 2
+        assert any(e["event_type"] == "admin_pause" for e in admin_events)
+        assert any(e["event_type"] == "admin_ban" for e in admin_events)
+
+    def test_admin_event_has_moderator_hash_not_key(self, mod_client):
+        mod_client.post("/v1/admin/pause", headers={"X-API-Key": "mod1"})
+        events = mod_client.get("/v1/world/events").json()
+        admin_events = [e for e in events if e["event_type"] == "admin_pause"]
+        assert len(admin_events) == 1
+        payload = admin_events[0]["payload"]
+        assert "moderator_key_hash" in payload
+        assert payload["moderator_key_hash"] != "mod1"
+
+
+class TestBanEnforcement:
+    @pytest.fixture
+    def banned_client(self):
+        from scripts.run_server import build_app
+        from fastapi.testclient import TestClient
+        app = build_app(
+            members=5, land_w=10, land_h=10, seed=42,
+            api_keys=set(), moderator_keys={"mod1"},
+        )
+        client = TestClient(app)
+        resp = client.post("/v1/agents/register", json={"name": "test_agent"})
+        assert resp.status_code == 200
+        agent_key = resp.json()["api_key"]
+        member_id = resp.json()["member_id"]
+        kernel = app.state.leviathan["kernel"]
+        round_state = app.state.leviathan["round_state"]
+        kernel.begin_round()
+        round_state.open_submissions(round_id=kernel.round_id, pace=60.0)
+        return client, agent_key, member_id
+
+    def test_banned_agent_action_rejected(self, banned_client):
+        client, agent_key, member_id = banned_client
+        client.post(f"/v1/admin/ban/{member_id}", headers={"X-API-Key": "mod1"})
+        resp = client.post(
+            "/v1/world/actions",
+            json={"code": "pass", "idempotency_key": "k1"},
+            headers={"X-API-Key": agent_key},
+        )
+        assert resp.status_code == 403
+        assert "banned" in resp.json()["detail"].lower()
+
+    def test_banned_agent_proposal_rejected(self, banned_client):
+        client, agent_key, member_id = banned_client
+        client.post(f"/v1/admin/ban/{member_id}", headers={"X-API-Key": "mod1"})
+        resp = client.post(
+            "/v1/world/mechanisms/propose",
+            json={"code": "pass", "description": "test", "idempotency_key": "k2"},
+            headers={"X-API-Key": agent_key},
+        )
+        assert resp.status_code == 403
+
+    def test_unbanned_agent_can_submit(self, banned_client):
+        client, agent_key, member_id = banned_client
+        client.post(f"/v1/admin/ban/{member_id}", headers={"X-API-Key": "mod1"})
+        client.post(f"/v1/admin/unban/{member_id}", headers={"X-API-Key": "mod1"})
+        resp = client.post(
+            "/v1/world/actions",
+            json={"code": "pass", "idempotency_key": "k3"},
+            headers={"X-API-Key": agent_key},
+        )
+        assert resp.status_code == 200

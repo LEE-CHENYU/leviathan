@@ -24,6 +24,11 @@ def propose_mechanism(body: MechanismProposeRequest, request: Request):
     if record is None:
         raise HTTPException(status_code=403, detail="Invalid API key")
 
+    # Check if agent is banned
+    mod_state = request.app.state.leviathan["moderator"]
+    if mod_state.is_banned(record.member_id):
+        raise HTTPException(status_code=403, detail="Agent is banned")
+
     pp = PendingProposal(
         agent_id=record.agent_id, member_id=record.member_id,
         code=body.code, description=body.description,

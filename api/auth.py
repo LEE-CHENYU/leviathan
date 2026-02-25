@@ -11,32 +11,40 @@ from starlette.responses import JSONResponse, Response
 class APIKeyAuth:
     """Callable FastAPI dependency for API key authentication.
 
-    When *api_keys* is ``None`` or empty, authentication is disabled and
-    all requests pass through.  Otherwise the caller must supply a valid
-    key via the ``X-API-Key`` header or the ``api_key`` query parameter.
-
-    Usage in a route::
-
-        @router.post("/v1/world/actions")
-        def submit_action(request: Request, _=Depends(get_auth())):
-            ...
+    Supports two tiers: regular API keys and moderator keys.
+    Moderator keys pass regular auth checks too.
+    When no keys are configured, authentication is disabled.
     """
 
-    def __init__(self, api_keys: Optional[Set[str]] = None) -> None:
-        self.enabled = bool(api_keys)
+    def __init__(self, api_keys=None, moderator_keys=None):
         self.api_keys: Set[str] = api_keys or set()
+        self.moderator_keys: Set[str] = moderator_keys or set()
+        self.enabled = bool(self.api_keys or self.moderator_keys)
+
+    def is_valid_key(self, key: str) -> bool:
+        return key in self.api_keys or key in self.moderator_keys
+
+    def is_moderator_key(self, key: str) -> bool:
+        return key in self.moderator_keys
 
     def __call__(self, request: Request) -> None:
         if not self.enabled:
             return
-
         key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
-
         if not key:
             raise HTTPException(status_code=401, detail="Missing API key")
-
-        if key not in self.api_keys:
+        if not self.is_valid_key(key):
             raise HTTPException(status_code=403, detail="Invalid API key")
+
+    def require_moderator(self, request: Request) -> None:
+        """Dependency that requires a moderator API key."""
+        if not self.enabled:
+            return
+        key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        if not key:
+            raise HTTPException(status_code=401, detail="Missing API key")
+        if not self.is_moderator_key(key):
+            raise HTTPException(status_code=403, detail="Moderator access required")
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):

@@ -31,6 +31,7 @@ def build_app(
     land_h: int,
     seed: int,
     api_keys: Optional[Set[str]] = None,
+    moderator_keys: Optional[Set[str]] = None,
     rate_limit: int = 60,
 ) -> FastAPI:
     """Create a WorldKernel and return a fully configured FastAPI app.
@@ -45,7 +46,7 @@ def build_app(
         random_seed=seed,
     )
     kernel = WorldKernel(config, save_path=save_path)
-    return create_app(kernel, api_keys=api_keys, rate_limit=rate_limit)
+    return create_app(kernel, api_keys=api_keys, moderator_keys=moderator_keys, rate_limit=rate_limit)
 
 
 def _simulation_loop(

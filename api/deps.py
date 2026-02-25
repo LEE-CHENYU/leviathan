@@ -10,6 +10,7 @@ from api.registry import AgentRegistry
 from api.round_state import RoundState
 from kernel.mechanism_registry import MechanismRegistry
 from kernel.judge_adapter import JudgeAdapter
+from kernel.moderator import ModeratorState
 from kernel.world_kernel import WorldKernel
 
 
@@ -22,6 +23,7 @@ def create_app_state(kernel: WorldKernel) -> Dict[str, Any]:
         "round_state": RoundState(),
         "mechanism_registry": MechanismRegistry(),
         "judge": JudgeAdapter(use_dummy=True),
+        "moderator": ModeratorState(),
     }
 
 
