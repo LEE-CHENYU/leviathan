@@ -1,0 +1,12 @@
+[  570669ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  570675ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[  590589ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  590589ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[  640500ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  640500ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[  660500ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  660500ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[  670524ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  670524ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[  680502ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8892' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8892/static/index.html#status:0
+[  680502ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0

@@ -4,6 +4,7 @@
 import argparse
 import dataclasses
 import logging
+import os
 import signal
 import sys
 import tempfile
@@ -187,28 +188,29 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the Leviathan Read API server.",
     )
-    parser.add_argument("--members", type=int, default=10)
-    parser.add_argument("--land", type=_parse_land, default="20x20")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--rounds", type=int, default=0, help="0 = infinite")
-    parser.add_argument("--pace", type=float, default=2.0)
+    _env = os.environ.get
+    parser.add_argument("--members", type=int, default=int(_env("LEVIATHAN_MEMBERS", "10")))
+    parser.add_argument("--land", type=_parse_land, default=_env("LEVIATHAN_LAND", "20x20"))
+    parser.add_argument("--seed", type=int, default=int(_env("LEVIATHAN_SEED", "42")))
+    parser.add_argument("--port", type=int, default=int(_env("PORT", _env("LEVIATHAN_PORT", "8000"))))
+    parser.add_argument("--rounds", type=int, default=int(_env("LEVIATHAN_ROUNDS", "0")), help="0 = infinite")
+    parser.add_argument("--pace", type=float, default=float(_env("LEVIATHAN_PACE", "2.0")))
     parser.add_argument(
         "--api-keys",
         type=str,
-        default="",
+        default=_env("LEVIATHAN_API_KEYS", ""),
         help="Comma-separated API keys (empty = open access)",
     )
     parser.add_argument(
         "--rate-limit",
         type=int,
-        default=60,
+        default=int(_env("LEVIATHAN_RATE_LIMIT", "60")),
         help="Max requests per minute per client IP",
     )
     parser.add_argument(
         "--moderator-keys",
         type=str,
-        default="",
+        default=_env("LEVIATHAN_MODERATOR_KEYS", ""),
         help="Comma-separated moderator API keys (empty = no moderator access)",
     )
     args = parser.parse_args()

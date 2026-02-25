@@ -1,0 +1,2 @@
+[      70ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8889/static/index.html:0
+[      78ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8889/favicon.ico:0

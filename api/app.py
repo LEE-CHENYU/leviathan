@@ -3,6 +3,7 @@
 from typing import Dict, Optional, Set
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.auth import APIKeyAuth, RateLimiterMiddleware
 from api.deps import create_app_state
@@ -44,6 +45,12 @@ def create_app(
     app.state.leviathan = create_app_state(kernel)
     app.state.auth = APIKeyAuth(api_keys, moderator_keys)
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["X-API-Key", "Content-Type"],
+    )
     app.add_middleware(RateLimiterMiddleware, requests_per_minute=rate_limit)
 
     @app.get("/health")

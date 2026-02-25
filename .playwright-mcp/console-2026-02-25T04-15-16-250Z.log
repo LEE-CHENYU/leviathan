@@ -1,0 +1,5 @@
+[     485ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8888' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8888/index.html:0
+[     486ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
+[     490ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8888/favicon.ico:0
+[   10342ms] [ERROR] Access to fetch at 'https://leviathan.fly.dev/v1/world' from origin 'http://localhost:8888' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8888/index.html:0
+[   10342ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://leviathan.fly.dev/v1/world:0
