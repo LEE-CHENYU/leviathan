@@ -17,8 +17,10 @@ services:
       --pace ${LEVIATHAN_PACE:-2.0}
       --rounds ${LEVIATHAN_ROUNDS:-0}
       --rate-limit ${LEVIATHAN_RATE_LIMIT:-60}
+      --data-dir /data/leviathan
     volumes:
       - ./:/app
+      - leviathan-data:/data/leviathan
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -26,3 +28,6 @@ services:
       start_period: 5s
       retries: 3
     restart: unless-stopped
+
+volumes:
+  leviathan-data:

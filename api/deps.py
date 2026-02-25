@@ -14,14 +14,20 @@ from kernel.moderator import ModeratorState
 from kernel.world_kernel import WorldKernel
 
 
-def create_app_state(kernel: WorldKernel) -> Dict[str, Any]:
-    """Build the shared application state dictionary from a kernel instance."""
+def create_app_state(kernel: WorldKernel, data_dir: str = "") -> Dict[str, Any]:
+    """Build the shared application state dictionary from a kernel instance.
+
+    If *data_dir* is provided, the mechanism registry will persist its
+    state to a JSON file inside that directory so it survives restarts.
+    """
+    import os
+    persist_path = os.path.join(data_dir, "mechanisms.json") if data_dir else None
     return {
         "kernel": kernel,
         "event_log": [],
         "registry": AgentRegistry(),
         "round_state": RoundState(),
-        "mechanism_registry": MechanismRegistry(),
+        "mechanism_registry": MechanismRegistry(persist_path=persist_path),
         "judge": JudgeAdapter(use_dummy=True),
         "moderator": ModeratorState(),
     }

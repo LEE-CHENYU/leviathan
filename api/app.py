@@ -22,6 +22,7 @@ def create_app(
     api_keys: Optional[Set[str]] = None,
     moderator_keys: Optional[Set[str]] = None,
     rate_limit: int = 60,
+    data_dir: str = "",
 ) -> FastAPI:
     """Build and return a configured FastAPI application.
 
@@ -40,9 +41,11 @@ def create_app(
         pass regular authentication checks.
     rate_limit:
         Maximum requests per minute per client IP.
+    data_dir:
+        Directory for persistent state (mechanisms, etc.).
     """
     app = FastAPI(title="Leviathan Read API", version="0.1.0")
-    app.state.leviathan = create_app_state(kernel)
+    app.state.leviathan = create_app_state(kernel, data_dir=data_dir)
     app.state.auth = APIKeyAuth(api_keys, moderator_keys)
 
     app.add_middleware(

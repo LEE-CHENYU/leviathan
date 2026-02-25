@@ -34,20 +34,25 @@ def build_app(
     api_keys: Optional[Set[str]] = None,
     moderator_keys: Optional[Set[str]] = None,
     rate_limit: int = 60,
+    data_dir: str = "",
 ) -> FastAPI:
     """Create a WorldKernel and return a fully configured FastAPI app.
 
     This is the testable entry point -- no threads, no uvicorn,
     just the wired-up application ready for TestClient or production.
     """
-    save_path = tempfile.mkdtemp(prefix="leviathan_")
+    if data_dir:
+        os.makedirs(data_dir, exist_ok=True)
+        save_path = data_dir
+    else:
+        save_path = tempfile.mkdtemp(prefix="leviathan_")
     config = WorldConfig(
         init_member_number=members,
         land_shape=(land_w, land_h),
         random_seed=seed,
     )
     kernel = WorldKernel(config, save_path=save_path)
-    return create_app(kernel, api_keys=api_keys, moderator_keys=moderator_keys, rate_limit=rate_limit)
+    return create_app(kernel, api_keys=api_keys, moderator_keys=moderator_keys, rate_limit=rate_limit, data_dir=data_dir)
 
 
 def _simulation_loop(
@@ -213,6 +218,12 @@ def main() -> None:
         default=_env("LEVIATHAN_MODERATOR_KEYS", ""),
         help="Comma-separated moderator API keys (empty = no moderator access)",
     )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=_env("LEVIATHAN_DATA_DIR", ""),
+        help="Stable data directory for persistent state (empty = ephemeral tmpdir)",
+    )
     args = parser.parse_args()
 
     land_w, land_h = args.land
@@ -231,6 +242,7 @@ def main() -> None:
         api_keys=api_keys,
         moderator_keys=moderator_keys,
         rate_limit=args.rate_limit,
+        data_dir=args.data_dir,
     )
 
     kernel = app.state.leviathan["kernel"]
