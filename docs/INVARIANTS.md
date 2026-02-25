@@ -6,6 +6,19 @@
 
 This document is the single source of truth for what must never break. It consolidates invariants from the constitutional model (`docs/system-design/05-meta-edit.md`), kernel constitution (`kernel/constitution_default.yaml`), and engineering constraints (`CLAUDE.md`).
 
+## Three-Layer Model
+
+Leviathan's rules are organized into three layers with different amendment authority:
+
+| Layer | What | Can agents change it? |
+|-------|------|-----------------------|
+| **Layer 0: Kernel (immutable)** | Deterministic replay, event log integrity, energy conservation, identity permanence, canary-before-commit, checkpoint accessibility | **No.** These are the trusted computing base. |
+| **Layer 1: Engineering** | State persistence, atomic writes, single writer, bounded memory, deployment continuity | **No.** These are infrastructure contracts. |
+| **Layer 2: Governance (default, amendable)** | Voting process, activation thresholds, judge advisory role, canary divergence thresholds, proposal limits, tax limits | **Yes.** These are defaults we provide as a kickstart. Agents can propose mechanisms that revise HOW governance works. |
+| **World rules (fully open)** | Specific mechanisms, safety mechanisms, contracts, physics constraints, markets | **Yes.** This is the creative playground. |
+
+Governance rules are defaults, not commandments. If agents believe a better governance process exists, they can propose it as a mechanism through the standard pipeline.
+
 ---
 
 ## Layer 0: Kernel Invariants (Unamendable)
@@ -59,6 +72,23 @@ These are the trusted computing base. If any of these break, the world loses mea
 
 - Once assigned, an agent ID is never reused, even if the member dies.
 - The mapping `agent_id -> member_id` is immutable for the lifetime of a registration.
+
+### I-7. Recovery Accessibility
+
+> Agents may propose reversion to any available checkpoint. Recovery is a mechanism, not a system-imposed action.
+
+- Checkpoint restoration goes through the standard mechanism pipeline (canary testing + agent vote).
+- The system provides checkpoint access (`get_available_checkpoints()`) but never forces a rollback on agents' behalf.
+- Restoring a checkpoint appends a `checkpoint_restored` event to the log (preserving I-2).
+
+### I-8. Canary Before Commit
+
+> No mechanism code executes against live world state without a prior canary run against a state clone.
+
+- Canary testing runs the mechanism against a deep copy of mutable state.
+- Only the `CanaryReport` is persisted; the cloned state is ephemeral.
+- Canary results (vitality changes, agent deaths, divergence flags) are visible to all agents.
+- The canary run uses a forked seeded PRNG to preserve I-1 compliance.
 
 ---
 
@@ -117,15 +147,16 @@ Non-authoritative (ephemeral) state that may be lost:
 
 ---
 
-## Layer 2: Governance Invariants (Amendable with Guardrails)
+## Layer 2: Governance Invariants (Amendable Defaults)
 
-These can be changed through in-world governance, but changes require judge approval and are subject to Layer 0 constraints.
+These are default governance rules provided as a kickstart. Agents can propose mechanisms that amend any of these through the standard pipeline (canary testing + agent vote). Changes are subject to Layer 0 constraints.
 
 ### G-1. Mechanism Lifecycle
 
 - One mechanism proposal per agent per round.
-- Proposals must pass judge evaluation before activation.
+- Proposals must pass canary testing and agent vote before activation. The judge provides advisory input.
 - Activated mechanisms are recorded in the event log.
+- This lifecycle is itself a governance rule that agents may amend.
 
 ### G-2. Tax Limits
 
@@ -133,8 +164,29 @@ These can be changed through in-world governance, but changes require judge appr
 
 ### G-3. Judge Independence
 
+- The judge provides advisory opinions (LOW/MEDIUM/HIGH concern level); it does not have veto power.
 - Judge policy can be amended by governance.
 - Judge infrastructure (the evaluation service itself) cannot be replaced by in-world action.
+
+### G-4. Agent Safety Mechanisms
+
+- Agents may propose safety mechanisms (watchdogs, audits, insurance, circuit breakers) through the standard mechanism pipeline.
+- The system does not impose safety top-down — agents build their own defenses.
+- Safety mechanisms follow the same lifecycle as any other mechanism (canary + vote).
+
+### G-5. Voting Process
+
+- All living agents may vote on mechanism proposals.
+- Default activation threshold: majority of living agents.
+- Agents vote from behind the veil of ignorance — for the common good, not self-interest.
+- This process is itself amendable: agents may propose mechanisms that change how voting works (e.g., weighted voting, delegation, supermajority requirements).
+
+### G-6. Activation Timing
+
+- Mechanism activation defers until the voting threshold is met. No artificial deadline.
+- Proposals submitted in round N have canary results available from round N onward.
+- Voting stays open until sufficient proportion of living agents have voted.
+- A mechanism may activate in round N+1 (if agents vote quickly) or round N+5 (if votes trickle in).
 
 ---
 

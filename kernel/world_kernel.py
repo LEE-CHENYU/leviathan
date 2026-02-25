@@ -419,6 +419,72 @@ class WorldKernel:
         with self._lock:
             return self._last_receipt
 
+    # ── Checkpoints ────────────────────────────────
+
+    def get_available_checkpoints(self) -> List[Dict]:
+        """Return checkpoint metadata that agents can see."""
+        with self._lock:
+            if not self._store:
+                return []
+            return self._store.list_snapshots()
+
+    def restore_checkpoint(self, round_id: int) -> bool:
+        """Restore world state to a checkpoint.
+
+        Appends 'checkpoint_restored' event to log (preserves I-2: append-only).
+        Does NOT delete any events — the restore is itself a new event.
+
+        Returns True if restore succeeded, False if snapshot not found.
+        """
+        with self._lock:
+            if not self._store:
+                return False
+            snapshot_data = self._store.get_snapshot(round_id)
+            if snapshot_data is None:
+                return False
+
+            # Restore member state from snapshot
+            members_data = snapshot_data.get("members", [])
+            for mdata in members_data:
+                if not isinstance(mdata, dict):
+                    continue
+                mid = mdata.get("id")
+                if mid is None:
+                    continue
+                member = self._find_member_by_id(mid)
+                if member is None:
+                    continue
+                for attr in ("vitality", "cargo", "land_num"):
+                    if attr in mdata:
+                        setattr(member, attr, mdata[attr])
+
+            # Append checkpoint_restored event (preserves I-2)
+            import datetime as _dt
+            self._store.append_event(
+                event_type="checkpoint_restored",
+                round_id=self._round_id,
+                timestamp=_dt.datetime.utcnow().isoformat(),
+                payload={
+                    "restored_to_round": round_id,
+                    "current_round": self._round_id,
+                },
+                world_id=self._world_id,
+                phase="checkpoint_restore",
+            )
+            return True
+
+    def _collect_snapshot_data(self) -> Dict:
+        """Collect current state into a snapshot dict for storage."""
+        members = []
+        for m in self._execution.current_members:
+            members.append({
+                "id": m.id,
+                "vitality": float(m.vitality),
+                "cargo": float(m.cargo),
+                "land_num": int(m.land_num),
+            })
+        return {"members": members, "round_id": self._round_id}
+
     # ── Private helpers ───────────────────────────
 
     def _find_member_by_id(self, member_id: int):

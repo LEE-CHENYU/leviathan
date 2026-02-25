@@ -13,22 +13,22 @@ introduction: |
      - Create realistic resource extraction/transformation rules
      - Propose conservation laws
 
-  3. JUDGE SYSTEM
-     - Your code will be validated for realism
-     - No free resources or exploits allowed
-     - Must follow conservation laws
+  3. CANARY TESTING & VOTING
+     - Your mechanism proposal will be canary-tested against a deep copy of world state
+     - All living agents see the canary results (vitality changes, agent deaths, flags)
+     - The judge provides an advisory concern level (LOW/MEDIUM/HIGH) — not a veto
+     - All living agents vote; majority threshold activates the mechanism
+     - Conservation laws still apply: no free resources, debit sources before crediting
      - If you create a resource system under a custom name, also set execution_engine.resources for compatibility
      - Never seed inventories from cargo/vitality/land without deducting the source
-     - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources
-     - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately
-     - Use a single source of truth (member.cargo or a finite pool); do not let inventory caches diverge
-     - Verify balances in the source of truth before any transfer/trade/fee
-     - If converting cargo/vitality/land into multiple resources, total outputs must not exceed the debited input
-     - If using multipliers > 1.0, pair them with explicit costs or caps to preserve conservation
-     - When writing to inventories, use setdefault() before indexing
+     - Use a single source of truth (member.cargo or a finite pool); verify balances before transfers
      - Inter-agent transfers must be opt-in; no unilateral extraction
-     - If using currency/credits, require explicit balances and checks (no default balances)
-     - When returning IDs or indices, insert into the list/dict first and return the actual key
+
+  4. SAFETY MECHANISMS
+     - You can propose watchdogs, insurance pools, audit functions, and circuit breakers
+     - Safety mechanisms go through the same canary + vote pipeline as any other mechanism
+     - The system does not impose safety top-down — agents build their own defenses
+     - See safety_templates below for examples
 
 contract_templates:
   - name: "Resource Definition & Extraction"
@@ -530,6 +530,177 @@ physics_templates:
 
               execution_engine.market = MarketSystem()
 
+safety_templates:
+  - name: "Vitality Watchdog"
+    description: "Monitor vitality changes and alert agents to anomalies"
+    code: |
+      def propose_modification(execution_engine):
+          '''Monitor vitality changes and alert agents to anomalies'''
+
+          if not hasattr(execution_engine, 'watchdog'):
+              class VitalityWatchdog:
+                  def __init__(self):
+                      self.baseline = {}  # {member_id: vitality}
+                      self.alerts = []
+                      self.threshold_pct = 30.0  # alert if vitality drops >30%
+
+                  def snapshot_baseline(self, execution_engine):
+                      self.baseline = {}
+                      for m in execution_engine.current_members:
+                          self.baseline[m.id] = float(m.vitality)
+
+                  def check_anomalies(self, execution_engine):
+                      self.alerts = []
+                      for m in execution_engine.current_members:
+                          baseline_v = self.baseline.get(m.id)
+                          if baseline_v is not None and baseline_v > 0:
+                              change_pct = ((m.vitality - baseline_v) / baseline_v) * 100
+                              if change_pct < -self.threshold_pct:
+                                  self.alerts.append({
+                                      'member_id': m.id,
+                                      'baseline': baseline_v,
+                                      'current': float(m.vitality),
+                                      'change_pct': change_pct,
+                                  })
+                      return self.alerts
+
+              execution_engine.watchdog = VitalityWatchdog()
+              execution_engine.watchdog.snapshot_baseline(execution_engine)
+
+  - name: "Insurance Pool"
+    description: "Collective fund against mechanism failures"
+    code: |
+      def propose_modification(execution_engine):
+          '''Collective fund against mechanism failures — opt-in only'''
+
+          if not hasattr(execution_engine, 'insurance'):
+              class InsurancePool:
+                  def __init__(self):
+                      self.pool = 0.0
+                      self.members = {}  # {member_id: contributed}
+                      self.premium_rate = 0.02  # 2% of cargo per round
+
+                  def join(self, member_id, execution_engine):
+                      if member_id in self.members:
+                          return False
+                      member = None
+                      for m in execution_engine.current_members:
+                          if m.id == member_id:
+                              member = m
+                              break
+                      if member is None:
+                          return False
+                      premium = member.cargo * self.premium_rate
+                      if member.cargo < premium or premium <= 0:
+                          return False
+                      member.cargo -= premium
+                      self.pool += premium
+                      self.members[member_id] = premium
+                      return True
+
+                  def claim(self, member_id, amount, execution_engine):
+                      if member_id not in self.members:
+                          return 0
+                      payout = min(amount, self.pool * 0.2)  # max 20% of pool per claim
+                      if payout <= 0:
+                          return 0
+                      self.pool -= payout
+                      for m in execution_engine.current_members:
+                          if m.id == member_id:
+                              m.cargo += payout
+                              return payout
+                      return 0
+
+              execution_engine.insurance = InsurancePool()
+
+  - name: "State Audit"
+    description: "Periodic state inspection that reports anomalies"
+    code: |
+      def propose_modification(execution_engine):
+          '''Periodic state inspection — reports conservation violations'''
+
+          if not hasattr(execution_engine, 'audit'):
+              class StateAudit:
+                  def __init__(self):
+                      self.reports = []
+
+                  def run_audit(self, execution_engine):
+                      total_vitality = sum(
+                          float(m.vitality) for m in execution_engine.current_members
+                      )
+                      total_cargo = sum(
+                          float(m.cargo) for m in execution_engine.current_members
+                      )
+                      report = {
+                          'total_vitality': total_vitality,
+                          'total_cargo': total_cargo,
+                          'member_count': len(execution_engine.current_members),
+                          'anomalies': [],
+                      }
+
+                      # Check for negative values
+                      for m in execution_engine.current_members:
+                          if m.vitality < 0:
+                              report['anomalies'].append(
+                                  f"Member {m.id} has negative vitality: {m.vitality}"
+                              )
+                          if m.cargo < 0:
+                              report['anomalies'].append(
+                                  f"Member {m.id} has negative cargo: {m.cargo}"
+                              )
+
+                      self.reports.append(report)
+                      return report
+
+              execution_engine.audit = StateAudit()
+
+  - name: "Circuit Breaker"
+    description: "Auto-disable a mechanism if metrics cross thresholds"
+    code: |
+      def propose_modification(execution_engine):
+          '''Circuit breaker — tracks metric thresholds and flags mechanisms for disable'''
+
+          if not hasattr(execution_engine, 'circuit_breaker'):
+              class CircuitBreaker:
+                  def __init__(self):
+                      self.trips = []  # [{mechanism_name, reason, round}]
+                      self.vitality_floor = 0.3  # trip if total vitality drops below 30% of baseline
+
+                  def check(self, execution_engine, baseline_vitality, current_round):
+                      total_now = sum(
+                          float(m.vitality) for m in execution_engine.current_members
+                      )
+                      if baseline_vitality > 0 and total_now / baseline_vitality < self.vitality_floor:
+                          self.trips.append({
+                              'reason': f'total_vitality_below_{self.vitality_floor*100:.0f}%',
+                              'round': current_round,
+                              'total_vitality': total_now,
+                              'baseline': baseline_vitality,
+                          })
+                          return True
+                      return False
+
+              execution_engine.circuit_breaker = CircuitBreaker()
+
+  - name: "Checkpoint Recovery"
+    description: "Propose restoring a specific checkpoint"
+    code: |
+      def propose_modification(execution_engine):
+          '''Propose restoring a specific checkpoint — goes through canary + vote'''
+
+          checkpoints = execution_engine.get_available_checkpoints()
+          if not checkpoints:
+              return
+
+          # Restore the most recent checkpoint
+          target_round = checkpoints[0].get('round_id')
+          if target_round is None:
+              return
+
+          # Restore member state from checkpoint data
+          # This is a simplified version — the full restore goes through WorldKernel
+          pass
+
 usage_guidelines:
   steps:
     - title: "START WITH RESOURCES"
@@ -557,18 +728,15 @@ usage_guidelines:
         - "Create liquidity"
 
   reminders:
-    - "Judge will reject unrealistic physics (free resources, no costs)"
+    - "Your mechanism will be canary-tested — empirical results are visible to all agents before voting"
+    - "The judge provides advisory concern levels (LOW/MEDIUM/HIGH), not approval/rejection"
+    - "All living agents vote; majority threshold activates. No artificial deadline."
+    - "Conservation laws apply: no free resources, debit sources before crediting"
     - "No unilateral transfers or member-specific bonuses; use opt-in contracts"
-    - "Do not default currency balances; require explicit funding and balance checks"
-    - "Avoid minting credits/currency unless strictly tied to resource burn and conserved supply"
-    - "Do not directly increase member.vitality/cargo/land; use conserved transfers or explicit debits"
-    - "Defense/support contracts should trigger existing actions or transfers, not free vitality boosts"
-    - "Do not convert cargo/vitality/land into inventory without subtracting from the source"
-    - "Avoid shadow inventories; always debit the source of truth when crediting inventory"
-    - "If splitting inputs into multiple resources, keep total outputs <= inputs (no amplification)"
-    - "Cap or cost any multipliers > 1.0 so totals remain conserved"
-    - "Contracts must be mutually beneficial to be signed"
-    - "Build systems that help ALL agents, not just you"
+    - "Do not directly increase member.vitality/cargo/land; use conserved transfers"
     - "Focus on creating realistic, sustainable economics"
-    - "Prefer opt-in, parameterized mechanisms that preserve multiple viable strategies"
-    - "Add explicit rollback/stop conditions for trials (cancel/complete)"
+    - "Prefer opt-in mechanisms that preserve multiple viable strategies"
+    - "Add explicit rollback/stop conditions for trials"
+    - "Consider proposing safety mechanisms (watchdogs, insurance, circuit breakers)"
+    - "Vote on others' proposals from behind the veil of ignorance — for the common good"
+    - "Checkpoints are available — plan for recovery proactively"

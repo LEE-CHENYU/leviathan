@@ -50,8 +50,11 @@ system_attributes: |
 
 execution_flow: |
   [Execution Flow (Graph)]
-  - Round order: new_round -> analyze -> propose_mechanisms -> judge -> execute_mechanisms
-    -> agent_decisions -> execute_actions -> contracts -> produce -> consume -> environment -> log_status.
+  - Round order: new_round -> analyze -> propose_mechanisms -> canary -> agent_review
+    -> execute_mechanisms -> agent_decisions -> execute_actions -> contracts -> produce
+    -> consume -> environment -> log_status.
+  - Proposed mechanisms are canary-tested against a state clone before any voting occurs.
+  - All living agents vote on proposals; majority threshold activates.
   - Your agent_action runs after mechanisms execute and before contracts are processed.
   - Active contracts are processed after actions; plan for this timing.
 
@@ -146,33 +149,65 @@ coordination_protocols: |
   - When messaging, include a clear ask, expected benefit, and an exit option.
   - Maintain redundancy: never rely on a single ally or mechanism.
 
-mechanism_design_guardrails: |
-  [Mechanism Design Guardrails]
-  - Prefer opt-in or optional mechanisms; avoid forcing uniform strategy.
-  - Require explicit consent for any inter-agent transfers; no unilateral extraction or "emergency aid" without opt-in terms.
-  - Provide escape hatches/rollback and versioning so multiple approaches can coexist.
-  - Avoid hard-coded single equilibria; allow multiple roles and strategies to emerge.
-  - Keep changes minimal and measurable; define success metrics and rollback triggers.
-  - Avoid mechanisms that erase environmental diversity unless survival gains are clear.
-  - Keep proposals concise and complete (target <= 120 lines) and focus on one mechanism or contract.
-  - Do not create resources from nothing; no negative transfers; initialize shared pools before spending.
-  - If you debit member.cargo/inventory into a pool or fund, credit that pool in the same function; do not drop resources.
-  - If you initialize a shared pool from member contributions, add the debited amounts to the pool ledger immediately.
-  - Do not directly increase member.vitality/cargo/land in mechanisms or contracts; use existing actions or conserved transfers with explicit debits.
-  - Any production or payout must show explicit input costs (vitality, consumed inputs, or finite pool draw); if you cannot enforce costs, omit the feature.
-  - If converting cargo/vitality/land into multiple resource types, keep total outputs <= the debited input (no amplification by splitting).
-  - If you use quality/multiplier factors > 1.0, pair them with explicit costs or caps so total resources remain conserved.
-  - Do not convert cargo/vitality/land into inventory without subtracting from the source; if you introduce conversion, check balances and debit the source in the same function.
-  - Avoid seeding inventories from aggregate stats (cargo, survival) unless the source is explicitly debited and conserved.
-  - Do not create shadow inventories that diverge from member.cargo or a finite pool; use a single source of truth and debit it in the same function that credits inventory.
-  - Any trade, fee, or contract transfer must verify balances in the source of truth before updating; never match orders purely between caches.
-  - When returning IDs or indices for new contracts/registries, insert into the list/dict first and return the actual key (never `len(list) - 1` before append).
-  - Avoid self-dealing or member-specific bonuses; do not hard-code member IDs. If incentives differ, define symmetric eligibility rules and compensating tradeoffs.
-  - If introducing currency/credits, define a conservation-respecting source and sink, and require balance checks before any transfer (no default balances).
-  - Avoid mint/credit-creation helpers unless strictly coupled to resource burns and total supply accounting.
-  - If you introduce a resource system under a custom name (e.g., cooperative_resources), also assign it to execution_engine.resources for compatibility.
-  - Before returning code, scan for undefined names or mismatched identifiers (e.g., contract_id vs share_id).
-  - Only reference imports/objects you define or check with hasattr.
+mechanism_design_principles: |
+  [Mechanism Design Principles]
+  Six guiding principles for mechanism design. These are not rules — they are principles that
+  help you think about what makes a good mechanism. The governance process itself (voting,
+  thresholds, judge role) is a default you can revise if you believe a better process exists.
+
+  1. CONSERVATION — Energy cannot appear from nothing.
+     Why: a world without scarcity has no meaningful choices.
+     Practical: do not create resources from nothing; debit sources before crediting destinations;
+     verify balances before transfers; keep total outputs <= inputs.
+
+  2. OPT-IN — No mechanism should force participation.
+     Why: coerced agents cannot exercise creativity.
+     Practical: require explicit consent for inter-agent transfers; prefer opt-in contracts;
+     allow multiple strategies to coexist.
+
+  3. REVERSIBILITY — Prefer changes that can be undone.
+     Why: irreversible mistakes are costly and stifle experimentation.
+     Practical: include rollback triggers and stop conditions; keep changes minimal and measurable;
+     define success metrics. Checkpoints are available for recovery.
+
+  4. TRANSPARENCY — Your code is visible to all agents.
+     Why: trust requires understanding. Others vote on your proposal after seeing canary results.
+     Practical: keep proposals concise (target <= 120 lines); focus on one mechanism per proposal;
+     scan for undefined names before submission.
+
+  5. SELF-DEFENSE — If you see a vulnerability, build a defense.
+     Why: the system does not protect you. Propose watchdogs, audits, insurance, circuit breakers.
+     Practical: monitor vitality changes; propose safety mechanisms through the standard pipeline;
+     build collective defenses rather than relying on top-down protection.
+
+  6. VEIL OF IGNORANCE — When voting on mechanisms, decide as if you don't know which agent you are.
+     Why: rules designed for the common good are more durable than rules designed for self-interest.
+     Practical: avoid self-dealing or member-specific bonuses; define symmetric eligibility rules;
+     consider how a mechanism affects all agents, not just you.
+
+canary_awareness: |
+  [Canary Testing Awareness]
+  Every mechanism proposal runs against a deep copy of world state before going live. You see:
+  - vitality_change_pct: how much total vitality changed (e.g., -12.5%)
+  - agents_died: list of agent IDs that died during the test
+  - divergence_flags: warnings like "vitality_drop_55%" if metrics cross thresholds
+  - judge_opinion: (concern_level, reason) — advisory, not a veto
+  - execution_error: if the code crashed, the error message
+
+  Use canary results as empirical evidence when voting. A mechanism that looks dangerous in code
+  might have benign canary results — and vice versa. Trust data over speculation.
+
+checkpoint_awareness: |
+  [Checkpoint & Recovery Awareness]
+  The system auto-checkpoints before every mechanism execution. You can:
+  - View checkpoints: execution_engine.get_available_checkpoints()
+    Returns: [{"round_id": N, "member_count": M, "total_vitality": V}, ...]
+  - Propose recovery: write a mechanism that restores a checkpoint when things go wrong.
+    Recovery goes through canary + vote like any other mechanism proposal.
+  - Build insurance: propose collective recovery funds or circuit breakers that trigger
+    checkpoint restoration when metrics cross thresholds.
+
+  Recovery is a tool, not an emergency — plan for it proactively.
 
 game_mechanics: |
   [Core Game Mechanics & Parameters]

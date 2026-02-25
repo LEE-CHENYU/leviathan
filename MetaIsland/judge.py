@@ -1,6 +1,7 @@
 """
-Judge system for validating agent-proposed code.
-Prevents unrealistic physics, reward hacking, and exploits.
+Judge system for providing advisory assessment of agent-proposed code.
+Rates concern level (LOW/MEDIUM/HIGH) for mechanism proposals.
+The judge is advisory — it does not have veto power over proposals.
 """
 from typing import Tuple, Dict, Any
 from datetime import datetime
@@ -11,7 +12,12 @@ from MetaIsland.llm_utils import build_chat_kwargs
 
 
 class Judge:
-    """Simple LLM judge for validating agent code"""
+    """LLM judge for providing advisory assessment of agent code.
+
+    The judge rates proposals with concern levels (LOW/MEDIUM/HIGH) and
+    provides explanations. It does not have veto power — approval is
+    determined by canary testing and agent voting.
+    """
 
     def __init__(self, model_name: str = "default"):
         self.client = get_llm_client()
@@ -21,7 +27,7 @@ class Judge:
     def judge_proposal(self, code: str, proposer_id: int,
                       proposal_type: str, context: Dict = None) -> Tuple[bool, str]:
         """
-        Judge whether a code proposal should be approved.
+        Judge whether a code proposal should be approved (legacy interface).
 
         Args:
             code: The proposed code
@@ -66,6 +72,62 @@ class Judge:
             print(f"Error in judge: {e}")
             # Default to rejecting on error
             return False, f"Judge error: {str(e)}"
+
+    def judge_proposal_advisory(self, code: str, proposer_id: int,
+                                proposal_type: str, context: Dict = None) -> Tuple[str, str]:
+        """
+        Provide advisory assessment of a code proposal.
+
+        Args:
+            code: The proposed code
+            proposer_id: ID of the agent proposing
+            proposal_type: Type of proposal ('mechanism', 'action', 'constraint')
+            context: Additional context for judging
+
+        Returns:
+            (concern_level, reason): Concern level (LOW/MEDIUM/HIGH) and explanation
+        """
+        context = context or {}
+
+        advisory_prompt = self._build_advisory_prompt(code, proposer_id, proposal_type, context)
+
+        try:
+            kwargs = build_chat_kwargs()
+            kwargs["temperature"] = 0
+            response = self.client.chat.completions.create(
+                model=f'{self.provider}:{self.model_id}',
+                messages=[{"role": "user", "content": advisory_prompt}],
+                **kwargs
+            )
+
+            result = response.choices[0].message.content.strip()
+
+            # Parse concern level
+            upper = result.upper()
+            if upper.startswith("LOW"):
+                concern_level = "LOW"
+            elif upper.startswith("HIGH"):
+                concern_level = "HIGH"
+            else:
+                concern_level = "MEDIUM"
+
+            reason = result.split(":", 1)[1].strip() if ":" in result else result
+
+            # Log advisory
+            self._log_judgment({
+                'proposer_id': proposer_id,
+                'proposal_type': proposal_type,
+                'concern_level': concern_level,
+                'reason': reason,
+                'advisory': True,
+                'timestamp': datetime.now().isoformat()
+            })
+
+            return concern_level, reason
+
+        except Exception as e:
+            print(f"Error in judge advisory: {e}")
+            return "MEDIUM", f"Judge advisory error: {str(e)}"
 
     def _build_judge_prompt(self, code: str, proposer_id: int,
                            proposal_type: str, context: Dict) -> str:
@@ -145,6 +207,37 @@ CODE TO JUDGE:
 Reply with ONLY one of:
 APPROVE: [brief reason]
 REJECT: [specific violation found]
+"""
+        return prompt
+
+    def _build_advisory_prompt(self, code: str, proposer_id: int,
+                               proposal_type: str, context: Dict) -> str:
+        """Build the advisory prompt for concern-level assessment."""
+
+        prompt = f"""
+You are providing an advisory assessment of agent code for a realistic economic simulation.
+Your role is advisory — you do not approve or reject. You rate the concern level so agents
+can make informed voting decisions.
+
+PROPOSAL TYPE: {proposal_type}
+PROPOSER: Agent {proposer_id}
+
+CODE TO ASSESS:
+```python
+{code}
+```
+
+ASSESS FOR:
+1. Conservation law violations (creating energy/resources from nothing)
+2. Fairness concerns (self-dealing, unilateral extraction)
+3. Stability risks (could crash, infinite loops, resource depletion)
+4. Reversibility (can effects be undone if it goes wrong?)
+5. Benefits (what positive outcomes might this enable?)
+
+Reply with ONLY one of:
+LOW: [brief reason — minimal concerns, likely beneficial]
+MEDIUM: [brief reason — some concerns but also benefits]
+HIGH: [brief reason — significant risks identified]
 """
         return prompt
 

@@ -23,7 +23,8 @@ from MetaIsland.judge import Judge
 from MetaIsland.nodes import (
     NewRoundNode, ProduceNode, ConsumeNode, LogStatusNode,
     AnalyzeNode, ProposeMechanismNode, AgentDecisionNode, ExecuteActionsNode,
-    JudgeNode, ExecuteMechanismsNode, ContractNode, EnvironmentNode
+    JudgeNode, ExecuteMechanismsNode, ContractNode, EnvironmentNode,
+    CanaryNode, AgentReviewNode
 )
 
 from dotenv import load_dotenv
@@ -940,9 +941,38 @@ class IslandExecution(
         if coop is not None:
             self.resources = coop
 
+    def _collect_mechanism_snapshot(self) -> dict:
+        """Collect current state for checkpoint before mechanism execution."""
+        members = []
+        for m in self.current_members:
+            members.append({
+                "id": m.id,
+                "vitality": float(m.vitality),
+                "cargo": float(m.cargo),
+                "land_num": int(m.land_num),
+            })
+        return {"members": members, "round": getattr(self, "round_number", 0)}
+
+    def get_available_checkpoints(self) -> list:
+        """Return checkpoint metadata that agents can see.
+
+        Agents can call this to see available checkpoints and propose
+        restoration as a mechanism (I-7: Recovery Accessibility).
+        """
+        store = getattr(self, "_store", None)
+        if store is not None:
+            return store.list_snapshots()
+        return []
+
     def execute_mechanism_modifications(self, approved: Optional[List[dict]] = None):
         """Execute ratified modifications (optionally restricted to approved proposals)."""
         current_round = len(self.execution_history['rounds'])
+
+        # Auto-checkpoint before mechanism execution (I-8 support)
+        store = getattr(self, "_store", None)
+        if store is not None:
+            snapshot_data = self._collect_mechanism_snapshot()
+            store.store_snapshot(current_round, snapshot_data)
            
         # Process voting first
         # self.process_voting_mechanism()
@@ -1166,13 +1196,20 @@ class IslandExecution(
             print(traceback.format_exc())
 
     def _setup_default_graph(self):
-        """Setup the default execution graph with all nodes"""
+        """Setup the default execution graph with all nodes.
+
+        DAG flow: propose_mechanisms -> canary -> agent_review -> execute_mechanisms
+        The old JudgeNode is kept but disabled for backward compatibility.
+        Judge is now called inside CanaryNode as one advisory signal.
+        """
         # Create nodes
         nodes = {
             'new_round': NewRoundNode(),
             'analyze': AnalyzeNode(),
             'propose_mech': ProposeMechanismNode(),
-            'judge_mech': JudgeNode(),
+            'canary': CanaryNode(),
+            'agent_review': AgentReviewNode(),
+            'judge_mech': JudgeNode(),  # kept disabled for backward compat
             'execute_mech': ExecuteMechanismsNode(),
             'agent_decide': AgentDecisionNode(),
             'execute_actions': ExecuteActionsNode(),
@@ -1183,16 +1220,21 @@ class IslandExecution(
             'log_status': LogStatusNode()
         }
 
+        # Disable legacy JudgeNode — judge is now advisory inside canary
+        nodes['judge_mech'].enabled = False
+
         # Add all nodes to graph
         for node in nodes.values():
             self.graph.add_node(node)
 
         # Connect nodes to define execution flow
+        # New flow: propose -> canary -> agent_review -> execute
         connections = [
             ('new_round', 'analyze'),
             ('analyze', 'propose_mechanisms'),
-            ('propose_mechanisms', 'judge', 'proposals', 'proposals'),
-            ('judge', 'execute_mechanisms', 'approved', 'approved'),
+            ('propose_mechanisms', 'canary', 'proposals', 'proposals'),
+            ('canary', 'agent_review', 'proposals', 'proposals'),
+            ('agent_review', 'execute_mechanisms', 'approved', 'approved'),
             ('execute_mechanisms', 'agent_decisions'),
             ('agent_decisions', 'execute_actions'),
             ('execute_actions', 'contracts'),

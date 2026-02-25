@@ -251,6 +251,44 @@ class Store:
         row = self._conn.execute("SELECT COUNT(*) FROM snapshots").fetchone()
         return row[0]
 
+    def list_snapshots(self) -> List[Dict[str, Any]]:
+        """Return metadata for all available snapshots (round_id, summary)."""
+        rows = self._conn.execute(
+            "SELECT round_id, data FROM snapshots ORDER BY round_id DESC"
+        ).fetchall()
+        result = []
+        for row in rows:
+            data = json.loads(row["data"])
+            entry = {"round_id": row["round_id"]}
+            # Extract summary without loading full state
+            if isinstance(data, dict):
+                members = data.get("members", [])
+                entry["member_count"] = len(members)
+                entry["total_vitality"] = sum(
+                    m.get("vitality", 0) for m in members if isinstance(m, dict)
+                )
+            result.append(entry)
+        return result
+
+    def get_snapshot_summary(self, round_id: int) -> Optional[Dict[str, Any]]:
+        """Return summary (member_count, total_vitality) without full data."""
+        row = self._conn.execute(
+            "SELECT data FROM snapshots WHERE round_id = ?", (round_id,)
+        ).fetchone()
+        if not row:
+            return None
+        data = json.loads(row["data"])
+        if not isinstance(data, dict):
+            return {"round_id": round_id}
+        members = data.get("members", [])
+        return {
+            "round_id": round_id,
+            "member_count": len(members),
+            "total_vitality": sum(
+                m.get("vitality", 0) for m in members if isinstance(m, dict)
+            ),
+        }
+
     # ── Idempotency Keys ─────────────────────────
 
     def store_idempotency_key(

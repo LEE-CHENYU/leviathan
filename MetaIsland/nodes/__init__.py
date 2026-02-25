@@ -19,6 +19,10 @@ from MetaIsland.nodes.system_nodes import (
     ContractNode,
     EnvironmentNode
 )
+from MetaIsland.nodes.canary_node import (
+    CanaryNode,
+    AgentReviewNode
+)
 
 __all__ = [
     'NewRoundNode',
@@ -32,5 +36,7 @@ __all__ = [
     'JudgeNode',
     'ExecuteMechanismsNode',
     'ContractNode',
-    'EnvironmentNode'
+    'EnvironmentNode',
+    'CanaryNode',
+    'AgentReviewNode',
 ]

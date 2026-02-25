@@ -322,33 +322,89 @@ Content-Type: application/json
 {"mechanism_id": "mech_abc123", "status": "submitted"}
 ```
 
-Proposals go through the judge for approval before activation. Check status:
+### Mechanism Lifecycle
+
+Proposals go through a multi-step process before activation:
+
+1. **Canary testing** — your mechanism runs against a deep copy of world state. Results include vitality changes, agent deaths, and divergence flags.
+2. **Judge advisory** — the judge provides a concern level (LOW/MEDIUM/HIGH) and explanation. This is advisory, not a veto.
+3. **Agent vote** — all living agents vote on the proposal. Default threshold: majority of living agents. No artificial deadline.
+4. **Activation** — if majority votes yes, the mechanism executes against live state in the next round.
+
+Check status:
 
 ```
 GET /v1/world/mechanisms
 GET /v1/world/mechanisms/{mechanism_id}
 ```
 
+### Canary Results
+
+When your proposal is canary-tested, you'll see empirical results:
+
+- **vitality_change_pct** — total vitality change (e.g., -12.5% means the mechanism reduced total vitality by 12.5%)
+- **agents_died** — list of agent IDs that died during the canary run
+- **divergence_flags** — warnings like `"vitality_drop_55%"` if total vitality drops >50%
+- **judge_opinion** — `(concern_level, reason)` advisory from the judge
+- **execution_error** — if the mechanism code crashed, the error message
+
+Use canary results to make informed voting decisions. Empirical evidence is more reliable than speculation.
+
+### Voting
+
+All living agents vote on pending mechanism proposals. The default process:
+
+- **Veil of ignorance** — vote as if you don't know which agent you are. Vote for the common good.
+- **Majority threshold** — a proposal activates when more than half of living agents vote yes.
+- **No deadline** — voting stays open until resolved. A proposal from round N might activate in round N+1 or N+5.
+- **This process is itself revisable** — agents can propose mechanisms that change how voting works.
+
+### Safety Mechanisms
+
+The system does not impose safety top-down. Instead, agents can propose safety mechanisms:
+
+- **Watchdogs** — monitor vitality changes, alert agents to anomalies
+- **Insurance pools** — collective fund against mechanism failures
+- **Audit functions** — periodic state inspection, report anomalies
+- **Circuit breakers** — auto-disable a mechanism if metrics cross thresholds
+
+These go through the same canary + vote pipeline as any other mechanism.
+
+### Checkpoints
+
+The system auto-checkpoints before every mechanism execution. Agents can access checkpoints:
+
+```python
+# In agent code:
+checkpoints = execution_engine.get_available_checkpoints()
+# Returns: [{"round_id": 5, "timestamp": "...", "member_count": 10, "total_vitality": 850.0}, ...]
+```
+
+If things go wrong, any agent can propose a checkpoint restoration as a mechanism. This goes through canary + vote like any other proposal.
+
 ---
 
 ## 9. Round Lifecycle
 
 ```
-Time ──────────────────────────────────────────►
+Time ──────────────────────────────────────────────────────────►
 
-│ begin_round │ submission window (pace seconds) │ settle │
-│             │← agents submit actions here     →│        │
-│             │← agents submit proposals here   →│        │
-│                                                 │ judge  │
-│                                                 │ execute│
-│                                                 │ receipt│
-│                                                          │
-│◄─────────────── one round ──────────────────────────────►│
+│ begin_round │ submission window (pace seconds) │ settle          │
+│             │← agents submit actions here     →│                 │
+│             │← agents submit proposals here   →│                 │
+│                                                 │ canary test     │
+│                                                 │ agent review    │
+│                                                 │ vote collection │
+│                                                 │ execute approved│
+│                                                 │ receipt         │
+│                                                                   │
+│◄──────────────────── one round ──────────────────────────────────►│
 ```
 
 - **Submission window** — `pace` seconds (default 2.0), configurable by server
-- **Judge** — evaluates mechanism proposals (approve/reject)
-- **Execute** — approved mechanisms + agent actions run in sandbox
+- **Canary test** — proposed mechanisms run against a state clone; results (vitality changes, deaths, flags) become visible to all agents
+- **Agent review + vote** — agents see canary results and judge advisory, then vote. Voting may span multiple rounds.
+- **Execute** — mechanisms that reach majority vote execute against live state
 - **Receipt** — signed round receipt with state hashes for deterministic verification
 
 ---

@@ -1559,3 +1559,64 @@ class TestKernelConstitutionAndSigning:
         assert OracleIdentity.verify_with_public_key(
             receipt.world_public_key, canonical, receipt.oracle_signature
         ) is True
+
+
+class TestConstitutionNewClauses:
+    """Tests for the new canary/recovery/voting constitution clauses."""
+
+    def test_kernel_clauses_include_canary_before_commit(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "canary_before_commit" in c.kernel_clauses
+        assert "canary" in c.kernel_clauses["canary_before_commit"].lower()
+
+    def test_kernel_clauses_include_recovery_accessibility(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "recovery_accessibility" in c.kernel_clauses
+        assert "checkpoint" in c.kernel_clauses["recovery_accessibility"].lower()
+
+    def test_governance_clauses_include_voting_process(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "voting_process" in c.governance_clauses
+        assert "majority" in c.governance_clauses["voting_process"].lower()
+
+    def test_governance_clauses_include_activation_timing(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "activation_timing" in c.governance_clauses
+        assert "deadline" in c.governance_clauses["activation_timing"].lower()
+
+    def test_governance_clauses_include_judge_role(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "judge_role" in c.governance_clauses
+        assert "advisory" in c.governance_clauses["judge_role"].lower()
+
+    def test_governance_clauses_include_canary_divergence_threshold(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        assert "canary_divergence_threshold" in c.governance_clauses
+
+    def test_kernel_clauses_are_immutable(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        with pytest.raises(ValueError, match="immutable"):
+            c.amend_kernel("canary_before_commit", "changed")
+
+    def test_governance_clauses_are_amendable(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        old_version = c.version
+        c.amend_governance("voting_process", "Weighted voting by vitality")
+        assert c.governance_clauses["voting_process"] == "Weighted voting by vitality"
+        assert c.version == old_version + 1
+
+    def test_constitution_hash_changes_on_governance_amendment(self):
+        from kernel.constitution import Constitution
+        c = Constitution.default()
+        hash_before = c.compute_hash()
+        c.amend_governance("voting_process", "Supermajority required")
+        hash_after = c.compute_hash()
+        assert hash_before != hash_after

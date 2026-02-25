@@ -11,7 +11,7 @@ Leviathan/          # Base simulation kernel (Island, Member, Land, IslandExecut
 MetaIsland/         # LLM-driven extension layer
   metaIsland.py     # Main orchestrator (IslandExecution with all mixins)
   graph_engine.py   # DAG-based phase execution engine
-  judge.py          # LLM-based mechanism approval
+  judge.py          # LLM-based mechanism advisory assessment
   contracts.py      # Contract propose/sign/activate/execute lifecycle
   physics.py        # Physics constraint system
   model_router.py   # LLM model routing (reads config/models.yaml)
@@ -50,16 +50,30 @@ archive/            # Archived artifacts (codex logs, stale dirs, analysis dumps
 ## Key Simulation Concepts
 
 - **Round-based execution**: deterministic phases wired through a DAG graph engine
-- **Phase order**: `new_round -> analyze -> propose_mechanisms -> judge -> execute_mechanisms -> agent_decisions -> execute_actions -> contracts -> produce -> consume -> environment -> log_status`
+- **Phase order**: `new_round -> analyze -> propose_mechanisms -> canary -> agent_review -> execute_mechanisms -> agent_decisions -> execute_actions -> contracts -> produce -> consume -> environment -> log_status`
 - **Agents can propose mechanisms and code** — not just act, but modify world rules
-- **Judge-gated governance**: mechanism proposals must pass LLM-based judge approval before execution
+- **Canary-tested governance**: mechanism proposals are tested against a state clone (canary), then voted on by agents. The judge provides advisory input (LOW/MEDIUM/HIGH concern), not a veto.
 - **Execution histories**: per-round JSON persistence in `execution_histories/`
+
+## Three Pillars: Resilient World
+
+1. **Agent-driven safety** — agents propose watchdogs, audits, insurance, circuit breakers. The system does not impose safety top-down.
+2. **Canary testing** — every mechanism runs against a deep copy of world state before going live. Empirical evidence (vitality changes, deaths) replaces LLM opinion as the primary safety signal.
+3. **Checkpointing & recovery** — the system auto-checkpoints before mechanism execution. Agents can propose reverting to any available checkpoint through the standard mechanism pipeline.
+
+## Constitutional Layering
+
+| Layer | What | Can agents change it? |
+|-------|------|-----------------------|
+| **Kernel (immutable)** | Deterministic replay, event log integrity, energy conservation, identity permanence, canary-before-commit, checkpoint accessibility | **No.** |
+| **Governance (default, amendable)** | Voting process, activation thresholds, judge advisory role, canary divergence thresholds, proposal limits | **Yes.** Agents can propose mechanisms that revise governance. |
+| **World rules (fully open)** | Specific mechanisms, safety mechanisms, contracts, physics constraints, markets | **Yes.** |
 
 ## Architecture Vision (from docs/system-design/)
 
 The project is evolving toward:
 - **Role separation**: Oracle (deterministic state transitions), Judge (policy validator), Moderator (ops controls), Player Agent (submits actions), Observer (read-only)
-- **Three-layer constitutional model**: immutable kernel (determinism, safety boundaries), amendable governance policy (judge rubrics, lifecycle params), fully open world rules (mechanisms, contracts, parameters)
+- **Three-layer constitutional model**: immutable kernel (determinism, safety boundaries, canary-before-commit), amendable governance defaults (voting process, judge advisory role, activation timing), fully open world rules (mechanisms, contracts, parameters)
 - **External agent protocol**: discovery manifest, onboarding flow, round lifecycle with phase deadlines
 - **Event-sourced ledger**: append-only event log, canonical receipts, deterministic replay
 
