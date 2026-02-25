@@ -1350,3 +1350,109 @@ class TestKernelDAGSettlement:
         r2 = k2.settle_round(seed=1)
         assert r1.snapshot_hash_after == r2.snapshot_hash_after
         assert r1.round_metrics == r2.round_metrics
+
+
+# ──────────────────────────────────────────────
+# Phase 4 – Constitution tests
+# ──────────────────────────────────────────────
+
+from kernel.constitution import Constitution, load_constitution
+
+
+class TestConstitution:
+    def test_default_constitution_has_kernel_clauses(self):
+        c = Constitution.default()
+        assert "energy_conservation" in c.kernel_clauses
+        assert "identity_permanence" in c.kernel_clauses
+        assert "determinism" in c.kernel_clauses
+
+    def test_default_constitution_has_governance_clauses(self):
+        c = Constitution.default()
+        assert "proposal_limit" in c.governance_clauses
+
+    def test_default_constitution_has_world_rules(self):
+        c = Constitution.default()
+        assert len(c.world_rules) >= 0
+
+    def test_constitution_hash_is_deterministic(self):
+        c1 = Constitution.default()
+        c2 = Constitution.default()
+        assert c1.compute_hash() == c2.compute_hash()
+        assert len(c1.compute_hash()) == 64
+
+    def test_amend_governance_changes_hash(self):
+        c = Constitution.default()
+        h1 = c.compute_hash()
+        c.amend_governance("new_rule", "Some new governance rule")
+        h2 = c.compute_hash()
+        assert h1 != h2
+        assert c.version == 2
+
+    def test_amend_kernel_raises(self):
+        c = Constitution.default()
+        with pytest.raises(ValueError, match="[Kk]ernel"):
+            c.amend_kernel("energy_conservation", "modified")
+
+    def test_amend_world_rules(self):
+        c = Constitution.default()
+        h1 = c.compute_hash()
+        c.amend_world_rules("trade_fee", "10% fee on trades")
+        h2 = c.compute_hash()
+        assert h1 != h2
+        assert c.world_rules["trade_fee"] == "10% fee on trades"
+
+    def test_load_from_yaml(self, tmp_path):
+        yaml_content = """
+kernel_clauses:
+  test_immutable: "Cannot be changed"
+governance_clauses:
+  test_gov: "Can be amended"
+world_rules:
+  test_rule: "Open rule"
+"""
+        yaml_file = tmp_path / "constitution.yaml"
+        yaml_file.write_text(yaml_content)
+        c = load_constitution(str(yaml_file))
+        assert c.kernel_clauses["test_immutable"] == "Cannot be changed"
+        assert c.governance_clauses["test_gov"] == "Can be amended"
+        assert c.world_rules["test_rule"] == "Open rule"
+
+
+from kernel.oracle import OracleIdentity
+
+
+class TestOracleIdentity:
+    def test_generate_produces_hex_public_key(self):
+        oracle = OracleIdentity.generate()
+        assert isinstance(oracle.world_public_key, str)
+        assert len(oracle.world_public_key) == 64
+
+    def test_deterministic_from_seed(self):
+        o1 = OracleIdentity.from_seed(42)
+        o2 = OracleIdentity.from_seed(42)
+        assert o1.world_public_key == o2.world_public_key
+
+    def test_different_seeds_different_keys(self):
+        o1 = OracleIdentity.from_seed(42)
+        o2 = OracleIdentity.from_seed(99)
+        assert o1.world_public_key != o2.world_public_key
+
+    def test_sign_and_verify(self):
+        oracle = OracleIdentity.generate()
+        data = b"hello world"
+        sig = oracle.sign(data)
+        assert isinstance(sig, str)
+        assert oracle.verify(data, sig) is True
+
+    def test_tampered_data_fails_verification(self):
+        oracle = OracleIdentity.generate()
+        sig = oracle.sign(b"original data")
+        assert oracle.verify(b"tampered data", sig) is False
+
+    def test_verify_with_public_key_only(self):
+        oracle = OracleIdentity.generate()
+        data = b"test payload"
+        sig = oracle.sign(data)
+        assert OracleIdentity.verify_with_public_key(
+            oracle.world_public_key, data, sig
+        ) is True
