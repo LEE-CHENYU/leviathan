@@ -1075,6 +1075,7 @@ class TestGovernanceIntegration:
         round_state = app.state.leviathan["round_state"]
         mechanism_registry = app.state.leviathan["mechanism_registry"]
         judge = app.state.leviathan["judge"]
+        moderator = app.state.leviathan["moderator"]
 
         # Register an agent
         resp = client.post("/v1/agents/register", json={"name": "GovBot"})
@@ -1085,7 +1086,7 @@ class TestGovernanceIntegration:
         stop = threading.Event()
         t = threading.Thread(
             target=_simulation_loop,
-            args=(kernel, event_log, round_state, mechanism_registry, judge, 0.5, 1, stop),
+            args=(kernel, event_log, round_state, mechanism_registry, judge, moderator, 0.5, 1, stop),
         )
         t.start()
 
@@ -1322,3 +1323,40 @@ class TestBanEnforcement:
             headers={"X-API-Key": agent_key},
         )
         assert resp.status_code == 200
+
+
+# ──────────────────────────────────────────────
+# Phase 4 – Sim loop pause + moderator snapshot tests
+# ──────────────────────────────────────────────
+
+
+class TestModeratorState:
+    def test_moderator_pause_flag(self):
+        from kernel.moderator import ModeratorState
+        ms = ModeratorState()
+        assert ms.paused is False
+        ms.paused = True
+        assert ms.paused is True
+
+    def test_moderator_stores_snapshots(self):
+        from kernel.moderator import ModeratorState
+        from kernel.schemas import WorldSnapshot
+        ms = ModeratorState(max_snapshots=3)
+        for i in range(5):
+            snap = WorldSnapshot(
+                world_id="w", round_id=i, members=[], land={},
+                active_mechanisms=[], active_contracts=[],
+                physics_constraints=[], state_hash=f"h{i}",
+            )
+            ms.store_snapshot(snap)
+        assert ms.get_snapshot_for_round(0) is None
+        assert ms.get_snapshot_for_round(1) is None
+        assert ms.get_snapshot_for_round(2) is not None
+        assert ms.get_snapshot_for_round(4) is not None
+
+    def test_moderator_hash_key(self):
+        from kernel.moderator import ModeratorState
+        h = ModeratorState.hash_key("test_key")
+        assert isinstance(h, str)
+        assert len(h) == 16
+        assert h != "test_key"

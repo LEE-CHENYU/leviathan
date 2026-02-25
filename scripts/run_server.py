@@ -55,6 +55,7 @@ def _simulation_loop(
     round_state,
     mechanism_registry,
     judge,
+    moderator,
     pace: float,
     max_rounds: int,
     stop_event: threading.Event,
@@ -76,6 +77,11 @@ def _simulation_loop(
     rounds_completed = 0
 
     while not stop_event.is_set():
+        # Check pause flag — sleep briefly and retry
+        if moderator.paused:
+            stop_event.wait(timeout=0.5)
+            continue
+
         kernel.begin_round()
         round_state.open_submissions(round_id=kernel.round_id, pace=pace)
 
@@ -140,6 +146,9 @@ def _simulation_loop(
                 if result.success:
                     kernel.apply_intended_actions(result.intended_actions)
 
+        # Store snapshot for potential rollback
+        moderator.store_snapshot(kernel.get_snapshot())
+
         receipt = kernel.settle_round(
             seed=kernel.round_id,
             judge_results=judge_results,
@@ -196,12 +205,21 @@ def main() -> None:
         default=60,
         help="Max requests per minute per client IP",
     )
+    parser.add_argument(
+        "--moderator-keys",
+        type=str,
+        default="",
+        help="Comma-separated moderator API keys (empty = no moderator access)",
+    )
     args = parser.parse_args()
 
     land_w, land_h = args.land
     api_keys: Optional[Set[str]] = None
     if args.api_keys:
         api_keys = {k.strip() for k in args.api_keys.split(",") if k.strip()}
+    moderator_keys: Optional[Set[str]] = None
+    if args.moderator_keys:
+        moderator_keys = {k.strip() for k in args.moderator_keys.split(",") if k.strip()}
 
     app = build_app(
         members=args.members,
@@ -209,6 +227,7 @@ def main() -> None:
         land_h=land_h,
         seed=args.seed,
         api_keys=api_keys,
+        moderator_keys=moderator_keys,
         rate_limit=args.rate_limit,
     )
 
@@ -217,11 +236,12 @@ def main() -> None:
     round_state = app.state.leviathan["round_state"]
     mechanism_registry = app.state.leviathan["mechanism_registry"]
     judge = app.state.leviathan["judge"]
+    moderator = app.state.leviathan["moderator"]
     stop_event = threading.Event()
 
     sim_thread = threading.Thread(
         target=_simulation_loop,
-        args=(kernel, event_log, round_state, mechanism_registry, judge, args.pace, args.rounds, stop_event),
+        args=(kernel, event_log, round_state, mechanism_registry, judge, moderator, args.pace, args.rounds, stop_event),
         daemon=True,
         name="sim-loop",
     )
