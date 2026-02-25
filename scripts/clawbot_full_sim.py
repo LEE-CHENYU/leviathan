@@ -397,6 +397,43 @@ class ClawbotAgent:
             pass
         return []
 
+    def get_mechanism_detail(self, mechanism_id: str) -> Optional[Dict]:
+        """GET /{id} with canary/vote data."""
+        try:
+            r = requests.get(
+                f"{self.server_url}/v1/world/mechanisms/{mechanism_id}",
+                timeout=5,
+            )
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        return None
+
+    def list_pending_mechanisms(self) -> List[Dict]:
+        """GET /mechanisms?status=pending_vote — mechanisms awaiting votes."""
+        return self.list_mechanisms(status="pending_vote")
+
+    def vote_on_mechanism(self, mechanism_id: str, vote_bool: bool, round_id: int) -> Optional[Dict]:
+        """POST /{id}/vote — cast a vote on a mechanism proposal."""
+        try:
+            r = requests.post(
+                f"{self.server_url}/v1/world/mechanisms/{mechanism_id}/vote",
+                headers={"X-API-Key": self.api_key},
+                json={
+                    "vote": vote_bool,
+                    "idempotency_key": f"{self.name}-vote-{mechanism_id}-r{round_id}",
+                },
+                timeout=5,
+            )
+            if r.status_code == 200:
+                return r.json()
+            else:
+                log(f"Vote failed: {r.status_code} {r.text[:80]}", "WARN", self.name)
+        except Exception as e:
+            log(f"Vote error: {e}", "WARN", self.name)
+        return None
+
     # ── Full Round Play ───────────────────────────────────
 
     def play_round(self, round_id: int, propose_mechanism: bool = False) -> Dict:
@@ -685,6 +722,26 @@ def main():
                     mech_id = mech.get("mechanism_id", "")[:8] if mech else ""
                     log(f"    mechanism: {mech_status} (id={mech_id}...)", "GOV" if mech_status == "submitted" else "WARN")
 
+            # ── Vote on pending mechanisms ──────────────
+            pending_mechs = bots[0].list_pending_mechanisms()
+            if pending_mechs:
+                log(f"  {len(pending_mechs)} mechanism(s) pending vote", "GOV")
+                for mech in pending_mechs:
+                    mid = mech["mechanism_id"]
+                    for bot in bots:
+                        # Simple heuristic: approve clean canary, reject flagged
+                        detail = bot.get_mechanism_detail(mid)
+                        vote_yes = True
+                        if detail and detail.get("canary_report"):
+                            flags = detail["canary_report"].get("divergence_flags", [])
+                            if flags:
+                                vote_yes = False
+                        result = bot.vote_on_mechanism(mid, vote_yes, round_id)
+                        if result:
+                            log(f"    {bot.name} voted {'yes' if vote_yes else 'no'} on {mid[:8]}... "
+                                f"(yes={result['current_votes']['yes']}, no={result['current_votes']['no']})",
+                                "GOV")
+
             # Wait for settlement
             receipt = wait_for_settled(round_id, timeout=args.pace + 10)
             if receipt:
@@ -832,6 +889,21 @@ def main():
         check("Enriched world has governance", bool(world0 and world0.get("governance")))
         check("Enriched world has total_vitality", bool(world0 and "total_vitality" in world0))
         check("Enriched world has pending_proposals_count", bool(world0 and "pending_proposals_count" in world0))
+        # Check canary/voting features
+        has_canary = False
+        voting_works = False
+        flagged_needs_votes = False
+        for mech in all_mechanisms:
+            detail = bots[0].get_mechanism_detail(mech["mechanism_id"])
+            if detail and detail.get("canary_report") is not None:
+                has_canary = True
+            if detail and detail.get("votes_yes", 0) + detail.get("votes_no", 0) > 0:
+                voting_works = True
+            if detail and detail.get("status") in ("canary_flagged", "pending_vote"):
+                flagged_needs_votes = True
+
+        check("Canary report present on mechanisms", has_canary)
+        check("Voting endpoint works", voting_works or not flagged_needs_votes)
         check("Discovery endpoint works", True)  # checked above
         check("Event log has round_settled events", event_types.get("round_settled", 0) > 0)
         check("Moderator pause/resume works", True)  # checked above
