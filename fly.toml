@@ -4,6 +4,9 @@ primary_region = "sjc"
 [build]
   dockerfile = "Dockerfile"
 
+[processes]
+  app = "python scripts/run_server.py --port 8000"
+
 [env]
   LEVIATHAN_MEMBERS = "10"
   LEVIATHAN_LAND = "20x20"
@@ -17,6 +20,7 @@ primary_region = "sjc"
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["app"]
 
   [http_service.concurrency]
     type = "requests"
