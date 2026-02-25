@@ -151,6 +151,27 @@ class MechanismResponse(BaseModel):
     activated_round: Optional[int] = None
 
 
+class VoteRequest(BaseModel):
+    """Request body for POST /v1/world/mechanisms/{id}/vote."""
+    vote: bool  # True = approve, False = reject
+    idempotency_key: str
+
+
+class VoteResponse(BaseModel):
+    """Response from POST /v1/world/mechanisms/{id}/vote."""
+    mechanism_id: str
+    vote_recorded: bool
+    current_votes: Dict[str, int]  # {"yes": N, "no": M}
+
+
+class MechanismDetailResponse(MechanismResponse):
+    """Extended mechanism response with canary and vote data."""
+    canary_report: Optional[Dict[str, Any]] = None
+    votes_yes: int = 0
+    votes_no: int = 0
+    vote_threshold: int = 0
+
+
 class MetricsResponse(BaseModel):
     """Response from GET /v1/world/metrics."""
     round_id: int

@@ -4,7 +4,14 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
-from api.models import MechanismProposeRequest, MechanismProposeResponse, MechanismResponse
+from api.models import (
+    MechanismDetailResponse,
+    MechanismProposeRequest,
+    MechanismProposeResponse,
+    MechanismResponse,
+    VoteRequest,
+    VoteResponse,
+)
 from api.round_state import PendingProposal
 
 router = APIRouter(prefix="/v1/world/mechanisms")
@@ -56,6 +63,10 @@ def list_mechanisms(request: Request, status: Optional[str] = None):
         records = mechanism_registry.get_active()
     elif status == "submitted":
         records = mechanism_registry.get_pending()
+    elif status == "pending_vote":
+        records = mechanism_registry.get_votable()
+    elif status is not None:
+        records = [r for r in mechanism_registry.get_all() if r.status == status]
     else:
         records = mechanism_registry.get_all()
     return [
@@ -69,16 +80,62 @@ def list_mechanisms(request: Request, status: Optional[str] = None):
     ]
 
 
-@router.get("/{mechanism_id}", response_model=MechanismResponse)
+@router.get("/{mechanism_id}", response_model=MechanismDetailResponse)
 def get_mechanism(mechanism_id: str, request: Request):
-    """Get a mechanism by ID."""
+    """Get a mechanism by ID with canary/vote details."""
     mechanism_registry = request.app.state.leviathan["mechanism_registry"]
+    kernel = request.app.state.leviathan["kernel"]
     rec = mechanism_registry.get_by_id(mechanism_id)
     if rec is None:
         raise HTTPException(status_code=404, detail="Mechanism not found")
-    return MechanismResponse(
-        mechanism_id=rec.mechanism_id, proposer_id=rec.proposer_id, code=rec.code,
-        description=rec.description, status=rec.status, submitted_round=rec.submitted_round,
-        judged_round=rec.judged_round, judge_reason=rec.judge_reason,
-        activated_round=rec.activated_round,
+
+    votes = rec.votes or {}
+    living_count = len(kernel._execution.current_members)
+    majority = (living_count // 2) + 1
+
+    return MechanismDetailResponse(
+        mechanism_id=rec.mechanism_id, proposer_id=rec.proposer_id,
+        code=rec.code, description=rec.description, status=rec.status,
+        submitted_round=rec.submitted_round, judged_round=rec.judged_round,
+        judge_reason=rec.judge_reason, activated_round=rec.activated_round,
+        canary_report=rec.canary_report,
+        votes_yes=sum(1 for v in votes.values() if v),
+        votes_no=sum(1 for v in votes.values() if not v),
+        vote_threshold=majority,
+    )
+
+
+@router.post("/{mechanism_id}/vote", response_model=VoteResponse)
+def vote_on_mechanism(mechanism_id: str, body: VoteRequest, request: Request):
+    """Cast a vote on a mechanism proposal."""
+    registry = request.app.state.leviathan["registry"]
+    mechanism_registry = request.app.state.leviathan["mechanism_registry"]
+
+    key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    if not key:
+        raise HTTPException(status_code=401, detail="Missing API key")
+    record = registry.get_by_api_key(key)
+    if record is None:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+    mod_state = request.app.state.leviathan["moderator"]
+    if mod_state.is_banned(record.member_id):
+        raise HTTPException(status_code=403, detail="Agent is banned")
+
+    mech = mechanism_registry.get_by_id(mechanism_id)
+    if mech is None:
+        raise HTTPException(status_code=404, detail="Mechanism not found")
+
+    success = mechanism_registry.cast_vote(mechanism_id, record.member_id, body.vote)
+    if not success:
+        raise HTTPException(status_code=400, detail="Mechanism not in votable state")
+
+    votes = mechanism_registry.get_votes(mechanism_id) or {}
+    yes_count = sum(1 for v in votes.values() if v)
+    no_count = sum(1 for v in votes.values() if not v)
+
+    return VoteResponse(
+        mechanism_id=mechanism_id,
+        vote_recorded=True,
+        current_votes={"yes": yes_count, "no": no_count},
     )
