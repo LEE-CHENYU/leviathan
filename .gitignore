@@ -1,27 +1,17 @@
 __pycache__
 .DS_Store
 .playwright-mcp/
-codex_24h.log
-codex_24h.pid
-codex_24h.stop
-# test.py 
-# test.ipynb
-# \test*
 \data*
 **egg-info*
-Leviathan/api_key.py
 .env
+*.wav
+archive/
+assets/
+execution_histories/e2e_smoke/
+research/arxiv/pdfs/
+research/arxiv/state.json
+Leviathan/api_key.py
 Leviathan/Finance_gpt_agent_002.py
 Leviathan/decision_mechanism.py
 Leviathan/decision_mechanism_1.py
 Leviathan/local_notes.md
-*.wav
-*.png
-codex_resume.md
-codex_objective.txt
-execution_histories/e2e_smoke/
-research/arxiv/pdfs/
-research/arxiv/state.json
-arxiv_24h.log
-arxiv_24h.pid
-arxiv_24h.stop

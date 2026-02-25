@@ -42,6 +42,9 @@ utils/
   error_tags.py     # Error classification
 docs/
   system-design/    # Architecture design documents (6 docs, current -> distributed)
+  design/           # Historical design documents (ARCHITECTURE.md, etc.)
+assets/             # Images and visual assets
+archive/            # Archived artifacts (codex logs, stale dirs, analysis dumps)
 ```
 
 ## Key Simulation Concepts
