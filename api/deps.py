@@ -1,5 +1,6 @@
 """Dependency injection helpers for the Leviathan API."""
 
+import os
 from typing import Any, Dict, List
 
 from fastapi import Request
@@ -8,28 +9,34 @@ from api.auth import APIKeyAuth
 from api.models import EventEnvelope
 from api.registry import AgentRegistry
 from api.round_state import RoundState
+from kernel.event_log import EventLog
 from kernel.mechanism_registry import MechanismRegistry
 from kernel.judge_adapter import JudgeAdapter
 from kernel.moderator import ModeratorState
+from kernel.store import Store
 from kernel.world_kernel import WorldKernel
 
 
 def create_app_state(kernel: WorldKernel, data_dir: str = "") -> Dict[str, Any]:
     """Build the shared application state dictionary from a kernel instance.
 
-    If *data_dir* is provided, the mechanism registry will persist its
-    state to a JSON file inside that directory so it survives restarts.
+    If *data_dir* is provided, a SQLite store is created there and used
+    to persist events, mechanisms, and snapshots across restarts.
     """
-    import os
-    persist_path = os.path.join(data_dir, "mechanisms.json") if data_dir else None
+    store = None
+    if data_dir:
+        os.makedirs(data_dir, exist_ok=True)
+        store = Store(os.path.join(data_dir, "leviathan.db"))
+
     return {
         "kernel": kernel,
-        "event_log": [],
+        "store": store,
+        "event_log": EventLog(store=store),
         "registry": AgentRegistry(),
         "round_state": RoundState(),
-        "mechanism_registry": MechanismRegistry(persist_path=persist_path),
+        "mechanism_registry": MechanismRegistry(store=store),
         "judge": JudgeAdapter(use_dummy=True),
-        "moderator": ModeratorState(),
+        "moderator": ModeratorState(store=store),
     }
 
 

@@ -99,7 +99,7 @@ class TestDeps:
         assert "kernel" in state
         assert "event_log" in state
         assert state["kernel"] is kernel
-        assert state["event_log"] == []
+        assert len(state["event_log"]) == 0
 
     def test_get_kernel_returns_kernel(self):
         tmpdir = tempfile.mkdtemp()
@@ -108,13 +108,12 @@ class TestDeps:
         state = create_app_state(kernel)
         assert get_kernel(state) is kernel
 
-    def test_get_event_log_returns_list(self):
+    def test_get_event_log_returns_event_log(self):
         tmpdir = tempfile.mkdtemp()
         config = WorldConfig(init_member_number=3, land_shape=(5, 5), random_seed=1)
         kernel = WorldKernel(config, save_path=tmpdir)
         state = create_app_state(kernel)
         log = get_event_log(state)
-        assert isinstance(log, list)
         assert len(log) == 0
 
 

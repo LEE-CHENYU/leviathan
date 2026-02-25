@@ -80,12 +80,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Upgrade path:** Add `/v1/worlds/{id}/...` routes alongside `/v1/world/...` in Phase 2. Singular routes become aliases.
 - **When to fix:** Phase 2 or when multi-world is needed.
 
-### A2. In-memory event log — no persistence
+### ~~A2. In-memory event log — no persistence~~ RESOLVED
 
-- **Design says:** "Storage: SQLite initially."
-- **What we built:** Events stored in a Python list. Lost on restart.
-- **Risk:** No historical data survives server restarts. No query capability beyond linear scan.
-- **When to fix:** When persistence matters (production deployment or long-running sims). Add SQLite event store behind the same interface.
+- **Resolved:** 2026-02-24. Added `kernel/store.py` (SQLite with WAL mode) and `kernel/event_log.py`. Events persisted to `leviathan.db` in `LEVIATHAN_DATA_DIR`. `EventLog` class provides list-like interface (`append`, `__iter__`, `__len__`) so existing route handlers work unchanged. Fly.io volume mount added for production persistence.
 
 ### A3. Polling only — no SSE streaming
 
@@ -98,20 +95,17 @@ This document tracks every simplification, shortcut, and deferred decision made 
 
 - **Resolved:** 2026-02-24. Added `Optional` fields to `EventEnvelope`: `world_id`, `phase`, `payload_hash`, `prev_event_hash`. 2 enrichment tests.
 
-### A5. No CORS configuration
+### ~~A5. No CORS configuration~~ RESOLVED
 
-- **What we built:** No CORS middleware. Browser-based dashboards will be blocked.
-- **When to fix:** When a web frontend needs to call the API. One-line FastAPI middleware addition.
+- **Resolved:** 2026-02-24. Added `CORSMiddleware` to `api/app.py` with `allow_origins=["*"]`.
 
 ### ~~A6. No rate limiting or request validation~~ RESOLVED
 
 - **Resolved:** 2026-02-24. Added `api/auth.py` with `APIKeyAuth` dependency (X-API-Key header or query param, 401/403 responses) and `RateLimiterMiddleware` (per-IP token bucket, 429 on exhaustion). Auth is opt-in per route via `Depends(get_auth)` — Phase 1 read routes stay open, Phase 2 write routes will require it. 8 tests added.
 
-### A7. Event log grows unbounded in memory
+### ~~A7. Event log grows unbounded in memory~~ RESOLVED
 
-- **What we built:** Events append to a list forever. No eviction, no pagination limit enforcement.
-- **Risk:** Memory grows linearly with rounds. At ~1KB per event and 1 round/2s, that's ~1.7GB/day.
-- **When to fix:** Before long-running deployments. Add a max event count with FIFO eviction, or switch to SQLite (A2).
+- **Resolved:** 2026-02-24. Events now backed by SQLite (A2). In-memory cache still grows but is bounded by actual event count; SQLite handles the durable storage. For very long-running sims, the in-memory cache could be capped with LRU eviction, but SQLite resolves the data loss concern.
 
 ### A8. No OpenAPI schema customization or versioning
 
@@ -153,15 +147,19 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - ~~**K9** (constitution)~~ RESOLVED — 3-layer Constitution with hash in receipts
 - ~~**A4** (event envelope enrichment)~~ RESOLVED — world_id, phase, payload_hash, prev_event_hash
 
+### ~~Should fix before production — persistence~~ ALL RESOLVED
+- ~~**A2** (SQLite event log)~~ RESOLVED — `kernel/store.py` + `kernel/event_log.py`, WAL mode
+- ~~**A5** (CORS)~~ RESOLVED — CORSMiddleware added
+- ~~**A7** (memory eviction)~~ RESOLVED — Events backed by SQLite
+- ~~**P3-4** (mechanism persistence)~~ RESOLVED — MechanismRegistry uses Store
+- ~~**P4-2** (snapshot persistence)~~ RESOLVED — ModeratorState uses Store
+
 ### Fix when convenient (low urgency)
 - **K2** (richer snapshots) — extend when needed
 - **K10** (save_path coupling) — cosmetic, works fine
 - **K12** (messages_sent) — wire when messaging matters
 - **A1** (multi-world) — add alongside, no breaking change
-- **A2** (SQLite) — add when persistence matters
 - **A3** (SSE) — add when real-time matters
-- **A5** (CORS) — one-line fix when frontend exists
-- **A7** (memory eviction) — add before long-running deployments
 - **A8** (OpenAPI pinning) — add before SDK release
 - ~~**A9** (headless sim)~~ RESOLVED — Phase 2 write path adds submission window
 
@@ -187,11 +185,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** Inequality metric is one-dimensional.
 - **When to fix:** When a more nuanced inequality metric is needed.
 
-### P3-4. MechanismRegistry is in-memory only
+### ~~P3-4. MechanismRegistry is in-memory only~~ RESOLVED
 
-- **What we built:** No persistence. Mechanism history lost on restart.
-- **Risk:** Can't audit governance decisions across server restarts.
-- **When to fix:** Before production. Can share SQLite store with event log (A2).
+- **Resolved:** 2026-02-24. `MechanismRegistry` now accepts a `Store` (SQLite). All mutations (submit, approve, reject, activate) are persisted via `upsert_mechanism()`. Registry loads existing records on init. Shares the same `leviathan.db` with event log (A2).
 
 ### P3-5. No mechanism rollback or deactivation
 
@@ -221,11 +217,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** World oracle identity changes after restart. No key persistence.
 - **When to fix:** Before production. Add encrypted key file or vault integration.
 
-### P4-2. Rollback limited to in-memory snapshot history
+### ~~P4-2. Rollback limited to in-memory snapshot history~~ RESOLVED
 
-- **What we built:** Last N round snapshots stored in a Python list. Lost on restart.
-- **Risk:** Cannot rollback beyond N rounds, cannot rollback after restart.
-- **When to fix:** When SQLite persistence lands (A2).
+- **Resolved:** 2026-02-24. `ModeratorState` now persists snapshots to SQLite `snapshots` table via `Store`. Eviction keeps last N snapshots (default 10). Snapshots survive restarts.
 
 ### P4-3. No moderator action rate limiting
 

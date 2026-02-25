@@ -1,14 +1,14 @@
-"""Registry for mechanism proposals and their lifecycle, with optional JSON persistence."""
+"""Registry for mechanism proposals and their lifecycle.
 
-import dataclasses
-import json
-import logging
+Backed by ``Store`` (SQLite) when provided, otherwise in-memory only.
+"""
+
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from kernel.store import Store
 
 
 @dataclass
@@ -29,41 +29,37 @@ class MechanismRegistry:
     """Tracks mechanism proposals through their lifecycle.
     Lifecycle: submitted -> approved/rejected -> active
 
-    If *persist_path* is given, state is saved to that JSON file on
-    every mutation and loaded on init when the file already exists.
+    If *store* is given, all mutations are persisted to SQLite and
+    the registry loads existing records on init.
     """
 
-    def __init__(self, persist_path: Optional[str] = None) -> None:
+    def __init__(self, store: Optional["Store"] = None) -> None:
         self._records: Dict[str, MechanismRecord] = {}
         self._agent_round_submissions: Set[Tuple[int, int]] = set()
-        self._persist_path: Optional[Path] = Path(persist_path) if persist_path else None
-        if self._persist_path and self._persist_path.exists():
-            self._load()
+        self._store = store
+        if store:
+            self._load_from_store()
 
-    # ── Persistence helpers ─────────────────────────
+    def _load_from_store(self) -> None:
+        for row in self._store.get_mechanisms():  # type: ignore[union-attr]
+            rec = MechanismRecord(**row)
+            self._records[rec.mechanism_id] = rec
+        self._agent_round_submissions = self._store.get_all_mechanism_submissions()  # type: ignore[union-attr]
 
-    def _save(self) -> None:
-        if not self._persist_path:
+    def _persist(self, rec: MechanismRecord) -> None:
+        if not self._store:
             return
-        data = {
-            "records": [dataclasses.asdict(r) for r in self._records.values()],
-            "submissions": list(self._agent_round_submissions),
-        }
-        tmp = self._persist_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2))
-        tmp.replace(self._persist_path)
-
-    def _load(self) -> None:
-        try:
-            data = json.loads(self._persist_path.read_text())  # type: ignore[union-attr]
-            for rd in data.get("records", []):
-                rec = MechanismRecord(**rd)
-                self._records[rec.mechanism_id] = rec
-            for pair in data.get("submissions", []):
-                self._agent_round_submissions.add(tuple(pair))
-            logger.info("Loaded %d mechanisms from %s", len(self._records), self._persist_path)
-        except Exception as exc:
-            logger.warning("Failed to load mechanism registry from %s: %s", self._persist_path, exc)
+        self._store.upsert_mechanism(
+            mechanism_id=rec.mechanism_id,
+            proposer_id=rec.proposer_id,
+            code=rec.code,
+            description=rec.description,
+            status=rec.status,
+            submitted_round=rec.submitted_round,
+            judged_round=rec.judged_round,
+            judge_reason=rec.judge_reason,
+            activated_round=rec.activated_round,
+        )
 
     # ── Mutations ─────────────────────────────────
 
@@ -79,7 +75,9 @@ class MechanismRegistry:
         )
         self._records[mechanism_id] = record
         self._agent_round_submissions.add(key)
-        self._save()
+        if self._store:
+            self._store.add_mechanism_submission(proposer_id, round_id)
+        self._persist(record)
         return record
 
     def get_pending(self) -> List[MechanismRecord]:
@@ -90,20 +88,20 @@ class MechanismRegistry:
         rec.status = "approved"
         rec.judged_round = round_id
         rec.judge_reason = reason
-        self._save()
+        self._persist(rec)
 
     def mark_rejected(self, mechanism_id: str, round_id: int, reason: str) -> None:
         rec = self._records[mechanism_id]
         rec.status = "rejected"
         rec.judged_round = round_id
         rec.judge_reason = reason
-        self._save()
+        self._persist(rec)
 
     def activate(self, mechanism_id: str, round_id: int) -> None:
         rec = self._records[mechanism_id]
         rec.status = "active"
         rec.activated_round = round_id
-        self._save()
+        self._persist(rec)
 
     def get_active(self) -> List[MechanismRecord]:
         return [r for r in self._records.values() if r.status == "active"]

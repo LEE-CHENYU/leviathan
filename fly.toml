@@ -35,6 +35,11 @@ primary_region = "sjc"
   method = "GET"
   path = "/health"
 
+[[mounts]]
+  source = "leviathan_data"
+  destination = "/data"
+  processes = ["app"]
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "1gb"
