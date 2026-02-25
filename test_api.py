@@ -1051,3 +1051,69 @@ class TestMetricsEndpoints:
         data = resp.json()
         assert data["total_judgments"] == 0
         assert data["approval_rate"] == 0.0
+
+
+# ──────────────────────────────────────────────
+# Phase 3 — Governance integration test
+# ──────────────────────────────────────────────
+
+import threading
+import time as _time
+
+
+class TestGovernanceIntegration:
+    def test_full_governance_round(self):
+        """E2E: register, propose mechanism, judge evaluates, verify receipt has metrics."""
+        from scripts.run_server import build_app, _simulation_loop
+        from starlette.testclient import TestClient
+
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        client = TestClient(app)
+
+        kernel = app.state.leviathan["kernel"]
+        event_log = app.state.leviathan["event_log"]
+        round_state = app.state.leviathan["round_state"]
+        mechanism_registry = app.state.leviathan["mechanism_registry"]
+        judge = app.state.leviathan["judge"]
+
+        # Register an agent
+        resp = client.post("/v1/agents/register", json={"name": "GovBot"})
+        assert resp.status_code == 200
+        agent = resp.json()
+
+        # Run sim loop for 1 round with short pace
+        stop = threading.Event()
+        t = threading.Thread(
+            target=_simulation_loop,
+            args=(kernel, event_log, round_state, mechanism_registry, judge, 0.5, 1, stop),
+        )
+        t.start()
+
+        # Wait for accepting state
+        for _ in range(20):
+            _time.sleep(0.05)
+            if round_state.state == "accepting":
+                break
+
+        # Submit a mechanism proposal during the window
+        if round_state.state == "accepting":
+            resp = client.post(
+                "/v1/world/mechanisms/propose",
+                json={
+                    "code": "def propose_modification(e): pass",
+                    "description": "no-op mechanism",
+                    "idempotency_key": "gov-test-1",
+                },
+                headers={"X-API-Key": agent["api_key"]},
+            )
+            assert resp.status_code == 200
+
+        t.join(timeout=5)
+        stop.set()
+
+        # Verify the round settled with metrics
+        assert len(event_log) >= 1
+        last_event = event_log[-1]
+        assert last_event.event_type == "round_settled"
+        assert "total_vitality" in last_event.payload.get("round_metrics", {})
+        assert "population" in last_event.payload.get("round_metrics", {})

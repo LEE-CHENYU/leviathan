@@ -52,6 +52,8 @@ def _simulation_loop(
     kernel: WorldKernel,
     event_log: List[EventEnvelope],
     round_state,
+    mechanism_registry,
+    judge,
     pace: float,
     max_rounds: int,
     stop_event: threading.Event,
@@ -60,7 +62,8 @@ def _simulation_loop(
 
     Each iteration runs one full round with a submission window:
       begin_round -> open_submissions -> sleep(pace) ->
-      close_submissions -> execute_actions -> settle_round -> append_event
+      close_submissions -> judge_proposals -> execute_mechanisms ->
+      execute_actions -> settle_round -> append_event
 
     The loop exits cleanly when *stop_event* is set or
     *max_rounds* is reached (0 means unlimited).
@@ -82,6 +85,47 @@ def _simulation_loop(
 
         round_state.close_submissions()
 
+        # ── Judge pending mechanism proposals ──
+        proposals = round_state.drain_proposals()
+        judge_results = []
+        mechanism_approvals = 0
+
+        for pp in proposals:
+            result = judge.evaluate(pp.code, pp.member_id, "mechanism")
+            judge_entry = {
+                "proposer_id": pp.member_id,
+                "approved": result.approved,
+                "reason": result.reason,
+                "latency_ms": result.latency_ms,
+            }
+
+            # Find the mechanism record and update it
+            for rec in mechanism_registry.get_pending():
+                if rec.proposer_id == pp.member_id and rec.code == pp.code:
+                    if result.approved:
+                        mechanism_registry.mark_approved(rec.mechanism_id, kernel.round_id, result.reason)
+                        mechanism_approvals += 1
+                    else:
+                        mechanism_registry.mark_rejected(rec.mechanism_id, kernel.round_id, result.reason)
+                    judge_entry["proposal_id"] = rec.mechanism_id
+                    break
+
+            judge_results.append(judge_entry)
+
+        # ── Execute approved mechanisms ──
+        for rec in mechanism_registry.get_all():
+            if rec.status == "approved" and rec.judged_round == kernel.round_id:
+                try:
+                    ctx = SandboxContext(
+                        execution_engine=kernel._execution,
+                        member_index=0,
+                    )
+                    sandbox_result = sandbox.execute_mechanism_code(rec.code, ctx)
+                    if sandbox_result.success:
+                        mechanism_registry.activate(rec.mechanism_id, kernel.round_id)
+                except Exception:
+                    pass
+
         # Execute pending actions through SubprocessSandbox
         pending = round_state.drain_actions()
         for pa in pending:
@@ -95,7 +139,12 @@ def _simulation_loop(
                 if result.success:
                     kernel.apply_intended_actions(result.intended_actions)
 
-        receipt = kernel.settle_round(seed=kernel.round_id)
+        receipt = kernel.settle_round(
+            seed=kernel.round_id,
+            judge_results=judge_results,
+            mechanism_proposals=len(proposals),
+            mechanism_approvals=mechanism_approvals,
+        )
         round_state.mark_settled()
 
         event_log.append(
@@ -165,11 +214,13 @@ def main() -> None:
     kernel = app.state.leviathan["kernel"]
     event_log = app.state.leviathan["event_log"]
     round_state = app.state.leviathan["round_state"]
+    mechanism_registry = app.state.leviathan["mechanism_registry"]
+    judge = app.state.leviathan["judge"]
     stop_event = threading.Event()
 
     sim_thread = threading.Thread(
         target=_simulation_loop,
-        args=(kernel, event_log, round_state, args.pace, args.rounds, stop_event),
+        args=(kernel, event_log, round_state, mechanism_registry, judge, args.pace, args.rounds, stop_event),
         daemon=True,
         name="sim-loop",
     )
