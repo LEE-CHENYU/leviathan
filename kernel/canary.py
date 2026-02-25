@@ -67,14 +67,22 @@ def _deep_copy_state(execution_engine) -> Dict[str, Any]:
 
     Does NOT copy: LLM client, graph engine, file handles, execution_history.
     Forks the seeded PRNG for I-1 compliance.
-    """
-    state = {}
-    # Members — deep copy the list and each member
-    state["current_members"] = copy.deepcopy(execution_engine.current_members)
 
-    # Land
+    IMPORTANT: Members and land are copied together in a single deepcopy call
+    so that object references (e.g., land.owner cells pointing to member objects)
+    are preserved correctly.
+    """
+    # Copy members and land together to preserve cross-references
+    bundle = {}
+    bundle["current_members"] = execution_engine.current_members
     if hasattr(execution_engine, "land"):
-        state["land"] = copy.deepcopy(execution_engine.land)
+        bundle["land"] = execution_engine.land
+    copied_bundle = copy.deepcopy(bundle)
+
+    state = {}
+    state["current_members"] = copied_bundle["current_members"]
+    if "land" in copied_bundle:
+        state["land"] = copied_bundle["land"]
 
     # Relationship dict
     if hasattr(execution_engine, "relationship_dict"):

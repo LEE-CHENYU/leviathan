@@ -83,6 +83,7 @@ def _simulation_loop(
     """
     from kernel.subprocess_sandbox import SubprocessSandbox
     from kernel.execution_sandbox import SandboxContext
+    from kernel.canary import CanaryRunner
 
     sandbox = SubprocessSandbox()
     rounds_completed = 0
@@ -103,46 +104,56 @@ def _simulation_loop(
 
         round_state.close_submissions()
 
-        # ── Judge pending mechanism proposals ──
+        # ── Canary test pending mechanism proposals ──
         proposals = round_state.drain_proposals()
+        canary_runner = CanaryRunner()
         judge_results = []
         mechanism_approvals = 0
 
         for pp in proposals:
-            result = judge.evaluate(pp.code, pp.member_id, "mechanism")
-            judge_entry = {
-                "proposer_id": pp.member_id,
-                "approved": result.approved,
-                "reason": result.reason,
-                "latency_ms": result.latency_ms,
-            }
-
-            # Find the mechanism record and update it
+            matching_rec = None
             for rec in mechanism_registry.get_pending():
                 if rec.proposer_id == pp.member_id and rec.code == pp.code:
-                    if result.approved:
-                        mechanism_registry.mark_approved(rec.mechanism_id, kernel.round_id, result.reason)
-                        mechanism_approvals += 1
-                    else:
-                        mechanism_registry.mark_rejected(rec.mechanism_id, kernel.round_id, result.reason)
-                    judge_entry["proposal_id"] = rec.mechanism_id
+                    matching_rec = rec
                     break
+            if matching_rec is None:
+                continue
 
-            judge_results.append(judge_entry)
+            report = canary_runner.run_canary(
+                execution_engine=kernel._execution,
+                mechanism_code=pp.code,
+                proposal_id=matching_rec.mechanism_id,
+                proposer_id=pp.member_id,
+                judge=judge,
+            )
+            mechanism_registry.mark_canary_result(matching_rec.mechanism_id, report.to_dict())
+
+        # ── Resolve votes on all pending mechanisms ──
+        living_count = len(kernel._execution.current_members)
+        approved_recs, rejected_recs = mechanism_registry.resolve_votes(living_count, kernel.round_id)
+        mechanism_approvals = len(approved_recs)
+
+        for rec in approved_recs + rejected_recs:
+            judge_results.append({
+                "proposer_id": rec.proposer_id,
+                "approved": rec.status == "approved",
+                "reason": rec.judge_reason,
+                "latency_ms": 0.0,
+                "proposal_id": rec.mechanism_id,
+            })
 
         # ── Execute approved mechanisms ──
-        for rec in mechanism_registry.get_all():
-            if rec.status == "approved" and rec.judged_round == kernel.round_id:
-                try:
-                    ctx = SandboxContext(
-                        execution_engine=kernel._execution,
-                        member_index=0,
-                    )
-                    sandbox_result = sandbox.execute_mechanism_code(rec.code, ctx)
-                    if sandbox_result.success:
-                        mechanism_registry.activate(rec.mechanism_id, kernel.round_id)
-                except Exception:
-                    pass
+        for rec in approved_recs:
+            try:
+                ctx = SandboxContext(
+                    execution_engine=kernel._execution,
+                    member_index=0,
+                )
+                sandbox_result = sandbox.execute_mechanism_code(rec.code, ctx)
+                if sandbox_result.success:
+                    mechanism_registry.activate(rec.mechanism_id, kernel.round_id)
+            except Exception:
+                pass
 
         # Execute pending actions through SubprocessSandbox
         pending = round_state.drain_actions()
