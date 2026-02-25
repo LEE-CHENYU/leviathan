@@ -975,3 +975,79 @@ class TestMechanismEndpoints:
         client, app = self._make_client()
         resp = client.get("/v1/world/mechanisms/nonexistent")
         assert resp.status_code == 404
+
+
+# ──────────────────────────────────────────────
+# Phase 3 — Metrics and judge stats endpoint tests
+# ──────────────────────────────────────────────
+
+
+class TestMetricsEndpoints:
+    def _make_client(self):
+        from scripts.run_server import build_app
+        from starlette.testclient import TestClient
+        app = build_app(members=5, land_w=10, land_h=10, seed=42)
+        return TestClient(app), app
+
+    def test_metrics_before_any_round(self):
+        client, app = self._make_client()
+        resp = client.get("/v1/world/metrics")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total_vitality" in data
+        assert "population" in data
+
+    def test_metrics_after_settle(self):
+        client, app = self._make_client()
+        kernel = app.state.leviathan["kernel"]
+        kernel.begin_round()
+        kernel.settle_round(seed=1)
+        resp = client.get("/v1/world/metrics")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["population"] > 0
+        assert data["total_vitality"] > 0
+
+    def test_metrics_history(self):
+        client, app = self._make_client()
+        kernel = app.state.leviathan["kernel"]
+        event_log = app.state.leviathan["event_log"]
+        import dataclasses
+        from api.models import EventEnvelope
+        for i in range(3):
+            kernel.begin_round()
+            receipt = kernel.settle_round(seed=i + 1)
+            event_log.append(EventEnvelope(
+                event_id=len(event_log) + 1, event_type="round_settled",
+                round_id=receipt.round_id, timestamp=receipt.timestamp,
+                payload=dataclasses.asdict(receipt),
+            ))
+        resp = client.get("/v1/world/metrics/history")
+        assert resp.status_code == 200
+        assert len(resp.json()) == 3
+
+    def test_metrics_history_with_limit(self):
+        client, app = self._make_client()
+        kernel = app.state.leviathan["kernel"]
+        event_log = app.state.leviathan["event_log"]
+        import dataclasses
+        from api.models import EventEnvelope
+        for i in range(5):
+            kernel.begin_round()
+            receipt = kernel.settle_round(seed=i + 1)
+            event_log.append(EventEnvelope(
+                event_id=len(event_log) + 1, event_type="round_settled",
+                round_id=receipt.round_id, timestamp=receipt.timestamp,
+                payload=dataclasses.asdict(receipt),
+            ))
+        resp = client.get("/v1/world/metrics/history?limit=2")
+        assert resp.status_code == 200
+        assert len(resp.json()) == 2
+
+    def test_judge_stats(self):
+        client, app = self._make_client()
+        resp = client.get("/v1/world/judge/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_judgments"] == 0
+        assert data["approval_rate"] == 0.0
