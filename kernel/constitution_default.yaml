@@ -1,0 +1,10 @@
+kernel_clauses:
+  energy_conservation: "Total vitality cannot be created from nothing"
+  identity_permanence: "Agent IDs are permanent and unique"
+  determinism: "Same seed + same actions = same outcome"
+
+governance_clauses:
+  max_tax_rate: "No mechanism may extract more than 50% of an agent's vitality"
+  proposal_limit: "One mechanism proposal per agent per round"
+
+world_rules: {}

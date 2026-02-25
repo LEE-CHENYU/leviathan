@@ -1,21 +1,32 @@
-# MetaIsland Dependencies
+# Leviathan — Core Dependencies
 
-# Core dependencies
-numpy>=1.24.0
-pandas>=2.0.0
+# Simulation kernel
+numpy>=1.24.0,<2.0
+pandas>=2.0.0,<3.0
 
-# LLM Integration
-openai>=1.0.0
+# LLM integration
+openai>=1.0.0,<2.0
 aisuite>=0.1.0
-python-dotenv>=1.0.0
+python-dotenv>=1.0.0,<2.0
 
-# Prompt Management
-pyyaml>=6.0.0
+# Prompt management
+pyyaml>=6.0.0,<7.0
 
-# Utilities
-matplotlib>=3.7.0
-seaborn>=0.12.0
+# Visualization (optional for headless server, required for notebooks)
+matplotlib>=3.7.0,<4.0
+seaborn>=0.12.0,<1.0
 
-# Research loop
-arxiv>=2.1.0
-pypdf>=4.0.0
+# API server
+fastapi>=0.100.0,<1.0
+uvicorn>=0.20.0,<1.0
+httpx>=0.24.0,<1.0
+
+# Cryptography (Ed25519 oracle signing)
+cryptography>=41.0.0,<44.0
+
+# HTTP client (smoke tests, agent examples)
+requests>=2.31.0,<3.0
+
+# Research loop (optional — uncomment if running arxiv pipeline)
+# arxiv>=2.1.0
+# pypdf>=4.0.0

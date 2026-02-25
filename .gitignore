@@ -10,16 +10,12 @@ codex_24h.stop
 **egg-info*
 Leviathan/api_key.py
 .env
-<<<<<<< Updated upstream
 Leviathan/Finance_gpt_agent_002.py
 Leviathan/decision_mechanism.py
 Leviathan/decision_mechanism_1.py
 Leviathan/local_notes.md
 *.wav
 *.png
-=======
-Leviathan/local_notes.md
->>>>>>> Stashed changes
 codex_resume.md
 codex_objective.txt
 execution_histories/e2e_smoke/

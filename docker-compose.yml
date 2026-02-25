@@ -1,0 +1,28 @@
+services:
+  leviathan:
+    build: .
+    ports:
+      - "${LEVIATHAN_PORT:-8000}:8000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - LLM_OFFLINE=${LLM_OFFLINE:-}
+    command: >
+      python scripts/run_server.py
+      --members ${LEVIATHAN_MEMBERS:-10}
+      --land ${LEVIATHAN_LAND:-20x20}
+      --seed ${LEVIATHAN_SEED:-42}
+      --port 8000
+      --pace ${LEVIATHAN_PACE:-2.0}
+      --rounds ${LEVIATHAN_ROUNDS:-0}
+      --rate-limit ${LEVIATHAN_RATE_LIMIT:-60}
+    volumes:
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
