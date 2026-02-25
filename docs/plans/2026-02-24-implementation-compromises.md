@@ -39,26 +39,17 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** If an action is retried after a round boundary or server restart, it will execute again.
 - **When to fix:** Phase 2 (external write path). Needs persistent idempotency store (SQLite or similar) keyed by `(world_id, idempotency_key)`.
 
-### K7. No receipt signing or oracle identity
+### ~~K7. No receipt signing or oracle identity~~ RESOLVED
 
-- **Design says (06-united-leviathan.md Prep 2):** Each world should have an oracle signing identity. Receipts should be signed by the world oracle key.
-- **What we built:** No signing. Receipts are plain data. No `world_public_key` or signature fields.
-- **Risk:** Receipts cannot be cryptographically verified. Cross-world federation has no trust anchor.
-- **When to fix:** Before federation (post-Phase 4). Add keypair generation on world creation, sign receipts with `oracle_signature` field.
+- **Resolved:** 2026-02-24. Added `OracleIdentity` in `kernel/oracle.py` with Ed25519 keypair (deterministic from seed). Every `RoundReceipt` now includes `oracle_signature` (hex Ed25519 signature of canonical receipt JSON), `world_public_key` (oracle identity), and `constitution_hash`. 6 oracle tests + 6 kernel signing tests.
 
-### K8. No federation-ready fields in receipts
+### ~~K8. No federation-ready fields in receipts~~ RESOLVED
 
-- **Design says (06-united-leviathan.md Prep 3):** Reserve fields: `origin_world_id`, `origin_receipt_hash`, `bridge_channel_id`, `bridge_seq`, `notary_signature`.
-- **What we built:** None of these fields exist in `RoundReceipt`.
-- **Risk:** Adding them later may require schema migration and client updates.
-- **When to fix:** Before any cross-world feature. Can be added as `Optional` fields to `RoundReceipt` without breaking existing code.
+- **Resolved:** 2026-02-24. Added `Optional` fields to `RoundReceipt`: `origin_world_id`, `origin_receipt_hash`, `bridge_channel_id`, `bridge_seq`, `notary_signature`. All `None` until federation is implemented. 4 receipt field tests.
 
-### K9. No constitution object or constitution_hash in receipts
+### ~~K9. No constitution object or constitution_hash in receipts~~ RESOLVED
 
-- **Design says (05-meta-edit.md):** Formalize a `Constitution` object with unamendable kernel clauses, amendable governance clauses, and open world rules. Include `constitution_hash` in every round receipt.
-- **What we built:** No constitution concept. Receipts have no `constitution_hash`.
-- **Risk:** No formal specification of what invariants the world guarantees. Makes trust/audit harder.
-- **When to fix:** Phase 4 (moderator + multi-tenant) or when external agents need trust guarantees.
+- **Resolved:** 2026-02-24. Added `Constitution` in `kernel/constitution.py` with 3-layer model (kernel immutable, governance amendable, world rules open). Loaded from `kernel/constitution_default.yaml`. `constitution_hash` (SHA-256) included in every `RoundReceipt`. 8 constitution tests.
 
 ### K10. WorldKernel constructor requires save_path
 
@@ -103,12 +94,9 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **Risk:** Clients must poll repeatedly. Higher latency for real-time dashboards.
 - **When to fix:** Phase 2 or when a real-time dashboard is needed. `sse-starlette` is already installed.
 
-### A4. No event_seq, phase, payload_hash, or prev_event_hash in EventEnvelope
+### ~~A4. No event_seq, phase, payload_hash, or prev_event_hash in EventEnvelope~~ RESOLVED
 
-- **Design says (06-united-leviathan.md Prep 1):** Canonical event envelope should include `world_id`, monotonic `event_seq`, `round_id`, `phase`, `type`, `payload_hash`, `prev_event_hash`.
-- **What we built:** `EventEnvelope` has: `event_id`, `event_type`, `round_id`, `timestamp`, `payload`. Missing: `world_id`, `phase`, `payload_hash`, `prev_event_hash`.
-- **Risk:** Events aren't self-contained for federation verification. No hash chain for tamper detection.
-- **When to fix:** Before federation. Add missing fields as `Optional` to `EventEnvelope`.
+- **Resolved:** 2026-02-24. Added `Optional` fields to `EventEnvelope`: `world_id`, `phase`, `payload_hash`, `prev_event_hash`. 2 enrichment tests.
 
 ### A5. No CORS configuration
 
@@ -159,11 +147,11 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - ~~**K4** (full settlement)~~ RESOLVED — KernelDAGRunner with topological phase ordering
 - ~~**K5** (metrics + judge)~~ RESOLVED — round_metrics + judge_results + JudgeAdapter
 
-### Should fix before Phase 4 (multi-tenant / federation)
-- **K7** (receipt signing) — trust requires cryptographic verification
-- **K8** (federation fields) — schema must be ready before clients depend on current shape
-- **K9** (constitution) — trust model needs formal specification
-- **A4** (event envelope enrichment) — federation needs self-contained events
+### ~~Should fix before Phase 4 (multi-tenant / federation)~~ ALL RESOLVED
+- ~~**K7** (receipt signing)~~ RESOLVED — Ed25519 oracle identity, receipts signed
+- ~~**K8** (federation fields)~~ RESOLVED — Optional fields in RoundReceipt
+- ~~**K9** (constitution)~~ RESOLVED — 3-layer Constitution with hash in receipts
+- ~~**A4** (event envelope enrichment)~~ RESOLVED — world_id, phase, payload_hash, prev_event_hash
 
 ### Fix when convenient (low urgency)
 - **K2** (richer snapshots) — extend when needed
@@ -222,3 +210,43 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **What we built:** Can't update an active mechanism. Must propose a new one.
 - **Risk:** No evolution path for existing mechanisms.
 - **When to fix:** When mechanism evolution patterns emerge.
+
+---
+
+## Phase 4: Constitution, Signing & Moderator
+
+### P4-1. Oracle private key in-memory only
+
+- **What we built:** Ed25519 private key held in Python memory. Lost on restart, no key rotation.
+- **Risk:** World oracle identity changes after restart. No key persistence.
+- **When to fix:** Before production. Add encrypted key file or vault integration.
+
+### P4-2. Rollback limited to in-memory snapshot history
+
+- **What we built:** Last N round snapshots stored in a Python list. Lost on restart.
+- **Risk:** Cannot rollback beyond N rounds, cannot rollback after restart.
+- **When to fix:** When SQLite persistence lands (A2).
+
+### P4-3. No moderator action rate limiting
+
+- **What we built:** Moderator endpoints have no separate rate limiting.
+- **Risk:** Compromised moderator key could spam pause/resume/ban.
+- **When to fix:** When multi-moderator support is needed.
+
+### P4-4. Constitution amendments not versioned as a chain
+
+- **What we built:** Version counter increments but no history of previous states.
+- **Risk:** No diff between constitution versions, no audit trail of amendments.
+- **When to fix:** When governance audit trail matters.
+
+### P4-5. Ban is binary (no graduated penalties)
+
+- **What we built:** Agents are either fully banned or fully active.
+- **Risk:** Cannot partially restrict misbehaving agents (e.g., read-only mode).
+- **When to fix:** When more nuanced moderation is needed.
+
+### P4-6. Federation fields reserved but not populated
+
+- **What we built:** Optional fields in RoundReceipt and EventEnvelope, all None.
+- **Risk:** No actual cross-world communication or verification.
+- **When to fix:** Phase 5 (federation implementation).
