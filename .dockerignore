@@ -1,0 +1,16 @@
+.git
+__pycache__
+**/__pycache__
+*.pyc
+docs/
+notebooks/
+research/
+.env
+.env.*
+!.env.example
+execution_histories/
+*.egg-info
+.pytest_cache
+.mypy_cache
+*.md
+!requirements.txt

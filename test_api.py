@@ -285,7 +285,12 @@ class TestDiscovery:
         assert "read_snapshot" in data["capabilities"]
         assert "read_events" in data["capabilities"]
         assert "read_receipts" in data["capabilities"]
-        assert data["endpoints"]["base"] == "/v1/world"
+        assert "submit_actions" in data["capabilities"]
+        assert "propose_mechanisms" in data["capabilities"]
+        assert "oracle_signing" in data["capabilities"]
+        assert data["endpoints"]["world_info"] == "/v1/world"
+        assert data["endpoints"]["register"] == "/v1/agents/register"
+        assert data["endpoints"]["submit_action"] == "/v1/world/actions"
 
 
 # ──────────────────────────────────────────────
