@@ -93,8 +93,7 @@ python scripts/llm_access_check.py
 - **Async patterns**: MetaIsland agent operations are async (`async/await`)
 - **Mixin-based architecture**: `IslandExecution` in MetaIsland composes multiple mixin classes for modularity
 - **YAML prompts**: agent prompts live in `MetaIsland/prompts/*.yaml`, loaded via `prompt_loader.py`
-- **Tests at repo root**: test files are `test_*.py` at the repository root (configured in `pytest.ini`)
-- **No tests/ directory**: tests live at the repo root, not in a separate folder
+- **Tests in `tests/`**: test files are `test_*.py` in the `tests/` directory (configured via `testpaths` in `pytest.ini`)
 
 ## Known Issues
 
