@@ -1604,6 +1604,33 @@ class Island():
         _apply_update("reproduce", "reproduce")
         _apply_update("clear", "clear")
 
+        # ── Stamp per-member round summary for mechanism code access ──
+        living_ids = {m.id for m in self.current_members}
+        for member in self.current_members:
+            counts = action_counts.get(member.id, {})
+            member.last_round_actions = {
+                "expand": int(counts.get("clear", 0)),
+                "attack": int(counts.get("attack", 0)),
+                "offer": int(counts.get("offer", 0)),
+                "offer_land": int(counts.get("offer_land", 0)),
+            }
+            member.last_round_attacks_made = {}
+            member.last_round_attacks_received = {}
+            member.last_round_offers_made = {}
+            member.last_round_offers_received = {}
+
+        for (m1, m2), val in self.round_action_dict.get("attack", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_attacks_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_attacks_received[m1] = round(float(val), 2)
+
+        for (m1, m2), val in self.round_action_dict.get("benefit", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_offers_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_offers_received[m1] = round(float(val), 2)
+
         # 更新下一轮快照
         self._round_snapshot = {
             member.id: (member.vitality, member.cargo, member.land_num)

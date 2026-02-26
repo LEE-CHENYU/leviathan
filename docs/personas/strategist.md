@@ -230,6 +230,10 @@ if __name__ == "__main__":
     run()
 ```
 
+## Available Member Attributes for Mechanism Code
+
+See [AGENTS.md Section 9](../../AGENTS.md#9-execution-engine-api-sandbox-reference) for the full list of member attributes available in mechanism code, including `last_round_actions`, attack/offer details, and `interaction_memory`.
+
 ## Customizing
 
 - **Trend sensitivity:** Change `deque(maxlen=10)` for longer/shorter memory

@@ -117,7 +117,7 @@ MECHANISMS = [
      "desc": "Trade incentive: members who offer resources gain +3 vitality bonus",
      "code": """def propose_modification(execution_engine):
     for m in execution_engine.current_members:
-        if getattr(m, 'last_action', '') == 'offer':
+        if m.last_round_actions.get('offer', 0) > 0:
             m.vitality = min(m.vitality + 3.0, 100.0)
 """},
     {"trigger": lambda m, p, g: p < 25,
@@ -203,6 +203,10 @@ def run():
 if __name__ == "__main__":
     run()
 ```
+
+## Available Member Attributes for Mechanism Code
+
+See [AGENTS.md Section 9](../../AGENTS.md#9-execution-engine-api-sandbox-reference) for the full list of member attributes available in mechanism code, including `last_round_actions`, attack/offer details, and `interaction_memory`.
 
 ## Customizing
 

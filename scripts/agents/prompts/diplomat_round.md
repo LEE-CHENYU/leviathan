@@ -52,6 +52,14 @@ Design mechanisms that are **genuinely novel and responsive to the actual world 
 
 The mechanism code must define `def propose_modification(execution_engine):` and can modify member attributes (vitality, cargo) or create new dynamics.
 
+#### Available Member Attributes (in mechanism code)
+Inside `propose_modification(execution_engine)`, each `m` in `execution_engine.current_members`:
+- Core: `m.vitality`, `m.cargo`, `m.land_num`, `m.age`, `m.productivity`
+- Last round actions: `m.last_round_actions` → {"expand": N, "attack": N, "offer": N, "offer_land": N}
+- Attack detail: `m.last_round_attacks_made` → {target_id: damage}, `m.last_round_attacks_received` → {attacker_id: damage}
+- Offer detail: `m.last_round_offers_made` → {target_id: amount}, `m.last_round_offers_received` → {giver_id: amount}
+- History: `m.interaction_memory["benefit_given"]` → {other_id: cumulative_amount} (also: attack_made, attack_received, benefit_received, land_given, land_received)
+
 **Creative mechanism ideas to consider:**
 - Progressive taxation: members with vitality > X contribute to a pool that goes to members below Y
 - Cooperation multiplier: members who offered this round get +N% production bonus

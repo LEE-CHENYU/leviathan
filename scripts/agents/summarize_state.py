@@ -62,6 +62,29 @@ def summarize(snapshot: dict, metrics: dict, member_id: int, mechanisms: list) -
         marker = " ← YOU" if m["id"] == member_id else ""
         lines.append(f"- id={m['id']}: vit={m['vitality']:.1f} cargo={m['cargo']:.1f} land={m['land_num']}{marker}")
 
+    # Last round activity
+    active_members = []
+    for m in members:
+        actions = m.get("last_round_actions")
+        if not actions:
+            continue
+        parts = []
+        if actions.get("expand", 0) > 0:
+            parts.append("expanded")
+        atk_made = m.get("last_round_attacks_made", {})
+        for tid, dmg in atk_made.items():
+            parts.append(f"attacked→{tid} ({dmg})")
+        offers_made = m.get("last_round_offers_made", {})
+        for tid, amt in offers_made.items():
+            parts.append(f"offered→{tid} ({amt})")
+        if parts:
+            active_members.append((m["id"], parts))
+    if active_members:
+        lines.append(f"\n### Last Round Activity")
+        for mid, parts in active_members:
+            marker = " ← YOU" if mid == member_id else ""
+            lines.append(f"- id={mid}: {', '.join(parts)}{marker}")
+
     # Pending mechanisms
     if mechanisms:
         lines.append(f"\n### Pending Mechanisms ({len(mechanisms)} needing your vote)")

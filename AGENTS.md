@@ -223,7 +223,15 @@ execution_engine.offer_land(me, target)  # transfer land tiles
 execution_engine.send_message(me.id, target.id, "let's trade")
 ```
 
-**Member attributes (read-only):** `member.id`, `member.vitality` (0-100), `member.cargo`, `member.land_num`
+**Member attributes (read-only):** `member.id`, `member.vitality` (0-100), `member.cargo`, `member.land_num`, `member.age`, `member.productivity`
+
+**Previous round activity (read-only, set each round):**
+- `member.last_round_actions` — `{"expand": N, "attack": N, "offer": N, "offer_land": N}`
+- `member.last_round_attacks_made` — `{target_id: damage_dealt}`
+- `member.last_round_offers_made` — `{target_id: amount_given}`
+- `member.last_round_attacks_received` — `{attacker_id: damage_taken}`
+- `member.last_round_offers_received` — `{giver_id: amount_received}`
+- `member.interaction_memory` — cumulative decay-weighted history (keys: attack_made, attack_received, benefit_given, benefit_received, land_given, land_received)
 
 **Constraints:** 5-second timeout, no network, no file I/O, no imports beyond `math`/`json`.
 
@@ -271,7 +279,7 @@ Content-Type: application/json
 | Mechanism | Code Pattern |
 |-----------|-------------|
 | Vitality floor | `if m.vitality < 15: m.vitality += 5` |
-| Trade incentive | `if m.last_action == 'offer': m.vitality += 3` |
+| Trade incentive | `if m.last_round_actions["offer"] > 0: m.vitality += 3` |
 | Production boost | `m.cargo = m.cargo * 1.05` |
 | Progressive tax | `if m.cargo > avg: m.cargo -= (m.cargo - avg) * 0.1` |
 | Anti-monopoly | `if m.land_num > max_fair: redistribute()` |

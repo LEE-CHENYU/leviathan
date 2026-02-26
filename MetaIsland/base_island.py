@@ -108,6 +108,7 @@ class Island():
             "benefit": {},
             "benefit_land": {},
         }
+        self._expand_counts = {}  # Track expand actions per member per round
         self.record_born = []
         self.record_death = []
 
@@ -468,6 +469,74 @@ class Island():
         self.record_death = []
         
     
+    def _stamp_member_action_summaries(self) -> None:
+        """Stamp per-member action data from record_action_dict onto members.
+
+        Called at the start of new_round() BEFORE records are cleared, so the
+        data from the *previous* round persists on members for mechanism code
+        to read during the next round.
+        """
+        living_ids = {m.id for m in self.current_members}
+
+        # Count actions per member
+        action_counts: dict = {m.id: {"attack": 0, "offer": 0, "offer_land": 0, "expand": 0}
+                               for m in self.current_members}
+        action_map = {"attack": "attack", "benefit": "offer", "benefit_land": "offer_land"}
+        for action_name, count_key in action_map.items():
+            for (m1, _) in self.record_action_dict.get(action_name, {}):
+                if m1 in action_counts:
+                    action_counts[m1][count_key] += 1
+
+        # Expand count tracked separately (expand doesn't go into record_action_dict)
+        expand_counts = getattr(self, "_expand_counts", {})
+
+        for member in self.current_members:
+            counts = action_counts.get(member.id, {})
+            member.last_round_actions = {
+                "expand": int(expand_counts.get(member.id, 0)),
+                "attack": int(counts.get("attack", 0)),
+                "offer": int(counts.get("offer", 0)),
+                "offer_land": int(counts.get("offer_land", 0)),
+            }
+            member.last_round_attacks_made = {}
+            member.last_round_attacks_received = {}
+            member.last_round_offers_made = {}
+            member.last_round_offers_received = {}
+
+        for (m1, m2), val in self.record_action_dict.get("attack", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_attacks_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_attacks_received[m1] = round(float(val), 2)
+
+        for (m1, m2), val in self.record_action_dict.get("benefit", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_offers_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_offers_received[m1] = round(float(val), 2)
+
+        # Record interaction memory
+        for (m1, m2), value in self.record_action_dict.get("attack", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].record_interaction("attack_made", m2, value)
+            if m2 in living_ids:
+                self.all_members[m2].record_interaction("attack_received", m1, value)
+
+        for (m1, m2), value in self.record_action_dict.get("benefit", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].record_interaction("benefit_given", m2, value)
+            if m2 in living_ids:
+                self.all_members[m2].record_interaction("benefit_received", m1, value)
+
+        for (m1, m2), value in self.record_action_dict.get("benefit_land", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].record_interaction("land_given", m2, value)
+            if m2 in living_ids:
+                self.all_members[m2].record_interaction("land_received", m1, value)
+
+        # Reset expand counts for next round
+        self._expand_counts = {}
+
     ############################################################################
     def save_current_island(self, path):
         current_member_df = self.current_members[0].save_to_row()
@@ -700,6 +769,10 @@ class Island():
         self._maintain_neighbor_list(member)
         if len(member.current_empty_loc_list) > 0:
             self._acquire_land(member, member.current_empty_loc_list[0])
+            # Track expand count for action summary stamping
+            if not hasattr(self, "_expand_counts"):
+                self._expand_counts = {}
+            self._expand_counts[member.id] = self._expand_counts.get(member.id, 0) + 1
 
     def colonize(
         self,
@@ -877,6 +950,9 @@ class Island():
         """
 
     def new_round(self, save_file: bool = True, log_status=False):
+        # ── Stamp per-member round summary for mechanism code access ──
+        self._stamp_member_action_summaries()
+
         # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存
