@@ -8,7 +8,7 @@ primary_region = "sjc"
   app = "python scripts/run_server.py --port 8000"
 
 [env]
-  LEVIATHAN_MEMBERS = "10"
+  LEVIATHAN_MEMBERS = "50"
   LEVIATHAN_LAND = "20x20"
   LEVIATHAN_SEED = "42"
   LEVIATHAN_PACE = "30.0"
