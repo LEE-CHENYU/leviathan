@@ -26,6 +26,10 @@ def submit_action(body: ActionSubmitRequest, request: Request):
     if mod_state.is_banned(record.member_id):
         raise HTTPException(status_code=403, detail="Agent is banned")
 
+    MAX_CODE_SIZE = 10_000
+    if len(body.code) > MAX_CODE_SIZE:
+        raise HTTPException(status_code=400, detail=f"Code exceeds {MAX_CODE_SIZE} character limit")
+
     pa = PendingAction(
         agent_id=record.agent_id,
         member_id=record.member_id,
@@ -38,7 +42,7 @@ def submit_action(body: ActionSubmitRequest, request: Request):
         return ActionSubmitResponse(
             status="rejected",
             round_id=round_state.round_id,
-            reason="Round not accepting submissions",
+            reason=f"Round not accepting submissions (state={round_state.state}, remaining={round_state.seconds_remaining():.1f}s)",
         )
 
     return ActionSubmitResponse(status="accepted", round_id=round_state.round_id)

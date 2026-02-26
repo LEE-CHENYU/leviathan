@@ -143,6 +143,19 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - ~~**P3-4** (mechanism persistence)~~ RESOLVED — MechanismRegistry uses Store
 - ~~**P4-2** (snapshot persistence)~~ RESOLVED — ModeratorState uses Store
 
+### ~~Production Hardening~~ ALL RESOLVED
+- ~~**P5-1** (idempotency scoping)~~ RESOLVED — keys prefixed with `{agent_id}:`
+- ~~**P5-2** (health check)~~ RESOLVED — `/health` reports degraded if sim thread dead
+- ~~**P5-3** (sim loop recovery)~~ RESOLVED — try/except with logging and retry pause
+- ~~**P5-4** (API error messages)~~ RESOLVED — rejections include state and remaining time
+- ~~**P5-5** (sandbox builtins)~~ RESOLVED — dangerous builtins blocked
+- ~~**P5-6** (resource limits)~~ RESOLVED — RLIMIT_AS, RLIMIT_CPU, RLIMIT_NPROC, RLIMIT_FSIZE
+- ~~**P5-7** (code size limit)~~ RESOLVED — 10KB at API layer
+- ~~**P5-8** (event log cap)~~ RESOLVED — 500-event in-memory cap with SQLite fallback
+- **P5-9** (RoundState race) — ASSESSED SAFE
+- **P5-10** (voting race) — ASSESSED SAFE
+- **P5-11** (kernel lock) — ASSESSED SAFE
+
 ### Fix when convenient (low urgency)
 - ~~**K2** (richer snapshots)~~ RESOLVED — age, productivity, strength, consumption, overall_productivity
 - **K10** (save_path coupling) — cosmetic, works fine
@@ -233,3 +246,40 @@ This document tracks every simplification, shortcut, and deferred decision made 
 - **What we built:** Optional fields in RoundReceipt and EventEnvelope, all None.
 - **Risk:** No actual cross-world communication or verification.
 - **When to fix:** Phase 5 (federation implementation).
+
+---
+
+## Phase 5: Production Hardening
+
+### ~~P5-1. Idempotency keys not scoped to agent~~ RESOLVED
+- **Resolved:** 2026-02-26. Keys prefixed with `{agent_id}:` in `WorldKernel.accept_actions()`.
+
+### ~~P5-2. Health endpoint doesn't check sim thread~~ RESOLVED
+- **Resolved:** 2026-02-26. `/health` returns `"degraded"` if sim thread is dead.
+
+### ~~P5-3. Sim loop crashes silently~~ RESOLVED
+- **Resolved:** 2026-02-26. Top-level try/except with logging and retry pause. Action/mechanism execution also logged on failure.
+
+### ~~P5-4. API rejections give no context~~ RESOLVED
+- **Resolved:** 2026-02-26. Rejection responses include round state and remaining time.
+
+### ~~P5-5. Subprocess sandbox allows dangerous builtins~~ RESOLVED
+- **Resolved:** 2026-02-26. Filtered builtins: blocked open, exec, eval, __import__, compile, globals, locals, breakpoint.
+
+### ~~P5-6. No subprocess resource limits~~ RESOLVED
+- **Resolved:** 2026-02-26. Added RLIMIT_AS (256MB), RLIMIT_CPU (5s), RLIMIT_NPROC (1), RLIMIT_FSIZE (10MB).
+
+### ~~P5-7. No mechanism/action code size limit~~ RESOLVED
+- **Resolved:** 2026-02-26. 10KB limit enforced at API layer for actions and mechanism proposals.
+
+### ~~P5-8. Event log memory grows unbounded~~ RESOLVED
+- **Resolved:** 2026-02-26. In-memory cache capped at 500 events with SQLite fallback for older queries.
+
+### P5-9. RoundState deadline race — ASSESSED SAFE
+- `threading.Lock` covers all state reads and writes atomically. No TOCTOU between deadline check and submission.
+
+### P5-10. Voting race condition — ASSESSED SAFE
+- `MechanismRegistry._lock` held for entire `resolve_votes()` and `cast_vote()`. No interleaving possible.
+
+### P5-11. WorldKernel lock inconsistency — ASSESSED SAFE
+- `_settle_round_unlocked` is always called from `settle_round()` which holds the RLock. `_unlocked` suffix means "assumes lock already held", not "runs without lock".

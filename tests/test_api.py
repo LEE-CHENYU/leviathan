@@ -955,7 +955,7 @@ class TestMechanismEndpoints:
             headers={"X-API-Key": agent["api_key"]},
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == "rejected"
+        assert resp.json()["status"].startswith("rejected")
 
     def test_propose_mechanism_unauthorized(self):
         client, app = self._make_client()

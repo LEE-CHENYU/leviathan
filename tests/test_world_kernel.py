@@ -985,8 +985,8 @@ class TestSubprocessSandbox:
         sandbox = SubprocessSandbox(timeout=2)
         code = (
             "def agent_action(engine, member_id):\n"
-            "    import time\n"
-            "    time.sleep(10)\n"
+            "    while True:\n"
+            "        pass\n"
         )
         result = sandbox.execute_agent_code(code, ctx)
         assert result.success is False

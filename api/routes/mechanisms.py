@@ -36,6 +36,10 @@ def propose_mechanism(body: MechanismProposeRequest, request: Request):
     if mod_state.is_banned(record.member_id):
         raise HTTPException(status_code=403, detail="Agent is banned")
 
+    MAX_CODE_SIZE = 10_000
+    if len(body.code) > MAX_CODE_SIZE:
+        raise HTTPException(status_code=400, detail=f"Code exceeds {MAX_CODE_SIZE} character limit")
+
     pp = PendingProposal(
         agent_id=record.agent_id, member_id=record.member_id,
         code=body.code, description=body.description,
@@ -43,7 +47,7 @@ def propose_mechanism(body: MechanismProposeRequest, request: Request):
     )
     accepted = round_state.submit_proposal(pp)
     if not accepted:
-        return MechanismProposeResponse(mechanism_id="", status="rejected")
+        return MechanismProposeResponse(mechanism_id="", status=f"rejected (state={round_state.state})")
 
     mech = mechanism_registry.submit(
         proposer_id=record.member_id, code=body.code,

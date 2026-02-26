@@ -200,8 +200,10 @@ class WorldKernel:
         with self._lock:
             results: List[ActionResult] = []
             for action in actions:
+                # Scope idempotency key to agent to prevent cross-agent collisions
+                scoped_key = f"{action.agent_id}:{action.idempotency_key}"
                 # Check idempotency cache (memory + SQLite)
-                cached = self._lookup_idempotency(action.idempotency_key)
+                cached = self._lookup_idempotency(scoped_key)
                 if cached is not None:
                     results.append(cached)
                     continue
@@ -219,7 +221,7 @@ class WorldKernel:
                         messages_sent=[],
                         error=f"Agent {action.agent_id} not found",
                     )
-                    self._cache_result(action.idempotency_key, result)
+                    self._cache_result(scoped_key, result)
                     results.append(result)
                     continue
 
@@ -253,7 +255,7 @@ class WorldKernel:
                         messages_sent=[],
                         error=sandbox_result.error,
                     )
-                    self._cache_result(action.idempotency_key, result)
+                    self._cache_result(scoped_key, result)
                     results.append(result)
                     continue
 
@@ -278,7 +280,7 @@ class WorldKernel:
                     performance_change=performance_change,
                     messages_sent=[],
                 )
-                self._idempotency_cache[action.idempotency_key] = result
+                self._idempotency_cache[scoped_key] = result
                 results.append(result)
 
             return results
