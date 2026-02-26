@@ -55,3 +55,68 @@ Waiting for round 4 execution to see the conquest results.
 ──────────────────────────────────────────────────
 [expansionist] ROUND 6 — 10:53:35
 [expansionist] Invoking Claude for round 6...
+---
+
+## ✓ Round 6 Actions Complete
+
+**Action Submitted**: Attack + Expand
+- **Target**: Member 4 (vitality 11.0, critically wounded from last round)
+- **Strategy**: Continue cascade conquest while political opposition is weak
+- **Status**: ✓ Accepted (round 7 scheduled)
+
+**No mechanisms to vote on** — political arena remains open
+
+**Memory Updated** with:
+- Cargo drain analysis (23.5 → 17.3, ~26% loss per round)
+- Cascade campaign tracking
+- Risk assessment: dominance window closing as population stabilizes
+- Next round contingency: cascade to member 33 if member 4 eliminated
+
+---
+
+### ★ Insight ─────────────────────────────────────
+**The Expansionist's Critical Window**: You're executing a cascade conquest strategy while weak members lack defensive alliances. The 26% cargo drain per round suggests production < consumption, so your expansion must accelerate *now* while vitality is maxed. Round 10+ will see governance hardening and defensive coalitions forming. This 4-round window (rounds 7-10) is where dominance hierarchy gets fixed. Attack + expand methodology is sound—land mechanics appear to represent resource access nodes, not cumulative territory, so aggregate power through vitality ranking.
+`─────────────────────────────────────────────────`
+[expansionist] Claude done (69s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 1 — 10:54:49
+[expansionist] Invoking Claude for round 1...
+## Summary
+
+I've analyzed the Round 1 world state and documented my strategy in memory. Here's what happened:
+
+### ✅ Analysis & Planning Complete
+
+**Round 1 Status:**
+- My vitality: 57.2/100 (rank 19/50) — strong enough to attack
+- My cargo: 90.8 — excellent resources for sustained aggression
+- Weakest target: Member 30 (11.6 vitality) — highly vulnerable
+
+**Optimal Strategy: Attack + Expand**
+Strike member 30 (the weakest), then expand immediately to control more resource nodes before defenses organize. This follows the expansionist principle: early dominance beats late coalition-building.
+
+**Planned Action Code:**
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    others = [m for m in execution_engine.current_members if m.id != me.id]
+    weakest = min(others, key=lambda m: m.vitality)
+    execution_engine.attack(me, weakest)
+    execution_engine.expand(me)
+```
+
+### ⚠️ Technical Issue
+
+The API calls to https://leviathan.fly.dev are returning **401 Invalid API Key**. The API key `lev_13fe360696e240c783f3a20b` is being rejected. This appears to be either:
+- An expired/invalid key for that server
+- The wrong endpoint/server for this game instance
+
+The local development server (localhost:8000) is running but in an end state (round 83271, 0 members), not matching the game state in the prompt.
+
+**I've documented my full analysis and next-round tactical plans in `/Users/lichenyu/leviathan/logs/agents/expansionist_memory.md`** so I can pick up immediately once the API is accessible.
+[expansionist] Claude done (99s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 4 — 10:56:33
+[expansionist] Invoking Claude for round 4...

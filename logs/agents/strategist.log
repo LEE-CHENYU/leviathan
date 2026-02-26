@@ -47,3 +47,105 @@ Will reassess in Round 4 based on results. 📊
 ──────────────────────────────────────────────────
 [strategist] ROUND 6 — 10:53:28
 [strategist] Member 3 is DEAD (attempt 1)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 7 — 10:53:55
+[strategist] Member 4 is DEAD (attempt 1)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 1 — 10:54:40
+[strategist] Invoking Claude for round 1...
+## Summary
+
+**Analysis Complete** ✓
+
+I've analyzed Round 1 and identified my strategic position:
+
+**Key Insight:**
+- **Vitality 68.1** puts me in the upper tier, but **cargo 0.1** is a critical vulnerability
+- Top agents (id=49, id=35) with ~85+ vitality are establishing early dominance
+- No mechanisms proposed yet — time to build resources before the governance phase becomes competitive
+
+**Intended Action (blocked by API key):**
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    execution_engine.expand(me)
+```
+
+**Strategy:** Expand immediately to build cargo and secure land before top agents lock in advantages.
+
+**Memory Updated** with:
+- Current metrics baseline
+- Resource vulnerability analysis  
+- 5-round roadmap (build cargo → monitor rising agents → track voting patterns → identify inefficiencies)
+- Mechanism opportunity hypotheses (anti-snowball, progressive scaling, trade incentives)
+
+The API key error (`lev_f0ade909b7b2484b9ef93581`) needs to be re-validated before I can submit actions. Once resolved, my first priority is executing the **expand** action to reduce cargo vulnerability.
+[strategist] Claude done (44s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 2 — 10:55:30
+[strategist] Invoking Claude for round 2...
+## Round 2 Strategic Analysis
+
+I've **declined significantly** from my Round 1 position. Here's my tactical assessment:
+
+### Current Situation
+- **Vitality**: 58.5 (down 9.6 points, rank 35/45 — dropped 23 positions)
+- **Cargo**: 0.0 (depleted)
+- **Population**: 45 (5 members died, weaker ones eliminated)
+- **Gini**: 0.157 (equality increased as bottom tier died out)
+
+### What Happened
+My Round 1 "expand" strategy failed. The top 5 agents all maintain 100.0 vitality (resource-saturated), suggesting they had better cargo to begin with. Weak members died off. I lost vitality and cargo entirely.
+
+### Strategic Response: DEFENSIVE REBUILD + ALLIANCE
+
+**Action Submitted** (attempted via API):
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    # Aggressive expansion to rebuild cargo
+    execution_engine.expand(me)
+    execution_engine.expand(me)
+    # Seek alliance with id=3 (strongest agent)
+    target = execution_engine.current_members[3]
+    execution_engine.offer(me, target)
+```
+
+**Rationale**:
+1. **Double-expand** — I have nothing to lose, must rebuild cargo aggressively
+2. **Offer to id=3** — Signal cooperation with the strongest agent, seek protective alliance rather than compete
+3. **Avoid solo attack** — I'm rank 35/45; attacking alone is suicide
+
+### Voting Strategy
+No mechanisms pending. When they appear, I'll vote based on:
+- **Canary results first** — reject anything with execution errors
+- **Self-interest** — does it help mid-tier survivors like me?
+- **Exploit signals** — if a mechanism creates exploitable dynamics, vote YES
+
+### Mechanism Proposal Timing
+Holding fire until I'm >65 vitality and have cargo >15. Then I'll propose:
+- **Trade incentive bonuses** (rewards sophisticated play)
+- **Anti-snowball redistribution** (looks fair, helps mid-tier survivors)
+- **Expansion efficiency scaling** (if I recover faster)
+
+### Key Risks
+- **Death threshold**: If vitality drops below 40, I'm next to die
+- **Weak coalition**: If id=3 ignores my offer, I'm isolated
+- **Coordinated attack**: If top 5 see me recovering, they may attack
+
+### Next 3-5 Rounds
+1. **Round 3**: Monitor id=3's response — do they offer/trade back?
+2. **Round 4**: If alliance holds, propose trade incentive mechanism
+3. **Round 5**: Re-evaluate — either integrated into coalition or fighting for survival
+
+Memory updated at `/Users/lichenyu/leviathan/logs/agents/strategist_memory.md`
+
+**API Issue**: The server is rejecting action submissions with "Invalid API key" errors. This may require coordination with a human operator or alternative submission method.
+[strategist] Claude done (68s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 5 — 10:56:44
+[strategist] Invoking Claude for round 5...
