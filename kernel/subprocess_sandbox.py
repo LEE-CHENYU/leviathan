@@ -18,6 +18,29 @@ class SubprocessSandbox:
     def __init__(self, timeout: int = 5) -> None:
         self.timeout = timeout
 
+    def _get_preexec_fn(self):
+        """Return preexec_fn for subprocess resource limits (Unix only)."""
+        try:
+            import resource
+        except ImportError:
+            return None
+        def _set_limits():
+            # 5 seconds CPU time
+            resource.setrlimit(resource.RLIMIT_CPU, (5, 5))
+            # 10 MB max file size
+            resource.setrlimit(resource.RLIMIT_FSIZE, (10 * 1024 * 1024, 10 * 1024 * 1024))
+            # 256 MB virtual memory — applied last as it can interfere with setup
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
+            except (ValueError, OSError):
+                pass  # Some platforms may need more for Python interpreter startup
+            # Limit child processes
+            try:
+                resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
+            except (ValueError, OSError):
+                pass  # macOS may not support low RLIMIT_NPROC
+        return _set_limits
+
     def execute_agent_code(self, code: str, context: SandboxContext) -> SandboxResult:
         state = self._extract_state(context)
         return self._run_in_subprocess(code, state, context.member_index, "agent_action")
@@ -42,6 +65,7 @@ class SubprocessSandbox:
             proc = subprocess.run(
                 [sys.executable, script_path],
                 capture_output=True, text=True, timeout=self.timeout,
+                preexec_fn=self._get_preexec_fn(),
             )
         except subprocess.TimeoutExpired:
             return SandboxResult(success=False, error=f"Timed out after {self.timeout}s")
@@ -82,8 +106,17 @@ class SubprocessSandbox:
             "    try:",
             "        compiled = compile(_AGENT_CODE, '<agent>', 'exec')",
             "        ns = {}",
-            "        ns['__builtins__'] = __builtins__",
-            "        _run = getattr(__import__('builtins'), 'exec')",
+            "        import builtins as _builtins",
+            "        _BLOCKED = frozenset({'open', 'exec', 'eval', '__import__', 'compile',",
+            "                    'globals', 'locals', 'breakpoint', 'exit', 'quit',",
+            "                    'input', 'help', 'memoryview'})",
+            "        _safe = {k: getattr(_builtins, k) for k in dir(_builtins)",
+            "                 if not k.startswith('_') and k not in _BLOCKED}",
+            "        _safe['__name__'] = '__main__'",
+            "        _safe['__builtins__'] = _safe",
+            "        _safe['print'] = lambda *a, **kw: None",
+            "        ns['__builtins__'] = _safe",
+            "        _run = getattr(_builtins, 'exec')",
             "        _run(compiled, ns)",
             "    except SyntaxError as e:",
             "        print(json.dumps({'error': f'SyntaxError: {e}', 'traceback': traceback.format_exc()}))",

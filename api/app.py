@@ -58,6 +58,9 @@ def create_app(
 
     @app.get("/health")
     def health() -> Dict[str, str]:
+        sim_thread = getattr(app.state, "sim_thread", None)
+        if sim_thread is not None and not sim_thread.is_alive():
+            return {"status": "degraded", "reason": "simulation thread stopped"}
         return {"status": "ok"}
 
     app.include_router(world_router)

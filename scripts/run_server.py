@@ -89,111 +89,118 @@ def _simulation_loop(
     rounds_completed = 0
 
     while not stop_event.is_set():
-        # Check pause flag — sleep briefly and retry
-        if moderator.paused:
-            stop_event.wait(timeout=0.5)
-            continue
-
-        kernel.begin_round()
-        round_state.open_submissions(round_id=kernel.round_id, pace=pace)
-
-        # Sleep for the submission window
-        stop_event.wait(timeout=pace)
-        if stop_event.is_set():
-            break
-
-        round_state.close_submissions()
-
-        # ── Canary test pending mechanism proposals ──
-        proposals = round_state.drain_proposals()
-        canary_runner = CanaryRunner()
-        judge_results = []
-        mechanism_approvals = 0
-
-        for pp in proposals:
-            matching_rec = None
-            for rec in mechanism_registry.get_pending():
-                if rec.proposer_id == pp.member_id and rec.code == pp.code:
-                    matching_rec = rec
-                    break
-            if matching_rec is None:
+        try:
+            # Check pause flag — sleep briefly and retry
+            if moderator.paused:
+                stop_event.wait(timeout=0.5)
                 continue
 
-            report = canary_runner.run_canary(
-                execution_engine=kernel._execution,
-                mechanism_code=pp.code,
-                proposal_id=matching_rec.mechanism_id,
-                proposer_id=pp.member_id,
-                judge=judge,
-            )
-            mechanism_registry.mark_canary_result(matching_rec.mechanism_id, report.to_dict())
+            kernel.begin_round()
+            round_state.open_submissions(round_id=kernel.round_id, pace=pace)
 
-        # ── Resolve votes on all pending mechanisms ──
-        living_count = len(kernel._execution.current_members)
-        approved_recs, rejected_recs = mechanism_registry.resolve_votes(living_count, kernel.round_id)
-        mechanism_approvals = len(approved_recs)
+            # Sleep for the submission window
+            stop_event.wait(timeout=pace)
+            if stop_event.is_set():
+                break
 
-        for rec in approved_recs + rejected_recs:
-            judge_results.append({
-                "proposer_id": rec.proposer_id,
-                "approved": rec.status == "approved",
-                "reason": rec.judge_reason,
-                "latency_ms": 0.0,
-                "proposal_id": rec.mechanism_id,
-            })
+            round_state.close_submissions()
 
-        # ── Execute approved mechanisms ──
-        for rec in approved_recs:
-            try:
-                ctx = SandboxContext(
+            # ── Canary test pending mechanism proposals ──
+            proposals = round_state.drain_proposals()
+            canary_runner = CanaryRunner()
+            judge_results = []
+            mechanism_approvals = 0
+
+            for pp in proposals:
+                matching_rec = None
+                for rec in mechanism_registry.get_pending():
+                    if rec.proposer_id == pp.member_id and rec.code == pp.code:
+                        matching_rec = rec
+                        break
+                if matching_rec is None:
+                    continue
+
+                report = canary_runner.run_canary(
                     execution_engine=kernel._execution,
-                    member_index=0,
+                    mechanism_code=pp.code,
+                    proposal_id=matching_rec.mechanism_id,
+                    proposer_id=pp.member_id,
+                    judge=judge,
                 )
-                sandbox_result = sandbox.execute_mechanism_code(rec.code, ctx)
-                if sandbox_result.success:
-                    mechanism_registry.activate(rec.mechanism_id, kernel.round_id)
-            except Exception:
-                pass
+                mechanism_registry.mark_canary_result(matching_rec.mechanism_id, report.to_dict())
 
-        # Execute pending actions through SubprocessSandbox
-        pending = round_state.drain_actions()
-        for pa in pending:
-            member_index = kernel._resolve_agent_index(pa.member_id)
-            if member_index is not None:
-                ctx = SandboxContext(
-                    execution_engine=kernel._execution,
-                    member_index=member_index,
-                )
-                result = sandbox.execute_agent_code(pa.code, ctx)
-                if result.success:
-                    kernel.apply_intended_actions(result.intended_actions)
+            # ── Resolve votes on all pending mechanisms ──
+            living_count = len(kernel._execution.current_members)
+            approved_recs, rejected_recs = mechanism_registry.resolve_votes(living_count, kernel.round_id)
+            mechanism_approvals = len(approved_recs)
 
-        # Store snapshot for potential rollback
-        moderator.store_snapshot(kernel.get_snapshot())
+            for rec in approved_recs + rejected_recs:
+                judge_results.append({
+                    "proposer_id": rec.proposer_id,
+                    "approved": rec.status == "approved",
+                    "reason": rec.judge_reason,
+                    "latency_ms": 0.0,
+                    "proposal_id": rec.mechanism_id,
+                })
 
-        receipt = kernel.settle_round(
-            seed=kernel.round_id,
-            judge_results=judge_results,
-            mechanism_proposals=len(proposals),
-            mechanism_approvals=mechanism_approvals,
-        )
-        round_state.mark_settled()
+            # ── Execute approved mechanisms ──
+            for rec in approved_recs:
+                try:
+                    ctx = SandboxContext(
+                        execution_engine=kernel._execution,
+                        member_index=0,
+                    )
+                    sandbox_result = sandbox.execute_mechanism_code(rec.code, ctx)
+                    if sandbox_result.success:
+                        mechanism_registry.activate(rec.mechanism_id, kernel.round_id)
+                except Exception:
+                    logger.exception("Failed to execute mechanism %s", rec.mechanism_id)
 
-        event_log.append(
-            EventEnvelope(
-                event_id=len(event_log) + 1,
-                event_type="round_settled",
-                round_id=receipt.round_id,
-                timestamp=receipt.timestamp,
-                payload=dataclasses.asdict(receipt),
+            # Execute pending actions through SubprocessSandbox
+            pending = round_state.drain_actions()
+            for pa in pending:
+                try:
+                    member_index = kernel._resolve_agent_index(pa.member_id)
+                    if member_index is not None:
+                        ctx = SandboxContext(
+                            execution_engine=kernel._execution,
+                            member_index=member_index,
+                        )
+                        result = sandbox.execute_agent_code(pa.code, ctx)
+                        if result.success:
+                            kernel.apply_intended_actions(result.intended_actions)
+                except Exception:
+                    logger.exception("Failed to execute action for member %d", pa.member_id)
+
+            # Store snapshot for potential rollback
+            moderator.store_snapshot(kernel.get_snapshot())
+
+            receipt = kernel.settle_round(
+                seed=kernel.round_id,
+                judge_results=judge_results,
+                mechanism_proposals=len(proposals),
+                mechanism_approvals=mechanism_approvals,
             )
-        )
-        rounds_completed += 1
-        logger.info("Round %d settled", receipt.round_id)
+            round_state.mark_settled()
 
-        if max_rounds > 0 and rounds_completed >= max_rounds:
-            logger.info("Reached max rounds (%d), stopping", max_rounds)
-            break
+            event_log.append(
+                EventEnvelope(
+                    event_id=len(event_log) + 1,
+                    event_type="round_settled",
+                    round_id=receipt.round_id,
+                    timestamp=receipt.timestamp,
+                    payload=dataclasses.asdict(receipt),
+                )
+            )
+            rounds_completed += 1
+            logger.info("Round %d settled", receipt.round_id)
+
+            if max_rounds > 0 and rounds_completed >= max_rounds:
+                logger.info("Reached max rounds (%d), stopping", max_rounds)
+                break
+        except Exception:
+            logger.exception("Simulation loop error in round %d", kernel.round_id)
+            stop_event.wait(timeout=2.0)
 
 
 def _parse_land(value: str):
@@ -284,6 +291,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _shutdown)
 
     sim_thread.start()
+    app.state.sim_thread = sim_thread
 
     import uvicorn
 
