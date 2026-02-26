@@ -127,15 +127,9 @@ class AgentReviewNode(ExecutionNode):
                 continue
 
             if not votes:
-                # Default voting behavior: approve unless divergent
-                if has_divergence:
-                    # Flagged proposals stay pending (need explicit votes)
-                    still_pending[prop_id] = entry
-                    continue
-                else:
-                    # Clean canary -> auto-approve as default behavior
-                    approved.append(proposal)
-                    continue
+                # No votes yet — keep pending so agents can weigh in
+                still_pending[prop_id] = entry
+                continue
 
             # Count actual votes
             yes_count = sum(1 for v in votes.values() if v)

@@ -1,7 +1,7 @@
 """Integration tests for the canary testing + agent voting server pipeline.
 
-Tests the full flow: propose → canary test → auto-approve/reject/flag →
-agents vote → resolve_votes → execute approved → activate.
+Tests the full flow: propose → canary test → reject errors / flag divergence /
+pending_vote for clean → agents vote → resolve_votes → execute approved → activate.
 """
 
 import threading
@@ -146,7 +146,7 @@ def _run_one_sim_round(app):
 
 class TestCanaryPipeline:
     def test_proposal_gets_canary_tested(self):
-        """Submit clean mechanism, run one sim round, verify canary_report and auto-approved."""
+        """Submit clean mechanism, run one sim round, verify canary_report and pending_vote."""
         app = _make_app()
         client = TestClient(app)
         agent = _register_agent(client)
@@ -161,14 +161,12 @@ class TestCanaryPipeline:
         # Close submissions and run sim round
         _run_one_sim_round(app)
 
-        # Verify canary report and auto-approval
+        # Verify canary report populated and status is pending_vote (not auto-approved)
         resp = client.get(f"/v1/world/mechanisms/{mech_id}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["canary_report"] is not None
-        assert data["status"] in ("approved", "active")
-        assert data["judge_reason"] is not None
-        assert "Canary clean" in data["judge_reason"]
+        assert data["status"] == "pending_vote"
 
     def test_broken_proposal_auto_rejected(self):
         """Submit syntax-error mechanism, verify status rejected."""

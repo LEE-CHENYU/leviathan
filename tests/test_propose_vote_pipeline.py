@@ -1,7 +1,7 @@
 """End-to-end integration tests for the propose → canary → vote → execute pipeline.
 
 Tests cover:
-1. Full pipeline: clean proposal → canary → auto-approve → execute → state mutated
+1. Full pipeline: clean proposal → canary → pending_vote → majority vote → execute → state mutated
 2. Broken proposal → canary error → auto-reject → state unchanged
 3. Dangerous proposal → divergence flagged → stays pending → explicit vote → approve/reject
 4. Multiple proposals: one clean, one broken → correct triage
@@ -75,12 +75,12 @@ CRASH_CODE = (
 
 
 # ═══════════════════════════════════════════════════════
-#  Test 1: Full clean pipeline — propose → canary → auto-approve → execute
+#  Test 1: Full clean pipeline — propose → canary → vote → approve → execute
 # ═══════════════════════════════════════════════════════
 
 class TestCleanProposalPipeline:
     def test_clean_proposal_approved_and_executed(self, execution):
-        """A clean mechanism goes through canary, auto-approves, and mutates state."""
+        """A clean mechanism goes through canary, agents vote, then it executes."""
         proposal = _make_proposal(0, MARKER_CODE, "prop_clean")
 
         # Snapshot domain state before canary
@@ -101,18 +101,31 @@ class TestCleanProposalPipeline:
         vitality_after_canary = [m.vitality for m in execution.current_members]
         assert vitality_before == vitality_after_canary
 
-        # Step 2: Agent Review
+        # Step 2: Agent Review (round 1) — clean proposal stays pending
         review_node = AgentReviewNode()
         review_result = review_node.execute(
             {"execution": execution, "round": 1},
             {"proposals": canary_result["proposals"]},
         )
 
-        assert len(review_result["approved"]) == 1
+        assert len(review_result["approved"]) == 0
         assert len(review_result["rejected"]) == 0
-        assert review_result["approved"][0]["proposal_id"] == "prop_clean"
+        assert len(execution.pending_proposals) == 1  # still pending, needs votes
 
-        # Pending queue should be empty (clean → auto-approved)
+        # Step 2b: Agents cast majority yes votes
+        living_count = len(execution.current_members)
+        majority = (living_count // 2) + 1
+        for i in range(majority):
+            execution.pending_proposals["prop_clean"]["votes"][i] = True
+
+        # Step 2c: Agent Review (round 2) — votes resolve
+        review_result = review_node.execute(
+            {"execution": execution, "round": 2},
+            {"proposals": []},  # no new proposals
+        )
+
+        assert len(review_result["approved"]) == 1
+        assert review_result["approved"][0]["proposal_id"] == "prop_clean"
         assert len(execution.pending_proposals) == 0
 
         # Step 3: Execute
@@ -326,7 +339,7 @@ class TestDangerousProposalVoting:
 
 class TestMultipleProposalTriage:
     def test_clean_and_broken_correctly_triaged(self, execution):
-        """One clean and one broken proposal: clean approved, broken rejected."""
+        """One clean and one broken proposal: broken rejected, clean pending then approved by vote."""
         clean = _make_proposal(0, MARKER_CODE, "prop_good")
         broken = _make_proposal(1, CRASH_CODE, "prop_bad")
 
@@ -343,13 +356,28 @@ class TestMultipleProposalTriage:
             {"proposals": canary_result["proposals"]},
         )
 
-        assert len(review_result["approved"]) == 1
-        assert review_result["approved"][0]["proposal_id"] == "prop_good"
+        # Broken auto-rejected, clean stays pending
+        assert len(review_result["approved"]) == 0
         assert len(review_result["rejected"]) == 1
         assert review_result["rejected"][0]["proposal"]["proposal_id"] == "prop_bad"
+        assert "prop_good" in execution.pending_proposals
+
+        # Cast majority votes on clean proposal
+        living_count = len(execution.current_members)
+        majority = (living_count // 2) + 1
+        for i in range(majority):
+            execution.pending_proposals["prop_good"]["votes"][i] = True
+
+        # Round 2: votes resolve
+        review_result = review_node.execute(
+            {"execution": execution, "round": 2},
+            {"proposals": []},
+        )
+        assert len(review_result["approved"]) == 1
+        assert review_result["approved"][0]["proposal_id"] == "prop_good"
 
     def test_clean_and_flagged_correctly_triaged(self, execution):
-        """One clean and one lethal proposal: clean approved, lethal pending."""
+        """One clean and one lethal proposal: both stay pending until voted."""
         clean = _make_proposal(0, NOOP_CODE, "prop_safe")
         lethal = _make_proposal(1, LETHAL_CODE, "prop_danger")
 
@@ -364,10 +392,10 @@ class TestMultipleProposalTriage:
             {"proposals": canary_result["proposals"]},
         )
 
-        assert len(review_result["approved"]) == 1
-        assert review_result["approved"][0]["proposal_id"] == "prop_safe"
+        # Both stay pending — clean needs votes, lethal needs votes
+        assert len(review_result["approved"]) == 0
         assert len(review_result["rejected"]) == 0
-        # Lethal one stays pending
+        assert "prop_safe" in execution.pending_proposals
         assert "prop_danger" in execution.pending_proposals
 
 
@@ -529,6 +557,7 @@ class TestCanaryReportInHistory:
 
         mods = execution.execution_history["rounds"][-1]["mechanism_modifications"]
         assert "review_results" in mods
-        assert mods["review_results"]["approved_count"] == 1
+        # Clean proposal stays pending on first round (needs votes)
+        assert mods["review_results"]["approved_count"] == 0
         assert mods["review_results"]["rejected_count"] == 0
-        assert mods["review_results"]["still_pending_count"] == 0
+        assert mods["review_results"]["still_pending_count"] == 1

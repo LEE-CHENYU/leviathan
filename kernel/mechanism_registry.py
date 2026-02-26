@@ -177,13 +177,11 @@ class MechanismRegistry:
                     rec.judge_reason = "Canary execution error"
                     self._persist(rec)
                     rejected.append(rec)
-                elif rec.status == "canary_clean" and not rec.votes:
-                    rec.status = "approved"
-                    rec.judged_round = current_round
-                    rec.judge_reason = "Canary clean, auto-approved"
+                elif rec.status in ("canary_clean", "canary_flagged") and not rec.votes:
+                    # No votes yet — move to pending_vote so agents can weigh in
+                    rec.status = "pending_vote"
                     self._persist(rec)
-                    approved.append(rec)
-                elif rec.status in ("canary_flagged", "pending_vote"):
+                elif rec.status in ("pending_vote",):
                     votes = rec.votes or {}
                     yes_count = sum(1 for v in votes.values() if v)
                     no_count = sum(1 for v in votes.values() if not v)

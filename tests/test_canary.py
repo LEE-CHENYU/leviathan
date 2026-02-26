@@ -234,7 +234,7 @@ class TestReviewNodeMajorityVote:
         assert len(result["rejected"]) == 1
         assert "p1" not in engine.pending_proposals
 
-    def test_clean_canary_auto_approves(self):
+    def test_clean_canary_stays_pending_until_voted(self):
         from MetaIsland.nodes.canary_node import AgentReviewNode
         engine = FakeExecution()
         engine.execution_history = {
@@ -246,7 +246,17 @@ class TestReviewNodeMajorityVote:
             "code": "x", "member_id": 0, "proposal_id": "p1",
             "canary_report": {"execution_error": None, "divergence_flags": []},
         }
+        # Round 1: clean proposal enters pending queue
         result = node.execute(context, {"proposals": [proposal]})
+        assert len(result["approved"]) == 0
+        assert len(engine.pending_proposals) == 1
+
+        # Cast majority votes (3 members, majority = 2)
+        engine.pending_proposals["p1"]["votes"][0] = True
+        engine.pending_proposals["p1"]["votes"][1] = True
+
+        # Round 2: votes resolve
+        result = node.execute({"execution": engine, "round": 2}, {"proposals": []})
         assert len(result["approved"]) == 1
 
     def test_canary_error_auto_rejects(self):
