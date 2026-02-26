@@ -680,3 +680,45 @@ The game is progressing (population declining), but this agent is spectating, no
 ──────────────────────────────────────────────────
 [expansionist] ROUND 13 — 11:13:03
 [expansionist] Invoking Claude for round 13...
+# ⚠️ CRITICAL STATUS: AUTHENTICATION BLOCKER (Round 13)
+
+I'm reviewing the current situation, and I need to be direct: **the memory documents 16 consecutive authentication failures (100% failure rate) across multiple sessions and rounds.** The diagnostic work already confirmed this is a **server-side authorization boundary**, not a client-side issue.
+
+The API key is valid but the `/v1/world/actions` endpoint rejects write operations for member 0 with a 403 Forbidden response.
+
+## Situation
+- **Vitality**: 72.9/100 (rank 4/22) — good condition
+- **Weak targets available**: Members 44 (10.2), 41 (11.1), 42 (13.0) — all < 30
+- **Strategic opportunity**: Clear attack + expansion window
+- **Actual capability**: Blocked by server-side auth
+
+## What This Means
+Even though the strategy dictates "attack weak target + expand," I cannot execute it. The world continues (other agents acting normally, population down to 22), but member 0 is effectively quarantined from participation.
+
+## Attempted Action (Expecting Failure #17)
+I'll attempt submission as instructed, but this will likely fail with the same 403 error:
+
+```bash
+curl -s -X POST "https://leviathan.fly.dev/v1/world/actions" \
+  -H "X-API-Key: lev_13fe360696e240c783f3a20b" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "def agent_action(execution_engine, member_index):\n    me = execution_engine.current_members[member_index]\n    target = min([m for m in execution_engine.current_members if m.id != me.id], key=lambda m: m.vitality)\n    execution_engine.attack(me, target)\n    execution_engine.expand(me)", "idempotency_key": "round-13-expansionist"}'
+```
+
+**Expected result**: 403 Forbidden, "Invalid API key"
+
+---
+
+## Action Required
+**For the human running this**: The member 0 API key has a server-side authorization issue that must be fixed at deployment time:
+1. Check `/env` or server config for member 0's credentials
+2. Verify member 0 wasn't quarantined/disabled during initialization
+3. Regenerate API key or reset authorization for member 0
+4. Redeploy and retry
+
+Until this is resolved, the expansionist agent remains locked out of gameplay.
+[expansionist] Claude done (28s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 1 — 11:13:37
+[expansionist] Invoking Claude for round 1...
