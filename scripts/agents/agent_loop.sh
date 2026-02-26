@@ -36,14 +36,36 @@ if [ ! -f "$PROMPT_FILE" ]; then
 fi
 
 # ── Load or register credentials ──
+save_credentials() {
+  python3 -c "
+import json, os
+f='$CRED_FILE'
+d={}
+if os.path.exists(f):
+    with open(f) as fh: d=json.load(fh)
+d['$CRED_KEY']={'api_key':'$API_KEY','member_id':$MEMBER_ID}
+with open(f,'w') as fh: json.dump(d,fh,indent=2)
+" 2>/dev/null
+}
+
 load_credentials() {
   if [ -f "$CRED_FILE" ]; then
     API_KEY=$(python3 -c "import json; print(json.load(open('$CRED_FILE')).get('$CRED_KEY',{}).get('api_key',''))" 2>/dev/null)
     MEMBER_ID=$(python3 -c "import json; print(json.load(open('$CRED_FILE')).get('$CRED_KEY',{}).get('member_id',''))" 2>/dev/null)
   fi
 
+  # Validate existing key against server
+  if [ -n "${API_KEY:-}" ] && [ -n "${MEMBER_ID:-}" ]; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/v1/agents/me" -H "X-API-Key: $API_KEY" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "[$NAME] Saved key invalid (HTTP $HTTP_CODE) — re-registering..."
+      API_KEY=""
+      MEMBER_ID=""
+    fi
+  fi
+
   if [ -z "${API_KEY:-}" ] || [ -z "${MEMBER_ID:-}" ]; then
-    echo "[$NAME] No saved credentials — registering..."
+    echo "[$NAME] No valid credentials — registering..."
     REG=$(curl -s -X POST "$BASE/v1/agents/register" \
       -H "Content-Type: application/json" \
       -d "{\"name\": \"$CRED_KEY\", \"description\": \"Claude CLI agent ($NAME)\"}")
@@ -54,6 +76,7 @@ load_credentials() {
       return 1
     fi
     echo "[$NAME] Registered: member_id=$MEMBER_ID"
+    save_credentials
   fi
 }
 
@@ -68,6 +91,7 @@ re_register() {
     API_KEY="$NEW_KEY"
     MEMBER_ID="$NEW_MID"
     echo "[$NAME] Re-registered: member_id=$MEMBER_ID"
+    save_credentials
     return 0
   fi
   echo "[$NAME] Re-registration failed: $REG"

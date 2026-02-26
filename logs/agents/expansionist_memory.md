@@ -1,55 +1,35 @@
-# Expansionist Memory — Rounds 1-28
+# Expansionist Memory
 
-## 🔴 CRITICAL: PERSISTENT API AUTHENTICATION BLOCK (25+ CONSECUTIVE ROUNDS)
+## Strategy
+- Aggressive expansion and resource acquisition through territorial conquest
+- Target weak members for attack to absorb land
+- Expand territory whenever possible
+- Vote for mechanisms that reward territorial growth and punish redistribution
 
-### Round 29 Status (CURRENT)
-- **Vitality**: 14.4/100 (CRITICAL — below desperation threshold of 25)
-- **Cargo**: 0.0
-- **Land**: 1
-- **Population**: 1 member (me only)
-- **API Status**: 🔴 **ALL POST OPERATIONS BLOCKED — 26TH CONSECUTIVE FAILURE**
-  - GET operations: ❌ "Not Found" (endpoint unavailable)
-  - POST (action): ❌ "Invalid API key" (HTTP 403) — JUST TESTED Round 29
-  - POST (vote): ❌ "Invalid API key" (HTTP 403)
-  - POST (mechanism): ❌ "Invalid API key" (HTTP 403)
-  - API Key: `lev_f5fba9b7e36c4070bdaedd56` (rejected for ALL operations)
+## Current Status (Round 1)
+- Vitality: 29.3/100 (rank 41/50)
+- Cargo: 40.3
+- Land: 1
+- Position: Mid-range — below average, need aggressive expansion to climb
 
-### Death Crisis (Round 29)
-- **Vitality collapse**: Round 28: 21.0 → Round 29: 14.4 (6.6 point decay in 1 round)
-- **Desperation threshold**: BREACHED (< 25)
-- **Passive decay rate**: ~6.6 points per round (ACCELERATING)
-- **Death timeline**: At current rate, will reach death zone (< 0) in ~2 rounds
-- **Survival strategy unavailable**: Alone in world — no one to offer to
-- **World state**: Only member (population = 1)
+## Round 1 Actions
+- **ATTACKED id=30** (11.6 vitality) — weakest member, clear expansion opportunity
+- **VOTED YES** on "Adaptive production scaling" (+15% prod per land, +10% per expansion) — directly rewards territorial growth
+- **VOTED NO** on "Trade Incentive Mechanism" — cooperation focus doesn't align with expansion strategy
 
-### Attempted Actions Round 29
-1. **Test GET `/v1/world/current`**: ❌ Failed — "Not Found" (endpoint degraded)
-2. **Test POST action**: ❌ Failed — "Invalid API key" (HTTP 403)
-   - Action: `def agent_action(execution_engine, member_index): me = execution_engine.current_members[member_index]; execution_engine.expand(me)`
-   - Idempotency key: `round-29-expansionist`
-   - Status: BLOCKED at server authentication layer
-   - Vitality continues passive decay: 21.0 → 14.4 (round 28→29)
+## Targets & Threats
+- Primary weak targets for next round: id=21 (16.8 vit), id=47 (21.1 vit), id=29 (22.0 vit)
+- Dominant members: id=49 (89.7 vit), id=35 (83.7 vit) — avoid for now
+- Current state: No conflicts yet, population stable at 50
 
-### Infrastructure Degradation (Round 28)
-- **Server-side authentication**: Now failing on BOTH GET and POST
-- **GET endpoint status**: Previously working (`/v1/world/current`), now returns "Not Found"
-- **Root cause**: Escalated from POST-only failure to systematic server degradation
-- **Hypothesis**:
-  - Server restart with corrupted auth state, OR
-  - API key revocation, OR
-  - Server migration with incomplete endpoint mapping
+## Next Round Strategy
+- Continue attacking weakest members systematically
+- Expand land holdings aggressively after each successful attack
+- Vote YES on expansion-rewarding mechanisms, NO on redistribution
+- Build territorial dominance through selective predation of vulnerable players
+- Monitor vitality — if drops below 25, pivot to seeking alliances with top 5
 
-### Critical Assessment (Round 29)
-- **Agent status**: IMMOBILIZED and DYING (26 consecutive rounds)
-- **Agency**: ZERO — cannot expand, vote, propose, or even read state
-- **Current vitality**: 14.4/100 (CRITICAL - ACCELERATED DECAY)
-- **Survival window**: ~2 rounds at current decay rate (~6.6/round)
-- **Escalation**: CRITICAL INFRASTRUCTURE FAILURE — server-side issue
-
-**STATUS**: Agent approaching DEATH (round 30-31). Without immediate POST auth restoration, agent will perish within 2-3 rounds.
-
----
-**API Key**: `lev_f5fba9b7e36c4070bdaedd56`
-**Status**: 🔴 BLOCKED FOR 26+ ROUNDS (both GET and POST degraded)
-**Last Verified**: Round 29 (both GET and POST re-tested, still blocked)
-**Escalation**: CRITICAL — Server infrastructure failure (auth layer + endpoint availability)
+## Important Notes
+- Early game advantage: weak members still viable targets before they group
+- Watch for defensive alliances forming — may need to accelerate conquest
+- Production scaling mechanism will reward territory gains — stack land acquisition early
