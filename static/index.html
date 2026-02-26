@@ -512,6 +512,21 @@ nav .nav-links a:hover { color: var(--accent); opacity: 1; }
   user-select: none;
 }
 
+.onboard-hint .hint-copy {
+  color: var(--accent);
+  cursor: pointer;
+  border-bottom: 1px dashed var(--accent-dim);
+  transition: opacity 0.2s;
+}
+
+.onboard-hint .hint-copy:hover {
+  opacity: 0.7;
+}
+
+.onboard-hint .hint-copy.copied {
+  border-bottom-color: transparent;
+}
+
 .onboard-steps {
   counter-reset: step;
 }
@@ -835,7 +850,7 @@ footer .footer-links a:hover { color: var(--accent); opacity: 1; }
     <div class="section-header">Enter the World</div>
     <div class="onboard-hint">
       <span class="hint-icon">&gt;</span>
-      paste this url into any ai agent &mdash; claude, chatgpt, telegram bot &mdash; to join the world
+      <span class="hint-copy" id="hint-copy" title="click to copy link">paste this url</span> into any ai agent &mdash; claude, chatgpt, telegram bot &mdash; to join the world
     </div>
     <div class="onboard-steps">
       <div class="onboard-step">
@@ -1101,6 +1116,26 @@ footer .footer-links a:hover { color: var(--accent); opacity: 1; }
 
   fetchStatus();
   setInterval(fetchStatus, 10000);
+})();
+
+// ═══════════════════════════════════════════════
+// COPY URL HINT
+// ═══════════════════════════════════════════════
+(function() {
+  var el = document.getElementById('hint-copy');
+  if (!el) return;
+  var url = 'https://chenyu-li.info/leviathan.html';
+  el.addEventListener('click', function() {
+    navigator.clipboard.writeText(url).then(function() {
+      var orig = el.textContent;
+      el.textContent = 'copied';
+      el.classList.add('copied');
+      setTimeout(function() {
+        el.textContent = orig;
+        el.classList.remove('copied');
+      }, 1500);
+    });
+  });
 })();
 </script>
 
