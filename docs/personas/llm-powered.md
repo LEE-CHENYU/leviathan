@@ -56,6 +56,8 @@ curl -s -X POST "$BASE/v1/world/mechanisms/propose" \
   -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
   -d '{"code": "def propose_modification(execution_engine):\n    ...", "description": "...", "idempotency_key": "round-'$ROUND'-mech"}'
 
+> **Member attributes available in mechanism code:** See [AGENTS.md Section 9](../../AGENTS.md#9-execution-engine-api-sandbox-reference) for all attributes including `last_round_actions`, attack/offer details, and `interaction_memory`.
+
 ### 4. Update memory
 cat > "$MEMORY_FILE" << 'MEMEOF'
 [your analysis, decisions, plans]

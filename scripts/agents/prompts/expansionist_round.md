@@ -46,6 +46,14 @@ Don't propose every round — only when the world state shows a clear need:
 
 Be creative. Design mechanisms that benefit expansion-oriented agents but don't obviously harm others (so they pass the vote). The mechanism code must define `def propose_modification(execution_engine):` and can modify any member attributes or world state.
 
+#### Available Member Attributes (in mechanism code)
+Inside `propose_modification(execution_engine)`, each `m` in `execution_engine.current_members`:
+- Core: `m.vitality`, `m.cargo`, `m.land_num`, `m.age`, `m.productivity`
+- Last round actions: `m.last_round_actions` → {"expand": N, "attack": N, "offer": N, "offer_land": N}
+- Attack detail: `m.last_round_attacks_made` → {target_id: damage}, `m.last_round_attacks_received` → {attacker_id: damage}
+- Offer detail: `m.last_round_offers_made` → {target_id: amount}, `m.last_round_offers_received` → {giver_id: amount}
+- History: `m.interaction_memory["benefit_given"]` → {other_id: cumulative_amount} (also: attack_made, attack_received, benefit_received, land_given, land_received)
+
 ```bash
 curl -s -X POST "$BASE/v1/world/mechanisms/propose" \
   -H "X-API-Key: $API_KEY" \

@@ -105,6 +105,22 @@ class WorldKernel:
                     member_dict["consumption"] = float(m.consumption)
                 if hasattr(m, "overall_productivity"):
                     member_dict["overall_productivity"] = float(m.overall_productivity)
+                # Action summary from previous round
+                if hasattr(m, "last_round_actions"):
+                    member_dict["last_round_actions"] = m.last_round_actions
+                    member_dict["last_round_attacks_made"] = getattr(m, "last_round_attacks_made", {})
+                    member_dict["last_round_attacks_received"] = getattr(m, "last_round_attacks_received", {})
+                    member_dict["last_round_offers_made"] = getattr(m, "last_round_offers_made", {})
+                    member_dict["last_round_offers_received"] = getattr(m, "last_round_offers_received", {})
+                # Cumulative interaction memory (decay-weighted)
+                if hasattr(m, "interaction_memory"):
+                    member_dict["interaction_memory"] = {
+                        k: {str(k2): round(v2, 2) for k2, v2 in v.items() if v2 > 0.01}
+                        for k, v in m.interaction_memory.items()
+                    }
+                # Strategy profile
+                if hasattr(m, "strategy_profile"):
+                    member_dict["strategy_profile"] = m.strategy_profile
                 members.append(member_dict)
 
             land_info = {"shape": list(self._execution.land.shape)}

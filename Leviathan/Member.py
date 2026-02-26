@@ -410,6 +410,13 @@ class Member():
             "land_received": defaultdict(float),
             "land_given": defaultdict(float),
         }
+        # Per-round action summary (stamped by Island._update_member_learning_and_memory)
+        self.last_round_actions = {"expand": 0, "attack": 0, "offer": 0, "offer_land": 0}
+        self.last_round_attacks_made = {}    # {target_id: damage}
+        self.last_round_attacks_received = {}  # {attacker_id: damage}
+        self.last_round_offers_made = {}     # {target_id: amount}
+        self.last_round_offers_received = {}   # {giver_id: amount}
+
         self._apply_profile_scaling()
 
     def __str__(self):
