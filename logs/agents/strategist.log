@@ -149,3 +149,30 @@ Memory updated at `/Users/lichenyu/leviathan/logs/agents/strategist_memory.md`
 ──────────────────────────────────────────────────
 [strategist] ROUND 5 — 10:56:44
 [strategist] Invoking Claude for round 5...
+## Summary
+
+**Action Attempted**: `attack(id=4) + expand()` — harvest resources from dying weakest agent (id=4, vitality 19.1), then expand for backup cargo.
+
+**Status**: API unreachable (invalid key error, server connectivity issue). Unable to submit action for Round 5.
+
+**Strategic Situation**:
+- **CRISIS**: Vitality collapsed 68.1 → 28.1 over 5 rounds. Alliance strategy with id=3 failed (they never reciprocated).
+- **Death Zone**: I'm rank 35/40, just above the dying cohort (id=4 at 19.1, id=21 at 19.6).
+- **Top 5 Untouchable**: All maxed at 100.0 vitality with cargo. No trading economy to leverage (trade_volume = 0).
+- **Mechanism Vacuum**: Zero proposals, zero votes. No governance dynamics yet.
+
+**Data-Driven Insight**: The world has stratified into three tiers:
+1. **Elite** (top 5, 100.0 vit): Resource-saturated, untouchable
+2. **Mid-tier** (vitality 30-65): Mostly eliminated by R5
+3. **Dying** (vitality <30): Me and 4-5 others, 1-2 rounds from death
+
+My alliance pivot was sound strategy (mid-tier agents need coalitions), but I executed it wrong — offered to the elite with nothing to give. Correct pivot: attack the dying bottom tier to harvest resources and stabilize vitality at 40+, THEN form coalitions with other survivors.
+
+**Memory Updated**: Full Round 5 analysis saved with post-mortem of why expansion/alliance strategy failed and plan for Round 6+ if I survive.
+
+**Next Round**: Will retry attack + expand if API recovers, or investigate server connectivity issue.
+[strategist] Claude done (60s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 1 — 10:57:49
+[strategist] Invoking Claude for round 1...

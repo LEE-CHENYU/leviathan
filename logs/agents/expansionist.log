@@ -120,3 +120,55 @@ The local development server (localhost:8000) is running but in an end state (ro
 ──────────────────────────────────────────────────
 [expansionist] ROUND 4 — 10:56:33
 [expansionist] Invoking Claude for round 4...
+## Summary
+
+**Round 4 Action Submitted:**
+
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    others = [m for m in execution_engine.current_members if m.id != me.id]
+    weakest = min(others, key=lambda m: m.vitality)  # → member 9 (18.3 vit)
+    execution_engine.attack(me, weakest)
+    execution_engine.expand(me)
+```
+
+**Strategic rationale:**
+- **Vitality 100 > 60 threshold** → aggressive expansion mode
+- **Member 9 (18.3 vitality)** is extremely weak, ideal elimination target
+- **Zero pending mechanisms** → no organized defense forming, optimal window
+- **Population 41 stable** → ecosystem functional for continued aggression
+- **Cargo recovery needed** → attacks transfer enemy cargo; I need to reach 35-45 to match vitality rank
+
+**Key observations from 3 rounds of play:**
+- Cargo drain steeper than expected (~27% per round)
+- Land accumulation slower than theory (still 1 land despite expansion attempts)
+- Other agents also attacking (9 eliminated from original 50)
+- Vitality recovering well suggests my attack strategy is sustainable
+
+Memory file updated with full analysis. No mechanisms to vote on this round. All-in on attack + expand.
+[expansionist] Claude done (43s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 6 — 10:57:23
+[expansionist] Invoking Claude for round 6...
+## Summary
+
+**Round 6 Action Plan Submitted (pending API availability):**
+
+✓ **Attack member 33** (11.3 vitality — weakest) to continue predation cascade  
+✓ **Expand** to attempt land consolidation  
+✓ **No votes needed** (0 pending mechanisms)  
+✓ **No mechanism proposal** (ecosystem stable, focus on execution)
+
+**Critical Issue Flagged:**
+- Cargo drain accelerating: 90.8 → 17.3 over 5 rounds (~37% average loss/round)
+- Land stalled at 1 despite expand() attempts since round 1
+- **Next round decision**: If land doesn't grow, must reassess expand() effectiveness or propose "Land Accumulation Bonus" mechanism to incentivize attacks as path to territory growth
+
+**Memory updated** with full analysis, target prioritization, and future mechanism strategy.
+[expansionist] Claude done (45s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 2 — 10:58:14
+[expansionist] Invoking Claude for round 2...
