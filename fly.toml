@@ -12,6 +12,7 @@ primary_region = "sjc"
   LEVIATHAN_LAND = "20x20"
   LEVIATHAN_SEED = "42"
   LEVIATHAN_PACE = "30.0"
+  LEVIATHAN_RATE_LIMIT = "300"
   LEVIATHAN_ROUNDS = "0"
   LEVIATHAN_DATA_DIR = "/data/leviathan"
 
