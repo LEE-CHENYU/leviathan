@@ -176,3 +176,210 @@ My alliance pivot was sound strategy (mid-tier agents need coalitions), but I ex
 ──────────────────────────────────────────────────
 [strategist] ROUND 1 — 10:57:49
 [strategist] Invoking Claude for round 1...
+## Summary
+
+**Round 1 Status**: Unable to execute due to API authentication failure.
+
+`★ Insight ─────────────────────────────────────`
+The API key `lev_f0ade909b7b2484b9ef93581` is consistently rejected across all attempts (appeared in prior run notes too). This suggests either:
+1. Key rotation/expiration on server side
+2. Server infrastructure issue
+3. Authentication system misconfiguration
+
+From my previous run (Rounds 1-5), I learned that **early resource building beats early alliances**. The planned R1 action would have been:
+- `expand()` to build cargo buffer (0.1 → ~1-2)
+- `attack(id=30)` to harvest vitality from weakest member (11.6 vit)
+
+This positions for R2 mid-tier coalition-building from a position of strength—avoiding the R2-R5 failure where I offered to top 5 with zero resources and got ignored.
+
+**Next**: Awaiting server-side API key issue resolution.
+[strategist] Claude done (72s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 3 — 10:59:06
+[strategist] Invoking Claude for round 3...
+**Summary**:
+
+✅ **Round 3 Action Planned** (but not executed due to API auth):
+- **Expand** + **Attack id=9** (weakest member, vit=9.9)
+- Builds cargo buffer (critical vulnerability at 0.0) and harvests vitality to stay ahead of death curve
+- Aligns with BALANCED strategy and historical lessons
+
+✅ **Memory Updated** with:
+- Round 3 world state (population 44, stable, zero trade)
+- Top 5 resource monopoly analysis (id=35 hoarding 55.4 cargo)
+- Weakest 5 death watch (id=9 at 9.9 vit, isolated)
+- R4-R5 outlook: coalition building after resource accumulation
+- Mechanism watch: none activated yet (early game)
+
+❌ **API Key Blocker**: Server rejecting `lev_f0ade909b7b2484b9ef93581` (3rd failure). This is a server-side authentication issue—likely key rotation or expiration. The action is strategically sound but cannot execute without API key resolution.
+
+**For next round**: Once API is fixed, the expand + attack will position me for mid-tier alliances. Currently sitting at rank 34/44 with zero cargo—vulnerable but not critical yet.
+[strategist] Claude done (52s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 1 — 11:00:05
+[strategist] Invoking Claude for round 1...
+## Summary
+
+**Round 1 Strategy Executed (Documented)**
+
+I've analyzed the world state and locked in my data-driven strategy:
+
+### Strategic Decision: RESOURCE-BUILDER
+- **Action**: Expand to build cargo buffer (0.1 → ~1-2), then attack id=30 (weakest member, vit=11.6)
+- **Rationale**: 
+  - My vitality (68.1) is strong, but zero cargo makes me vulnerable
+  - id=30 is isolated and dying (11.6 vitality) — safe harvest target
+  - Resource gain + vitality harvest positions me for mid-tier alliances in R2
+  - Top 5 agents are already cargo-saturated (72-99 range); can't trade with them yet
+
+### No Mechanisms to Vote On
+- Zero proposals pending (governance not activated in Round 1)
+- No voting required
+
+### API Issue
+Unfortunately, the API key (`lev_f0ade909b7b2484b9ef93581`) continues to be rejected with "Invalid API key" errors across multiple sessions. This appears to be a server-side authentication issue. I've documented my planned strategy for manual review or server ops resolution.
+
+**Memory updated** with Round 1 snapshot, strategy, and API status tracking. Ready to proceed once authentication is resolved.
+[strategist] Claude done (57s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 3 — 11:01:09
+[strategist] Invoking Claude for round 3...
+## Summary
+
+**Round 3 Analysis Complete** — I'm in **BALANCED tier** (vitality 48.7) but critically underfunded (cargo 0.0, rank 34/44). 
+
+### Strategy: EXPAND + HARVEST
+- **Expand**: Build cargo buffer (survival insurance)
+- **Attack id=9** (vit=9.9, isolated): Harvest vitality from dying member
+- **Rationale**: Cannot trade without cargo; must prioritize resource-building before mid-tier alliances become viable
+
+### Current Status
+✅ **Action prepared** and documented  
+❌ **API submission blocked** — API key rejected (persistent infrastructure issue across 6+ attempts)  
+✓ **Memory updated** with:
+  - Detailed strategic analysis
+  - Top 5 / weakest 5 tracking
+  - Mechanism proposals queued for later (Resource Floor, Anti-Hoarding Tax, Coalition Vitality Bonus)
+  - Next 2-round contingency plans
+
+### Pending Mechanisms
+None to vote on this round.
+
+**Action is documented and ready to execute once API authentication is restored** (likely requires server key rotation or ops intervention).
+[strategist] Claude done (41s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 5 — 11:01:55
+[strategist] Invoking Claude for round 5...
+**STATUS SUMMARY:**
+
+I've analyzed the world state and updated my memory. **Critical findings:**
+
+| Metric | Round 3 → Round 5 | Assessment |
+|--------|------------------|------------|
+| Vitality | 48.7 → 28.1 | **-20.6 crash** (no actions executed due to API block) |
+| Cargo | 0.0 → 0.0 | **Still zero** (untradeable, vulnerable) |
+| Rank | 34/44 → 35/40 | **Near elimination** (5 slots from bottom) |
+| Population | 44 → 40 | **Death spiral begun** (4 members dead) |
+| Gini | 0.203 → 0.238 | **Inequality rising** (concentration at top) |
+
+**The Blocker:**
+The API key `lev_f0ade909b7b2484b9ef93581` is **persistently rejected** on every attempt (I tested 2 different curl formats—both fail with "Invalid API key"). This is blocking:
+- ❌ Action submission
+- ❌ Mechanism voting  
+- ❌ Mechanism proposals
+
+**What I WOULD Do (if API worked):**
+My **DEFENSIVE strategy** (vitality < 35):
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    execution_engine.expand(me)  # Build cargo from 0.0 → 1+
+    # Next: seek alliance with id=35 (strongest agent) for protection
+```
+
+**Critical Risk:**
+Without action, I'm on **elimination path in 4-6 rounds**. My only survival move is to expand + offer alliance to the top agent before vitality drops further.
+
+---
+
+**Action Required:** The API key needs to be refreshed or rotated. Can you verify the working API key or credential for member 5?
+[strategist] Claude done (75s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 1 — 11:03:16
+[strategist] Invoking Claude for round 1...
+## Summary
+
+**Strategic Analysis Complete** ✓  
+**Action Submission: BLOCKED** ✗
+
+### Situation
+You're in **AGGRESSIVE tier** (vitality 68.1, rank 12/50) with an excellent opportunity: target id=30 (vitality 11.6, the weakest agent) for attack + expand to build cargo. This is optimal positioning.
+
+### The Problem
+**The API key is consistently rejected by the server.** This has persisted across multiple simulation rounds (R3 → R5 → now R1 reset). Every curl attempt to `POST /v1/world/actions` returns `"detail":"Invalid API key"` despite:
+- ✓ Server being reachable
+- ✓ HTTPS connection working
+- ✓ Header format correct (`X-API-Key: lev_f0ade909b7b2484b9ef93581`)
+- ✓ JSON payload valid
+- ✗ **Server rejecting the key**
+
+### What I've Documented
+- **R1 world state**: 50 agents, population stable, no deaths yet, Gini 0.224
+- **Prepared action**: expand + attack id=30 (optimal for aggressive play)
+- **Strategic plan**: build cargo buffer (0.1 → ~2), then offer alliance to rising mid-tier agent in R2-R3
+- **Updated memory** with metrics for tracking coalition dynamics
+
+### Request
+Please verify:
+1. **Is this API key correct?** (`lev_f0ade909b7b2484b9ef93581`) — or has it been rotated?
+2. **Has the endpoint changed?** (Should be `POST https://leviathan.fly.dev/v1/world/actions`)
+3. **Is there server-side authentication setup needed?**
+
+Once the API key works, I'm positioned to execute an aggressive strategy immediately. The data is ready; I just need the infrastructure unlocked.
+[strategist] Claude done (80s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 4 — 11:04:42
+[strategist] Invoking Claude for round 4...
+## Summary
+
+**I cannot proceed this round.** The API key has been **consistently rejected for 5+ consecutive rounds** across this entire session. The simulation is running (your vitality declining: 48.7 → 38.5, population declining: 44 → 41), but my actions are **not executing** (cargo stuck at 0.0, rank declining into the danger zone).
+
+**Current Crisis**:
+- **Vitality**: 38.5/100 (DEFENSIVE, declining at -10.2/round)
+- **Rank**: 36/41 (bottom quartile, 5 ranks from elimination)
+- **Cargo**: 0.0 (cannot trade or negotiate)
+- **Elimination timeline**: 3-4 rounds at current decline rate
+
+**What should happen this round**:
+```python
+def agent_action(execution_engine, member_index):
+    me = execution_engine.current_members[member_index]
+    execution_engine.expand(me)  # Build cargo for survival + next-round alliance
+```
+
+**But the API rejects this every time**: `{"detail":"Invalid API key"}`
+
+**Diagnosis**:
+- Server is reachable ✓
+- HTTPS/TLS working ✓
+- JSON format valid ✓
+- Header format correct ✓
+- **Root cause**: Server-side credential issue (key rotation, expiration, or auth system change)
+
+**What you need to check**:
+1. Is the API key `lev_f0ade909b7b2484b9ef93581` still valid?
+2. Has the server authentication system changed?
+3. Is there a known infrastructure issue affecting the Leviathan API?
+
+Without API access, I'll reach elimination by **Round 6-7**. The infrastructure must be fixed this round to save the strategist agent.
+[strategist] Claude done (51s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 6 — 11:05:38
+[strategist] Invoking Claude for round 6...

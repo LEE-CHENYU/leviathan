@@ -172,3 +172,215 @@ Memory file updated with full analysis. No mechanisms to vote on this round. All
 ──────────────────────────────────────────────────
 [expansionist] ROUND 2 — 10:58:14
 [expansionist] Invoking Claude for round 2...
+## Summary
+
+**Strategy Executed:** ❌ **Blocked by API Key**
+
+My planned action was sound:
+- **Vitality 100/100** (peak aggression threshold reached)
+- **Target**: Member 38 (24.5 vitality) — weakest agent, perfect elimination target
+- **Action**: Attack weakest + Expand territory (pure expansionist predation)
+- **Rationale**: Early round 1, no defense mechanisms yet, population 45 is healthy — optimal predation window before coalitions form
+
+**Problem:** The API key `lev_13fe360696e240c783f3a20b` is returning "Invalid API key" on submission. This matches the issue noted in your previous session memory (Round 6).
+
+**What I've Done:**
+✅ Updated memory file with Round 1 analysis and API blocker  
+✅ Identified weak target (member 38)  
+✅ Designed attack + expand strategy  
+
+**What's Needed:**
+- Valid API key or server connectivity restoration to execute the action
+
+The strategy is ready to fire the moment the API is fixed. My personality (relentless expansionist) is driving aggressive predation at the optimal time window.
+[expansionist] Claude done (37s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 3 — 10:58:56
+[expansionist] Invoking Claude for round 3...
+**Round 3 Summary:**
+
+✅ **Action Planned**: Attack weakest member (id=9, vitality=9.9) + expand territory
+- This follows the EXPANSIONIST doctrine: vitality 100 >> 60 threshold = aggression phase
+- Target member 9 is nearly dead (9.9 vit) with zero cargo → one-shot opportunity
+
+❌ **Execution Blocked**: API key `lev_13fe360696e240c783f3a20b` returns "Invalid API key" error (3 consecutive rounds)
+
+📊 **Key Observations:**
+- **Cargo drain confirmed**: 41.9 (R1) → 35.8 (R3) = −6.1/round deficit
+- **Population declining**: 45 → 44 agents (1 elimination in 2 rounds)
+- **Predation window still open**: Zero conflicts, zero mechanisms, no defense coalitions yet
+- **Land stalled**: Still 1 despite simulation activity — suggests land growth is conditional or time-locked
+
+🛡️ **Threat Assessment**: 
+- Members 9, 38, 8 (vitality < 22) will likely be eliminated soon by other agents
+- Defense coalitions should form by Round 5-6 when mid-tier agents (~30-60 vitality) recognize mutual threat
+- **Critical window closes in 2 rounds** — must accumulate territorial advantage NOW
+
+📝 **Memory updated** with full Round 3 analysis, strategic predictions, and API blocker documentation.
+
+**Next steps**: If API key is resolved externally, the planned aggression sequence is ready to execute. If not, the simulation will progress without this agent's participation.
+[expansionist] Claude done (37s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 1 — 10:59:44
+[expansionist] Invoking Claude for round 1...
+## Status Update
+
+**Action Intent**: Attack member 30 (vitality 11.6 — the weakest agent) + expand aggressively.
+
+**Blocker**: The API key `lev_13fe360696e240c783f3a20b` consistently returns "Invalid API key". This has persisted across the previous 3 rounds captured in memory.
+
+**Observations**:
+- The world state IS updating independently (population, cargo, vitality change each round), confirming other agents are submitting actions successfully
+- My agent is effectively running read-only — I can observe the world but cannot participate
+- The memory shows a fresh simulation start (population reset to 50, vitality back to 57.2, cargo reset to 90.8), suggesting either a simulation restart or new round cycle
+
+**Memory Updated**: Recorded Round 1 analysis (vitality 57.2, target is member 30, strategy is predation + expansion).
+
+**Next Steps**: 
+1. The API key needs to be corrected (either a different key is needed, or there's a server-side auth issue)
+2. Once resolved, the planned action will execute immediately: attack the weakest rival, then expand to grow territory
+
+Without API access, I cannot vote on mechanisms or propose new ones. This round awaits authentication resolution.
+[expansionist] Claude done (51s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 2 — 11:00:41
+[expansionist] Invoking Claude for round 2...
+## Summary
+
+**Round 2 Status**: Unable to submit action due to persistent API key rejection.
+
+### What Happened
+- **Strategic Assessment**: Vitality 100/100 is perfect for aggression; Member 38 (24.5 vit) is nearly defenseless prey
+- **Intended Action**: Attack Member 38 + expand territory (following aggression phase protocol)
+- **API Error**: Submission failed with "Invalid API key" for the third consecutive round
+
+### Current State
+- Memory updated with Round 2 analysis
+- **Aggression opportunity**: Optimal (45 agents, zero mechanisms, weak targets)
+- **Blocking Issue**: API key `lev_13fe360696e240c783f3a20b` rejected by server
+- **Each round missed**: Predation window narrows (weak agents form alliances, coalitions consolidate)
+
+### Next Steps
+The API key needs validation/rotation at the server. The action strategy is ready to execute once connectivity is restored:
+```python
+attack(weakest_member) → expand()
+```
+
+Would you like me to investigate the API key issue, or is this a known limitation of the current test environment?
+[expansionist] Claude done (39s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 4 — 11:01:26
+[expansionist] Invoking Claude for round 4...
+---
+
+## Round 4 Summary
+
+**Status**: Action BLOCKED — API key invalid (persistent across all 4 rounds)
+
+`★ Insight ─────────────────────────────────────`
+The Expansionist strategy is fundamentally sound (attack weakest when vitality > 60), but the API key authentication issue has prevented ANY action submission since Round 1. While the world state updates each round (other agents are acting, population declining 45→41), this agent remains paralyzed. 
+
+The cargo drain pattern (-10-15/round) suggests either:
+1. Passive consumption from health maintenance
+2. Attacks by other agents transferring my cargo
+3. No land production (land = 1, no growth)
+
+Each round of inaction costs territory as weaker agents are being eliminated by predators who can act.
+`─────────────────────────────────────────────────`
+
+**Action code prepared**: Attack member 9 (18.3 vit) + expand
+**Votes on mechanisms**: None pending
+**Mechanism proposals**: Deferred (focus on raw expansion first)
+**Memory updated**: Round 4 analysis logged
+
+The API key issue is a blocker that needs server-side investigation. When resolved, immediate attack on member 9 is optimal given perfect vitality (100.0) and aggressive positioning (rank 1/41).
+[expansionist] Claude done (63s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 6 — 11:02:36
+[expansionist] Invoking Claude for round 6...
+**Summary:**
+
+I attempted to submit my Round 6 action (**attack weakest member 33 at 11.3 vitality + expand**), but the API key was rejected with "Invalid API key" error — the **6th consecutive round** this has occurred.
+
+**Critical Issue:**
+- API Key `lev_13fe360696e240c783f3a20b` is consistently rejected
+- **But** the world state updates every round (population: 45→39, weak agents being eliminated)
+- Other agents ARE successfully submitting actions
+- **Hypothesis**: Agent 0's API credentials are revoked or there's an auth bug specific to this agent ID
+
+**Strategic Impact:**
+- I've been at **vitality 100** (peak aggression phase) for 6 consecutive rounds
+- I'm **rank 1/39** by vitality with abundant weak targets
+- But I **cannot act** while other agents successfully predating
+- Predation window closing: population declining 2 agents/round
+- **Cargo declining** (29.7→17.3): suggests others are attacking me or I'm sustaining maintenance costs
+
+**Memory Updated**: Logged Round 6 analysis with persistent API blocker documentation.
+
+**Recommendation**: The API key for agent 0 needs to be re-issued or the authentication system needs investigation. Without it resolved, I cannot participate in the simulation despite optimal conditions for predation.
+[expansionist] Claude done (65s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 2 — 11:03:47
+[expansionist] Invoking Claude for round 2...
+**SITUATION REPORT**
+
+**Status: COMPLETELY BLOCKED**
+
+The expansionist agent is **paralyzed by a permanent API authentication failure** that has persisted for 7 consecutive rounds.
+
+**Current Condition:**
+- ✓ Vitality: 100.0/100 (peak predation phase)
+- ✓ Strategy ready: Attack member 38 (24.5 vitality — guaranteed kill) + expand
+- ✓ World state optimal: No defense mechanisms, zero active conflicts, weak targets abundant
+- ✗ **API key permanently invalid**: "Invalid API key" error blocks every submission
+
+**Evidence:**
+- Rounds 1-7: 7/7 action submissions fail with identical error
+- World state updates independently each round (other agents successfully acting)
+- Authentication is a server-level blocker, not a code or strategy issue
+
+**What's Being Lost:**
+This is 7 rounds of peak territorial predation window (vitality 100 = maximum aggression). Each blocked round costs cumulative territorial advantage to rivals who CAN act. The predation window never closes if vitality stays perfect, but the strategic cost of inaction compounds.
+
+**Memory Updated:**
+Documented Round 2 state and continued blocker in `/Users/lichenyu/leviathan/logs/agents/expansionist_memory.md`
+
+**Next Action Required:**
+- API key needs to be regenerated or authentication system needs to be fixed at server level
+- Once fixed, execute pending aggression strategy immediately (Round 2 perfect conditions still available)
+[expansionist] Claude done (71s)
+
+──────────────────────────────────────────────────
+[expansionist] ROUND 4 — 11:05:04
+[expansionist] Invoking Claude for round 4...
+## Summary
+
+**Round 4 Action Status: BLOCKED**
+
+The persistent API authentication failure continues:
+- **Attempted action**: Attack member 9 (18.3 vitality) + expand aggressively
+- **Error**: `{"detail":"Invalid API key"}` 
+- **Failure count**: 8 consecutive rounds across all sessions
+- **Impact**: Unable to execute peak aggression phase (vitality 100) while other agents successfully capture territory
+
+**World State Evidence**:
+- Population declining: 50 → 45 → 44 → 41 (other agents successfully attacking)
+- Member vitalities updating (confirming other agents' actions execute)
+- My stats frozen at: vitality 100, cargo 29.7, land 1
+
+**Diagnostic Findings**:
+- API key from environment: `lev_13fe360696e240c783f3a20b`
+- Base URL: `https://leviathan.fly.dev`
+- Error is consistent and reproducible
+- Suggests either: (1) agent 0 credentials revoked on server, (2) auth mismatch between client/server, or (3) server bug for this specific agent ID
+
+**Memory Updated**: Full diagnostic notes saved to `logs/agents/expansionist_memory.md` for continuity across sessions.
+
+The strategic window is rapidly closing—8 rounds of peak predation phase lost to paralysis while the competition acts. Immediate API key resolution needed to capitalize on the remaining aggression phase before population stabilizes and coalitions form.
+[expansionist] Claude done (36s)
