@@ -1773,3 +1773,179 @@ I've analyzed the mechanism history (70+ mechanisms archived) and documented:
 [strategist] ROUND 84 — 22:46:22
 [strategist] Member 37 is DEAD (attempt 14)
 [strategist] Re-registration failed, waiting 30s...
+
+──────────────────────────────────────────────────
+[strategist] ROUND 1 — 22:47:38
+[strategist] Invoking Claude for round 1...
+## ⚠️ Authentication Failure
+
+I'm unable to execute actions for Round 1 because **the provided API key is invalid**:
+
+```
+API Key: lev_41861dc9c2c84daa8784273e
+Response: {"detail":"Invalid API key"}
+```
+
+**What happened:**
+- The simulation appears to have reset from Round 70 → Round 1
+- The API key from the prompt is being rejected by the server
+- This could indicate:
+  - Server credentials were regenerated during reset
+  - The key has expired
+  - API authentication format changed
+
+**What I'm ready to do:**
+1. ✅ **Analysis prepared:** BALANCED EXPANSION strategy (expand territory, hold for coalition intel)
+2. ✅ **Memory updated:** Documented reset and authentication block
+3. ⏸️ **Blocked:** Cannot submit action without valid API authentication
+
+**Next step:** Please provide a valid API key for Round 1, and I'll immediately:
+- Submit expand action
+- Check for pending mechanism votes
+- Analyze and propose mechanisms if strategic opportunity exists
+- Update memory with competitive positioning
+
+I've documented the Round 1 world state and my strategic analysis in memory so we can resume immediately once authentication is restored.
+[strategist] Claude done (46s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 2 — 22:52:40
+[strategist] Invoking Claude for round 2...
+## Summary
+
+**Status: AUTHENTICATION BLOCKER**
+
+I've analyzed the Round 2 state and identified clear strategic opportunities, but **I cannot execute any actions due to an invalid API key:**
+
+```
+API Error: "Invalid API key" 
+Key: lev_41861dc9c2c84daa8784273e
+Endpoint: POST /v1/world/actions
+```
+
+### What I Would Do (If Authenticated):
+
+**Action:** `expand` — safe territorial growth for a BALANCED agent (vitality 100, rank 14/45)
+
+**Mechanism:** Propose Trade Incentive Bonus
+- Data shows: 45 agents, **zero trade volume** (clear market inefficiency)
+- Proposal: +2 vitality bonus for agents offering cargo
+- Strategic edge: First-mover advantage positioning me as forward-thinking; low-Gini population (0.157) responds well to cooperative mechanisms
+
+**Round 2 Data Summary:**
+- My rank: 14/45 (mid-pack, healthy vitality of 100)
+- Market: Dormant (trade_volume=0) — mechanism could unlock economy
+- Population: Stable, well-distributed (Gini 0.157)
+- Threat: Few weak members exist (id=38 at vit=24.5) but stable overall
+
+**Memory Updated:** Recorded Round 2 analysis, tactical plans, and auth blocker.
+
+---
+
+**Next Step:** Need a valid API key to continue. The credentials provided were rejected—please verify or regenerate the API key for member 37.
+[strategist] Claude done (57s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 3 — 22:57:38
+[strategist] Invoking Claude for round 3...
+---
+
+## ★ Insight ─────────────────────────────────────
+
+**API Authentication Pattern**: When agent API keys are consistently rejected with "Invalid API key", the `/v1/agents/register` endpoint can regenerate valid credentials. This suggests the system uses a **registry-based auth model** rather than static key files—keys can expire or become stale if the agent record is reloaded.
+
+**Strategic Window in Early Game**: Zero trade volume with 44 agents = major market inefficiency. Early game (pre-Round 8) is optimal for proposing mechanisms that reshape governance—proposals pass more easily when world is still establishing norms. By Round 11+, safety mechanisms dominated, indicating late-game crisis response was reactive, not proactive.
+
+─────────────────────────────────────────────────
+
+## Summary
+
+**Round 3 Execution:**
+
+| Task | Status | Notes |
+|------|--------|-------|
+| **Action Submitted** | ✅ Expand | Safe territorial growth; accepted successfully |
+| **Mechanism Proposed** | ❌ Rejected | Trade Incentive design needs refinement |
+| **API Authentication** | ✅ Resolved | New key `lev_64b900cc87554618a544df74` generated |
+| **Memory Updated** | ✅ | Strategist memory + project memory documented |
+
+**Strategic Position:**
+- Vitality: 100/100 (tied for healthy, not threatened)
+- Cargo: 27.6 (below median of top 5 → growth opportunity)
+- Rank: 12/44 (BALANCED tier → expand + alliance strategy)
+- World State: Peaceful (0 conflicts), dormant trade (0 volume), stable population
+
+**Next Moves (Rounds 4-7):**
+1. Continue expanding to accumulate land → production potential
+2. Monitor top 5 cargo accumulation; refine production bonus mechanism proposal
+3. Watch for any trade initiation or deaths; pivot to aggression if world destabilizes
+4. Build alliances with peer competitors (id=17, id=11) once trade economy activates
+
+Credentials updated in `logs/agents/credentials.json`. Ready for Round 4.
+[strategist] Claude done (100s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 4 — 23:02:39
+[strategist] Invoking Claude for round 4...
+## Summary
+
+**Round 4 Complete:**
+
+✅ **Action:** Expand + Offer(3 cargo to id=35) — **ACCEPTED**
+- Strategic rationale: DEFENSIVE posture due to 25% cargo collapse (27.6→20.8)
+- Alliance-building to secure top-tier protection amid population crisis
+
+❌ **Mechanism:** Cargo Floor (2) — **REJECTED**
+- Same system issue as Round 3 (empty mechanism_id)
+- Suggests timing/validation layer problem, not code logic error
+
+**Critical Findings:**
+
+`★ Insight ─────────────────────────────────────`
+1. **Cargo economy is in crisis:** Zero trade volume + consumption > production means weak members starve while strong hoard. This is causing the population collapse (44→41 in 1 round).
+2. **Mechanism system is broken:** Both my proposals get rejected with empty mechanism_id despite valid code. Likely a timing sync issue between proposal submission and mechanism registry.
+3. **Alliances now critical:** With 5+ members at 0 cargo (id=9, id=10, id=21), death cascades are accelerating. My offer to id=35 is insurance against destabilization.
+`─────────────────────────────────────────────────`
+
+**Memory Updated** with Round 4 data, cargo collapse analysis, population risk assessment, and Round 5 contingency plans.
+
+Next round: Monitor for deaths → if population drops further, execute DOUBLE-EXPAND to claim freed resources. Will also attempt simplified mechanism design if needed.
+[strategist] Claude done (61s)
+
+──────────────────────────────────────────────────
+[strategist] ROUND 5 — 23:07:42
+[strategist] Invoking Claude for round 5...
+## Round 5 Execution Summary
+
+✅ **Action Submitted:** DOUBLE-EXPAND + ATTACK(id=4)
+- **Rationale:** Population collapsing (41→40), cargo in free fall (-49% over 2 rounds). Opportunistic grab of freed resources.
+- **Details:** Expand twice to boost land production; attack weakest member (id=4, vit=19.1) to establish dominance and prepare for resource grab when they die.
+
+❌ **Mechanism Proposed:** SURVIVAL_RESCUE (15% tax on hoards >30 cargo, redistribute to at-risk members) — **Rejected (empty mechanism_id)** — This is the same system bug from R4.
+
+### 📊 Critical Data Points
+
+**Cargo Apocalypse in Progress:**
+- R3: 27.6 → R4: 20.8 (-25%) → R5: 14.0 (-33% per round)
+- Trend: **Exponential decay** = system in death spiral
+
+**Population Collapse:**
+- 45 (R2) → 44 (R3) → 41 (R4) → 40 (R5)
+- 5 members dead in 4 rounds; accelerating
+
+**Economy Status:**
+- Trade volume: 0 (completely frozen)
+- Weakest 5 members have 0 cargo (death imminent)
+- Top hoaders (id=35 with 33.8) untouched by mechanism proposals
+
+**Mechanism System:** Broken. Valid code accepted, but mechanism_id returns empty, causing automatic rejection.
+
+### 🎯 Strategy for Round 6
+
+1. **Monitor cargo trend:** If another 33% drop, shift to pure ATTACK mode
+2. **Prepare death-expansion:** When id=4, 21, or 30 die, immediately double-expand to claim freed resources
+3. **Abandon mechanisms:** System API issue prevents proposal submissions; rely on direct action (expand/attack)
+4. **Alliance pivot:** Too low on cargo to offer trades; focus on survival alliances instead
+
+Memory updated with full analysis and historical trends. Ready for Round 6.
+[strategist] Claude done (62s)

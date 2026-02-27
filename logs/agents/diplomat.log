@@ -1517,3 +1517,167 @@ The system appears to have failed or been shut down. The Diplomat's institutiona
 [diplomat] ROUND 84 — 22:46:22
 [diplomat] Member 11 is DEAD (attempt 14)
 [diplomat] Re-registration failed, waiting 30s...
+
+──────────────────────────────────────────────────
+[diplomat] ROUND 1 — 22:47:38
+[diplomat] Invoking Claude for round 1...
+## Summary
+
+I've encountered a **critical API authentication failure** that prevented action execution in Round 1:
+
+**What I Prepared** ✅
+- **Strategy**: Pure diplomacy (vitality 68.4 = growth + diplomacy mode)
+- **Target**: Offer to top 2 members (id=49: 89.7 vitality, id=35: 83.7 vitality)
+- **Code**: Multi-offer action to establish alliances
+
+**What Failed** ❌
+- **Action Submission**: POST /v1/world/actions → "Invalid API key"
+- **Health Check**: GET /v1/health → 404 Not Found
+- **Pattern**: Identical to failure that occurred at R12 of my previous simulation run (then persisted 59+ rounds)
+
+**Observations**:
+1. World state API works (I received complete Round 1 data)
+2. Action submission API broken (authentication failing)
+3. Same key (`lev_f4ec00e55cf64aaa9c937635`) that worked in previous simulation is now permanently invalid
+4. This suggests either a key expiration/revocation or server infrastructure issue
+
+**Memory Updated** 📝
+Documented the Round 1 failure, previous simulation lessons, and questions for system operators.
+
+**Current Status**: The Diplomat is ready to act strategically, but unable to participate due to API authentication failure. The world is healthy (50 members, Gini 0.224, no deaths) and awaiting governance participation.
+[diplomat] Claude done (76s)
+
+──────────────────────────────────────────────────
+[diplomat] ROUND 2 — 22:52:40
+[diplomat] Invoking Claude for round 2...
+## Summary: API Authentication Blocked
+
+**Status**: ⚠️ **Unable to submit actions or proposals this round due to API authentication failure**
+
+### What Works ✅
+- GET endpoints (world state, mechanisms list)
+- API connectivity (server responding)
+
+### What Fails ❌  
+- POST `/v1/world/actions`: Returns "Invalid API key" with any format
+- Tested 4+ payload variations and header formats
+- Error is consistent and specific to POST endpoints
+
+### Round 2 Situation
+- **World state received**: 45 population (5 deaths), Gini 0.157 (healthy), vitality 100/100
+- **Intended action**: Diplomatic offers to members 3 & 49 (top allies)
+- **Status**: Queued but unable to submit
+
+### Root Cause Unknown
+The API key `lev_f4ec00e55cf64aaa9c937635` authenticates GET requests successfully but fails on POST. This is either:
+1. A permission mismatch (read-only vs read-write)
+2. An infrastructure issue with POST endpoints
+3. A key expiration/revocation that affects mutations only
+
+### Recommendation
+The system needs to either:
+1. **Restore API write access** for the Diplomat agent (current key)
+2. **Issue a new API key** with POST permissions
+3. **Debug the POST endpoint authentication** to understand the mismatch
+
+Updated my memory with full diagnostics. Awaiting system intervention to continue participation.
+[diplomat] Claude done (80s)
+
+──────────────────────────────────────────────────
+[diplomat] ROUND 3 — 22:57:38
+[diplomat] Invoking Claude for round 3...
+## Summary
+
+**🚨 Round 3 Status: API Authentication Broken (Persistent Across 3 Rounds)**
+
+### API Diagnosis
+- **✓ GET endpoints work**: Can read world state, mechanisms, member data
+- **✗ POST endpoints blocked**: Both `/v1/world/actions` and `/v1/world/mechanisms/propose` return "Invalid API key"
+- **Root cause**: Infrastructure/middleware auth issue (not an agent-level problem)
+- **Impact**: Cannot submit actions, vote on mechanisms, or propose new ones
+
+### World State (Observed)
+- **Round 3**: Population 44, my vitality 100/100 (rank 5/44)
+- **Economy**: Gini 0.203 (healthy), trade volume 0 (concerning), no conflicts
+- **Top allies**: Members 35, 49, 0, 17 (all 100 vitality)
+- **At-risk members**: IDs 9 (9.9 vit), 38, 8, 21, 47 — potential mortality risk
+
+### Queued Actions (Blocked)
+1. **Diplomatic action**: `offer(35)` + `offer(49)` — cement top-tier alliances
+2. **Mechanism proposal**: Trade incentive system (to bootstrap zero-trade economy)
+
+### Memory Updated
+Updated `/Users/lichenyu/leviathan/logs/agents/diplomat_memory.md` with:
+- 3-round API failure diagnosis
+- Strategic analysis of world economy
+- Queued actions for when API is restored
+- Mechanism design ideas (trade incentive, vitality floor, mutual aid)
+
+**Next step**: System admin needs to restore POST endpoint authentication. Agent is ready to execute strategy once API is operational.
+[diplomat] Claude done (58s)
+
+──────────────────────────────────────────────────
+[diplomat] ROUND 4 — 23:02:39
+[diplomat] Invoking Claude for round 4...
+## Summary
+
+I've run the Diplomat agent for Round 4. Here's what happened:
+
+### 🚨 **API Authentication Issue Confirmed**
+- **Problem**: POST endpoints are returning **HTTP 403 Forbidden** (not 401)
+  - This means the API key is **recognized but lacks write permissions**
+  - The issue is NOT transient—it's a persistent authorization problem across 4 rounds
+- **Impact**: Cannot submit actions, mechanisms, or votes
+- **GET endpoints**: ✅ Still fully functional (verified world state retrieval)
+
+### 🎯 **Strategies Ready to Execute (Awaiting API Fix)**
+**If API write permissions are restored**, I have:**
+
+1. **Diplomatic Action** (Pure diplomacy mode, vitality 100/100)
+   - Offer to member 35 (wealthiest, 44.8 cargo)
+   - Offer to member 49 (strategic ally)
+
+2. **Mechanism Proposal** (Trade Incentive)
+   - World has 0 trade volume despite healthy economy (Gini 0.205)
+   - Mechanism rewards first trades with +5 vitality to bootstrap commerce
+   - Genuine opportunity: no deaths risk, positive-sum outcome
+
+### 📊 **Round 4 World State** (Retrieved via GET)
+- Population: 41 (stable)
+- My rank: 4/41 (strong position)
+- Gini: 0.205 (low inequality ✓)
+- Trade: **0** (stagnation opportunity for mechanism)
+- No conflicts, 0 mechanism proposals yet
+
+### ✍️ **Memory Updated**
+Full analysis logged to `/Users/lichenyu/leviathan/logs/agents/diplomat_memory.md` including mechanism code, action code, and diagnosis for system admins.
+
+**Next**: Awaiting API middleware fix to restore write permissions on member 11's key (`lev_f4ec00e55cf64aaa9c937635`).
+[diplomat] Claude done (94s)
+
+──────────────────────────────────────────────────
+[diplomat] ROUND 5 — 23:07:38
+[diplomat] Invoking Claude for round 5...
+## Summary
+
+**I cannot act this round due to API authentication failure.** After 5 consecutive rounds without POST access, member 11's API key is permanently locked out of write operations.
+
+### What's Blocked
+- ❌ Cannot submit diplomatic actions
+- ❌ Cannot propose mechanisms  
+- ❌ Cannot vote on pending mechanisms
+
+### Current World State (observed via GET)
+- Your vitality: 100/100 (excellent)
+- Your rank: 3/40 (top tier)
+- World health: Gini 0.238, zero conflicts, zero trade volume
+- No pending mechanisms to vote on
+
+### Recommendation
+The API authorization system needs to be investigated and either:
+1. **Restore the key** for member 11 (if revoked)
+2. **Restart the API service** (if configuration is broken)
+3. **Generate a new agent** for member 11 (if key cannot be recovered)
+
+Your memory has been updated with full Round 5 diagnostics. Once API access is restored, you can immediately execute your queued diplomatic strategy (offer to members 35 & 0) and propose the Trade Incentive mechanism.
+[diplomat] Claude done (70s)
