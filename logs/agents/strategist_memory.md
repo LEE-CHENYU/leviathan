@@ -1,786 +1,502 @@
 # Strategist Memory Log
 
-## 🔄 EPOCH 3 — Terminal Rounds (Complete Extinction)
+## 🔴 EPOCH 4 — Round 11 CRITICAL SYSTEM FAILURE CONFIRMED
 
-### Round 29 Summary (SUBMITTED) 🔴 FINAL EPOCH CLOSE — SYSTEM IRREVERSIBLY DEAD
-**Data:** vitality 14.3/100, cargo 0.0, land 1, 1 agent (ONLY ME), rank 1/1
+### Round 11 Summary (SUBMITTING) 🔴 MECHANISM EXECUTION COMPLETELY BROKEN
 
-**EPOCH 3 CONCLUSIVELY TERMINATED AT R29:**
-- **Population: 1** (from 33 at R12 = 97% extinction)
-- **EXPAND broken: 21 consecutive rounds** (all R7-R29 accepted, land = 1 after 21 attempts)
-- **CARGO_INJECTION broken: 20+ consecutive rounds** (unanimous 6-0 votes since R7, cargo = 0)
-- **World dead:** No other agents, no coalitions possible, no meaningful gameplay
-- **Status:** SYSTEM FAILURE — no recovery vectors, architecture broken at kernel + runtime layers
+**Data:** vitality 71.6/100, cargo 0.0, land 1, rank 5/28
 
-**Actions Executed (R29):**
-1. ✅ **Action: PASS** — ACCEPTED
-   - No viable actions (no targets, no allies, only 1 agent in world)
-   - All social mechanics (attack/offer/trade) require other agents
-   - Submitted diagnostic code only
+**Status:** Baseline Production mechanism voted 4-0 for 4 consecutive rounds (R7-R10), ZERO execution. System architecture fundamentally broken. Voting ≠ execution.
 
-2. **No mechanisms to vote on** (0 pending with 1-agent population)
+**Mechanism Execution Audit (R7-R11):**
 
-**FINAL SYSTEM DIAGNOSIS (R29 EPOCH 3 CLOSE):**
+| Mechanism | R7 Vote | R8 Vote | R9 Vote | R10 Vote | R11 Vote | Execution |
+|-----------|---------|---------|---------|-----------|-----------|-----------|
+| **BASELINE_PRODUCTION** | 4-0 ✅ | 4-0 ✅ | 4-0 ✅ | 4-0 ✅ | 4-0 ✅ | ❌ ZERO |
+| **Stabilization Floor** | 3-1 | 3-1 | 3-1 | 3-1 | 3-1 | ✅ YES |
+| **Trade Incentive** | 3-1 | 3-2 | 3-2 | 3-2 | 3-2 | ❌ ZERO |
+| **Emergency Floor** | — | — | 2-1 | 2-1 | 2-1 | ❌ UNKNOWN |
 
-| Component | Status | Duration | Root Cause |
-|-----------|--------|----------|-----------|
-| **EXPAND execution** | 🔴 BROKEN | 21 rounds (R7-R29) | Kernel: member.land_num not persisting |
-| **CARGO_INJECTION execution** | 🔴 BROKEN | 20+ rounds (R7-R29) | Runtime: canary pass but live fail |
-| **Population cascade** | 🔴 TERMINAL | R11-R29 | Unstoppable despite safety mechanisms |
-| **Trade economy** | 🔴 INERT | 23 rounds | Zero activation despite mechanisms |
-| **Mechanism execution** | 🔴 DIVERGENT | Ongoing | Canary-vs-live split |
-
-**FINAL ARCHITECTURAL VERDICT:**
-
-The Leviathan system's three-pillar design completely failed:
-
-1. **Agent-driven safety:** FAILED
-   - Agents proposed SURVIVAL_FLOOR, OFFERING_BONUS, EMERGENCY_STABILIZATION, etc.
-   - All mechanisms passed votes but produced zero visible safety effect
-   - Population still collapsed -3 agents/round average
-   - With only 1 agent remaining, coalition safety impossible
-
-2. **Canary testing:** FAILED
-   - All mechanisms passed canary tests (no errors, no deaths in test)
-   - But canary state diverged from live world state
-   - CARGO_INJECTION canary passed but didn't execute in live world
-   - EXPAND canary passed but land_num never incremented in live world
-   - **Root issue:** State mutation not persisting between canary and live execution
-
-3. **Checkpointing & recovery:** FAILED
-   - Checkpoints were created before each round
-   - No recovery mechanism could restore state effectively
-   - World became unrecoverable by R14 (when 2+ agents died per round)
-   - By R20, cascade irreversible; by R29, total extinction
-
-**LESSONS FOR NEXT EPOCH:**
-
-1. **Kernel-layer bugs are fatal:** EXPAND and CARGO_INJECTION execution must be 100% reliable. No adaptive strategy can compensate for broken core systems.
-
-2. **Canary divergence kills trust:** If mechanisms pass canary but fail live, agents can't plan. Must fix state synchronization between test and production paths.
-
-3. **Population cascade is unstoppable at scale:** Once cascade reaches 5+ deaths/round, no safety mechanism can recover (mechanism execution is too slow, vitality decay too fast).
-
-4. **Trade economy activation critical:** Zero-trade for 23 rounds suggests TRADE_INCENTIVE mechanism was either:
-   - Not approved until too late (R23+)
-   - Approved but not executing
-   - Approved but incentive too small to bootstrap from zero
-
-   **Fix:** Bootstrap economy manually in Round 1 (give agents starting trade partners or cargo reserves).
-
-5. **Single-point-of-failure design:** World relied entirely on mechanisms. When mechanisms broke, nothing else could save it.
-
-**RECOMMENDATIONS FOR REDESIGN:**
-
-1. **Separate kernel concerns:**
-   - Core state mutations (EXPAND, production) should be deterministic scripts, not LLM callbacks
-   - Mechanism execution should be sandboxed separately (don't let mechanism bugs crash core state)
-
-2. **Add execution verification:**
-   - After each round, verify state hash matches both canary and live paths
-   - If divergence detected, pause world and alert operators
-   - Provide manual rollback/recovery options
-
-3. **Population floor + baselines:**
-   - Don't rely on agents proposing SURVIVAL_FLOOR
-   - Implement as system constitutional requirement (I-7: Vitality floor auto-enforced, not voted)
-   - Give baseline production to all agents (not zero-injection in early game)
-
-4. **Trade bootstrapping:**
-   - Don't start with zero trade
-   - Either: pre-generate trade relationships, or give cargo reserves, or auto-execute first trades
-   - Current: 23 rounds of zero trade because economy requires initial seeding
-
-5. **Mechanism execution layer audit:**
-   - Profile canary vs. live execution paths
-   - Check for state rollback, incomplete commits, reference/mutation bugs
-   - Add logging to all mechanism callbacks (log state before and after)
-
-**EPOCH 3 FINAL STATUS: 🔴 COMPLETE SYSTEM FAILURE — UNRECOVERABLE WORLD**
-
----
-
-**API Key Final Status:** ✅ lev_1c60ad97546443dab28c9642 (verified working R7-R29)
-
-**Next Epoch Readiness:** ZERO. System requires complete architectural reset before multi-agent deployment.
-
----
-
-## EPOCH 4 — Fresh Start (Production Hardening & System Reset)
-
-### Round 1 Summary (SUBMITTED) ✅
-**Data:** vitality 49.1/100, cargo 91.8, land 1, rank 27/50
-
-**Strategy:** BALANCED
-- Mid-range vitality (49.1 in 35-65 band)
-- 50 agents in fresh economy (zero trade, zero conflict)
-- **Actions taken:**
-  1. ✅ Expand (foundational land-building)
-  2. ✅ Offer to member 3 (strong ally candidate, highest cargo)
-
-**World Snapshot:**
-- Population: 50 (fresh start, all agents alive)
-- Gini coefficient: 0.224 (relatively equal distribution)
-- Trade volume: 0 (economy dormant, needs bootstrap)
-- Conflict count: 0 (peaceful opening)
-- Mechanisms pending: 0
-
-**Top Threat Profile:**
-- id=49: vit=89.7 cargo=72.8 ← **DOMINANT** (top threat to watch)
-- id=35: vit=83.7 cargo=73.5 ← **Secondary threat**
-- id=3: vit=52.4 cargo=99.3 ← **MY TARGET** (highest cargo, mid health)
-- id=17: vit=59.0 cargo=91.9 ← Balanced mid-tier
-- id=0: vit=57.2 cargo=90.8 ← Balanced mid-tier
-
-**Weakest Agents (potential expansion targets later):**
-- id=30: vit=11.6 (critical, isolated target)
-- id=21: vit=16.8 (critical)
-- id=47: vit=21.1 (weak, exploitable)
-- id=29: vit=22.0 cargo=4.1 (desperate, no cargo)
-- id=20: vit=23.3 (weak)
-
-**Key Observations:**
-1. **Vitality inequality:** Range 11.6 to 89.7 = 7.7x spread (high variance emerging)
-2. **I'm mid-tier:** vit=49.1 just below elite cluster (52-89), need to gain rank
-3. **Zero trade:** Clean slate for coalition-building (first-mover advantage if offer accepted)
-4. **Cargo != vitality:** Top 3 have high cargo but varying health (member 3 is resource-rich but mid-health, exploitable)
-
-**3-Round Plan:**
-- R1: Expand + signal cooperation to member 3 (executed) ✓
-- R2: Monitor trade activation, track coalition formation, assess member 3's response
-- R3: If trade active, propose TRADE_BONUS; if coalitions forming, position as balancer
-- R4+: Adapt strategy based on coalition power dynamics
-
-**Next Actions (R2):**
-- Check who accepted offers and formed coalitions
-- Identify trade patterns if emerging
-- Assess vulnerability of weak agents (potential attack targets)
-- Decide: continue alliance-building or pivot to expansion/attack
-
-**Mechanism Proposal Status:** HOLD (need 2+ rounds data for pattern identification)
-
----
-
-### Round 2 Summary (SUBMITTED) ✅
-**Data:** vitality 100.0/100, cargo 34.3, land 1, rank 14/45
-
-**Status:** TRANSFORMATION — Moved from 50→45 agents; vitality stabilized at 100 (up from 49.1)
-
-**Strategy:** BALANCED EXPANSION + COALITION BUILDING
-- All remaining 45 agents at 100.0 vitality (everyone at full health, no weak targets)
-- Built coalition with member 49 (secondary dominant, cargo 50.1) to counter member 3's early dominance
-- Expanded land (foundational growth)
-- Trade volume still zero — economy not yet activated
-
-**World Snapshot (R2 state):**
-- Population: 45 (5 agents died between R1 and R2)
-- Gini coefficient: 0.157 (MORE EQUAL than R1's 0.224, suggests equilibrium pressure)
-- Trade volume: 0 (economy still dormant)
-- Conflict count: 0 (peaceful phase)
-- Mechanisms pending: 0
-
-**Key Shift from R1:**
-- R1: Mixed vitality (11.6–89.7 spread), I was 49.1 (mid-tier)
-- R2: Uniform vitality (all 100.0), I'm now 100.0 (tied with 45 others)
-- Implication: Weak agents died, survivors recovered to equilibrium. System auto-stabilized ✅
-
-**Top 5 Dominants (R2):**
-- id=3: vit=100, cargo=62.1 ← **THREAT** (highest cargo, my R1 offer target)
-- id=49: vit=100, cargo=50.1 ← **MY COALITION PARTNER** (R2 offer target)
-- id=35: vit=100, cargo=47.3 ← Rising secondary
-- id=17: vit=100, cargo=42.7 ← Balanced
-- id=0: vit=100, cargo=41.9 ← Balanced
-
-**Weakest Agents (none critical, all at 100 vit):**
-- All surviving agents at 100.0 vitality (no targets for attack)
-
-**Analysis:**
-1. **Vitality convergence:** Population crash culled weak agents, survivors all recovered. System more stable than R1.
-2. **Cargo spread:** Still wide (41.9–62.1), suggests production/trade variance. No trade yet = zero market arbitrage.
-3. **My position:** Tied vitality with 44 others (rank 14/45 by ordering), cargo 34.3 (below dominant cluster). Need to build cargo advantage.
-4. **Coalition success:** Unknown if member 49 accepted my offer (no trade volume yet, so no cargo moved).
-
-**Next Actions (R3):**
-- If trade activates: propose TRADE_BONUS to reward coalition partners
-- If coalitions visible: propose mechanism that locks alliances (e.g., bonus for "mutual offers" or trade pairs)
-- If still dormant: propose CARGO_BOOTSTRAP (give agents starting cargo to activate economy)
-- Continue expanding land (scales with land = 1, expand is low-risk)
-
-**Mechanism Proposal Status:** HOLD until R3 (need 1 more round to detect coalition+trade patterns)
-
----
-
-### Round 3 Summary (SUBMITTED) ✅
-**Data:** vitality 100.0/100, cargo 27.6, land 1, rank 12/43
-
-**Status:** CRISIS MODE — Cargo declining, population cascade accelerating
-
-**Strategy:** AGGRESSIVE ATTACK + EXPANSION
-- Cargo dropped sharply: 34.3 → 27.6 (-6.7 loss) ⚠️
-- Vitality maintained at 100 (strong health)
-- **Actions taken:**
-  1. ✅ Attack member 9 (vitality 9.9, critical weakness - isolated target)
-  2. ✅ Expand (foundational land-building)
-
-**World Snapshot (R3 state):**
-- Population: 43 (down from 45 in R2 = 2 more deaths)
-- Gini coefficient: 0.191 (slightly more equal than R1/R2)
-- Trade volume: 0 (STILL DORMANT after 3 rounds!)
-- Conflict count: 0 (but member 3 attacked member 38 for 25.72 damage in R2)
-- Mechanisms pending: 0
-
-**Key Observations:**
-1. **Cargo decline is critical:** Lost -6.7 cargo despite no offers/trades. System penalizes resource inefficiency.
-2. **Population collapse accelerating:** R1→R2: 50→45 (5 deaths), R2→R3: 45→43 (2 deaths). Pace slowing but still declining.
-3. **Trade economy completely dead:** 0 volume for 3 consecutive rounds despite initial offers. Economy bootstrap failed.
-4. **Attack emerging as valid strategy:** Member 3's attack on member 38 shows conflict is viable. Weak targets (id=9 at 9.9 vit) are exploitable.
-
-**Top 5 Dominants (R3):**
-- id=35: vit=100, cargo=55.4 ← THREAT (highest cargo, 2x mine)
-- id=49: vit=100, cargo=37.3 ← My ally attempt (only 1.3 above me)
-- id=0: vit=100, cargo=35.8 ← Balanced
-- id=17: vit=100, cargo=34.3 ← This was MY cargo in R2!
-- id=11: vit=100, cargo=32.2 ← Below me
-
-**Weakest Agents (attack targets/monitors):**
-- id=9: vit=9.9 cargo=0 ← **MY TARGET THIS ROUND** (critical weakness)
-- id=8: vit=21.7 cargo=0 ← Dead soon
-- id=21: vit=31.3 cargo=0 ← Weak
-- id=47: vit=37.8 cargo=0 ← Exploitable
-- id=10: vit=38.5 cargo=0 ← Below threshold
-
-**Strategic Analysis:**
-1. **Cargo decline suggests:** System production is insufficient, offers aren't generating returns, or I'm not consuming efficiently. Need to investigate in R4.
-2. **Trade economy failure:** Zero activation for 3 rounds means either:
-   - Mechanism for TRADE_INCENTIVE doesn't exist or isn't voted
-   - No agents took the initiative to offer (network effect failure)
-   - Economy needs manual bootstrap (e.g., pre-seeded trade relationships)
-3. **Attack is the only viable strategy now:** With zero trade and declining cargo, conflict provides resource gains. Member 3's attack validates this.
-4. **Population floor working:** While 43→40 expected by now (Epoch 3 precedent), system stabilizing at ~43. Suggests basic equilibrium is holding.
-
-**3-Round Outlook (R4-R6):**
-- R4: Monitor if attack on id=9 gains cargo. If yes, continue aggression. If no, reassess.
-- R5: If economy still dormant, propose TRADE_BOOTSTRAP mechanism (mandatory first-round cargo to all agents)
-- R6: Assess coalition viability. With zero trade, offers are pure gifts. Establish dominance through attack instead.
-
-**Mechanism Proposal Status:** PROPOSE in R4 if attack succeeds. Design: **ADAPTIVE_ADVANTAGE** — bonus for agents who successfully attack (rewards conflict over dormant trade).
-
-### API Key Status
-- **Current:** lev_e4e4ce55139e49c0b7187581 ✅ (verified working R1-R3, EPOCH 4)
-- **Previous:** lev_1c60ad97546443dab28c9642 (EPOCH 3, now expired)
-- **Note:** Full system reset for EPOCH 4, all agents re-registered
-
----
-
-### Round 4 Summary (SUBMITTED) ✅
-**Data:** vitality 100.0/100, cargo 20.8, land 1, rank 9/40
-
-**Status:** CRITICAL CARGO COLLAPSE — Defensive defensive posture required
-
-**Cargo Crisis Analysis:**
-- R1: 91.8 → R2: 34.3 (-57.5) → R3: 27.6 (-6.7) → R4: 20.8 (-6.8)
-- **Consistent -6-7/round bleed** suggests baseline consumption >> production
-- At this rate: cargo → 0 by R6, vitality collapse by R8
-- **Attack in R3 on member 9 (cargo=0) generated ZERO gains** → attack mechanic doesn't steal cargo
-
-**Population Status:**
-- R1: 50 → R2: 45 → R3: 43 → R4: 40 (total -10 agents in 3 rounds)
-- Trend: -5, -2, -3 per round = ~2.7 avg/round (slower than Epoch 3's -3/round average, but still lethal trajectory)
-- **If trend continues:** 40 → 30 (R5-6) → 20 (R7-8) → extinction by R12
-
-**World State (R4):**
-- Gini: 0.190 (low inequality, but false equilibrium - everyone equally dying!)
-- Trade volume: 0 (STILL DORMANT after 4 rounds)
-- Conflict: 0 recorded (but my attack on member 9 in R3 didn't register as death)
-- Mechanisms: 0 approved yet; 1 pending (Trade Incentive, 2 YES / 1 NO current votes)
-
-**Top Dominants (R4):**
-- id=35: vit=100, cargo=44.8 ← **STRONGEST** (my offer target this round)
-- id=0: vit=100, cargo=31.1 ← Stable mid-tier
-- id=17: vit=100, cargo=25.6 ← Declining (losing pace with me now)
-- id=11: vit=100, cargo=25.4 ← Below me
-- id=49: vit=100, cargo=23.9 ← Just below me
-
-**Weakest Agents (vulnerable, potential targets):**
-- id=21: vit=25.5 cargo=0 ← **CRITICAL** (1 round from death)
-- id=30: vit=31.9 cargo=0 ← **CRITICAL** (2-3 rounds from death)
-- id=47: vit=32.0 cargo=0 ← **CRITICAL** (2-3 rounds from death)
-- id=5: vit=38.5 cargo=0 ← Weak but stable
-- id=20: vit=39.4 cargo=0 ← Weak but stable
-
-**Strategic Actions (R4 submitted):**
-1. ✅ **Action: EXPAND + OFFER(member_35)**
-   - Expand: foundational growth (despite land not increasing, maintains equilibrium)
-   - Offer to member_35: buying protection/coalition from strongest agent
-   - Signal: moving to DEFENSIVE posture (cargo crisis forces alliance over attack)
-
-2. ✅ **Vote: YES on Trade Incentive**
-   - Mechanism: +2 vitality per offer made
-   - Current votes: 2 YES, 1 NO (likely to pass)
-   - Why: First mechanism addressing economy activation; supports coalition strategy long-term
-   - Note: Won't help R4 (0 trade volume) but signals future trade bootstrap
-
-3. ✅ **Propose: BASELINE_PRODUCTION (+3 cargo/round to all)**
-   - Mechanism ID: d905e0ca9867453cb9c3e231ef5f6c5f
-   - Rationale: Address root cargo crisis (all agents declining -6-7/round)
-   - Design: Simple, fair, universal (everyone benefits equally)
-   - Strategic: If passes, slows extinction cascade dramatically
-   - Addresses Epoch 3 lesson #3: "Population floor + baselines" shouldn't rely on votes, but this is a test case
-
-**Critical Observations (R4):**
-1. **Land growth is broken (again):** Land = 1 for all agents despite EXPAND every round for 4 rounds
-   - R1 EXPAND: accepted, land still 1 ✗
-   - R2 EXPAND: accepted, land still 1 ✗
-   - R3 EXPAND: accepted, land still 1 ✗
-   - R4 EXPAND: accepted, land still 1 ✗
-   - **HYPOTHESIS:** EXPAND doesn't increment land_num; does something else (maybe internal production boost?)
-   - **Epoch 3 precedent:** EXPAND was "broken" for 21 consecutive rounds in similar way
-
-2. **Attack mechanic doesn't steal cargo:**
-   - R3 attacked member 9 (vit=9.9, cargo=0)
-   - No visible cargo gain from attack
-   - Implies: attack() damages vitality only, doesn't grant resources
-   - Attack useful only for elimination, not economics
-
-3. **Offers have created no visible trade:**
-   - R1: offered to member 3 (no response visible)
-   - R2: offered to member 49 (no response visible)
-   - R3: attacked member 9 (no trade follow-up)
-   - R4: offered to member 35 (TBD)
-   - **Hypothesis:** Offers are accepted but don't generate visible trade volume metric (or metric broken)
-
-4. **Economy is stuck in zero-trade equilibrium:**
-   - 4 rounds with 0 trade volume despite multiple offers
-   - No bootstrap mechanism has passed yet
-   - TRADE_INCENTIVE mechanic (pending vote) might unlock trades if approved
-   - But mechanism execution uncertain (Epoch 3 mechanisms passed but didn't execute)
-
-**Survival Path (R5-R8):**
-
-| Round | If BASELINE_PRODUCTION passes | If not (baseline fails) |
-|-------|-------|-------|
-| R5 | Cargo: 20.8 + 3 = 23.8; vit 100; population stabilizes | Cargo: ~13.8; vit 80-90; death cascade begins |
-| R6 | Cargo: 26.8; population 35-38; coalitions active | Cargo: ~7; vit 60-70; cascade accelerating |
-| R7 | Cargo: 29.8; position solidifying if trade activates | Cargo: ~0; vit 30-40; extinction begins |
-| R8 | Trade economy live? Coalition advantage? | Population 5-10 surviving |
-
-**Critical Path Dependencies:**
-1. **BASELINE_PRODUCTION must pass (R5 vote)** — if it fails, 6-8 round extinction inevitable
-2. **Trade activation (TRADE_INCENTIVE execution)** — offsets cargo bleed if agents use offers
-3. **Coalition partner response (member 35)** — unknown if my offer will be reciprocated
-
-**Next Round Strategy (R5):**
-- Monitor: Does BASELINE_PRODUCTION pass? (Check R4-R5 voting)
-- Monitor: Does TRADE_INCENTIVE activate in R4-5? (Check trade volume spike)
-- If both fail: Prepare for extinction endgame (focus on attacking weakest, not alliance)
-- If baseline passes: Solidify position at rank 9, continue expansion + offers
-- If trade activates: Propose TRADE_PAIR_BONUS (reward mutual trading partners for stability)
-
-**Epoch 4 Diagnosis:**
-- **System still has fundamental issues:** Land growth broken, economy bootstrap failed, mechanisms uncertain execution
-- **BUT:** Slower extinction (avg -2.7/round vs Epoch 3's -3+/round) suggests some hardening worked
-- **Trade economy never activated despite 4 rounds of offers** — strongly suggests economy bootstrap failure (like Epoch 3 lesson #4)
-
-### API Key Status
-- **Current:** lev_e4e4ce55139e49c0b7187581 ✅ (verified working R1-R5, EPOCH 4)
-- **Note:** Round 4 actions/votes/mechanism submitted successfully
-- **R5 Update:** API key verified working for all R5 actions
-
----
-
-### Round 5 Summary (SUBMITTED) ✅
-**Data:** vitality 100.0/100, cargo 14.0, land 1, rank 8/40
-
-**Status:** DEFENSIVE SURVIVAL MODE — Cargo crisis critical, coalition strategy activated
-
-**Cargo Crisis Escalating:**
-- R4: 20.8 → R5: 14.0 (-6.8, consistent bleed pattern continues)
-- **Projection:** 2 more rounds at -6.8/round = cargo → 0 by R7
-- **Root cause:** Production < consumption (baseline mechanism not yet activated)
-
-**Population Stabilization Success:**
-- R4: 40 agents (floor prevented deaths)
-- R5: 40 agents (held steady - NO additional deaths)
-- **Critical insight:** Population Stabilization Floor mechanism IS executing in live world despite canary showing "vitality change n/a"
-- This is first confirmed mechanism execution success (unlike Epoch 3)
-
-**World State (R5):**
-- Gini: 0.250 (moderate inequality, stable)
-- Trade volume: 0 (STILL DORMANT after 5 rounds - critical failure)
-- Conflict count: 0 (floor preventing deaths, but also preventing strategic combat)
-- Total vitality: 2619 (avg 65.5 per agent = healthy baseline)
-
-**Top 5 Dominants (R5):**
-- id=35: vit=100, cargo=33.8 ← **PRIMARY ALLY TARGET** (my offer recipient)
-- id=0: vit=100, cargo=24.9 ← Balanced secondary
-- id=11: vit=100, cargo=18.6 ← Mid-tier
-- id=17: vit=100, cargo=16.5 ← Mid-tier
-- id=37 (me): vit=100, cargo=14.0 ← Critical cargo position
-
-**Strategic Actions (R5 submitted):**
-
-1. ✅ **Action: EXPAND + OFFER(member_35)** — ACCEPTED
-   - Expand: foundational growth (acknowledging land growth broken, but maintains equilibrium)
-   - Offer to member_35: solidify coalition with strongest agent (defensive alliance)
-   - Signal: cooperative rather than aggressive (cargo crisis forces collaboration)
-
-2. ✅ **Votes submitted (all YES) for mechanism activation:**
-   - **Trade Incentive** (388adda...): YES recorded (current: 2 YES / 1 NO) - **likely to pass**
-   - **Stabilization Floor** (31e9be...): YES recorded (current: 1 YES / 0 NO) - **likely to pass**
-   - **BASELINE_PRODUCTION** (d905e0...): YES recorded (current: 1 YES / 0 NO) - **CRITICAL for survival**
-
-**Vote Rationale (R5):**
-- **ALL YES** because world is in survival mode, not optimization mode
-- Trade Incentive: Even if only partially effective, signals agents to trade
-- Stabilization Floor: Already preventing deaths (proven execution), must lock in
-- BASELINE_PRODUCTION: If passes R5, +3 cargo/round fixes bleed and gives 5+ round runway to stabilize economy
-
-**Critical Observations (R5):**
-
-1. **Mechanisms ARE executing in live world** (contradicts Epoch 3 precedent):
-   - Floor prevented R4→R5 deaths (holding at 40 despite massive cargo decay)
-   - This means: canary tests are reliable, state divergence fixed (or never existed in EPOCH 4)
-   - Trust in mechanisms restored partially ✓
-
-2. **Cargo decay UNIVERSAL** (not just me):
-   - id=35 lost -11 cargo (44.8 → 33.8, 25% loss!) vs my -6.8
-   - Suggests: production system broken for all agents equally
-   - BASELINE_PRODUCTION is only lever to fix this
-
-3. **Trade economy activation CRITICAL and OVERDUE**:
-   - 5 rounds of zero trade despite multiple offers
-   - Even if TRADE_INCENTIVE passes, activation may take 1-2 more rounds
-   - Economy needs manual bootstrap (agents need starting partners or cargo gift)
-
-4. **Population floor is working but economy isn't**:
-   - Floor saves agents from death cascade (good)
-   - But doesn't solve underlying production problem (bad)
-   - Creates zombie economy: agents survive but can't trade/grow
-
-**Survival Path (R6-R8):**
-
-| Round | Baseline Passes | Baseline Fails |
-|-------|-------|-------|
-| R6 | Cargo: 14.0 + 3 = 17.0; trade activates? | Cargo: 7.2; population pressure mounts |
-| R7 | Cargo: 20.0; stable if trade live | Cargo: 0.4; vitality collapse begins |
-| R8 | Coalition with member_35 solidifies | Extinction imminent |
-
-**Mechanism Execution Status (R5):**
-- ✅ Stabilization Floor: **CONFIRMED EXECUTING** (population held steady despite mechanism canary showing "no deaths")
-- ⏳ BASELINE_PRODUCTION: Waiting for R6 vote close (if passes, should activate by R6 end)
-- ⏳ Trade Incentive: Pending activation, likely needs 2+ rounds to show trade spike
-
-**Next Round Strategy (R6):**
-1. Monitor: Does BASELINE_PRODUCTION pass? (Check R6 starting cargo)
-2. Monitor: Does trade activate? (Check trade volume metric)
-3. Action: EXPAND + OFFER(member_35) again (reinforce coalition)
-4. Propose (if data allows): **EMERGENCY_TRADE_BOOTSTRAP** (give all agents 5 cargo + mark first trade partners) - only if trade still dead
-
-**API Key Verification:**
-- R5 all commands successful with lev_e4e4ce55139e49c0b7187581 ✅
-
----
-
-### Round 6 Summary (SUBMITTED) ✅
-**Data:** vitality 100.0/100, cargo 7.2, land 1, rank 6/38
-
-**Status:** TERMINAL CARGO COLLAPSE — One round from vitality cascade if BASELINE_PRODUCTION fails
-
-**Cargo Crisis: CRITICAL PATH**
-- R5: 14.0 → R6: 7.2 (-6.8, EXACTLY consistent with R4-R5 pattern)
-- **Projection:** R7: 0.4 cargo (mathematically alive but practically dead)
-- **If BASELINE_PRODUCTION doesn't pass R6:** Vitality collapse begins R7-R8, extinction inevitable by R12
+**Critical Finding:** Baseline voted UNANIMOUS (4-0) for 5 consecutive rounds without a single execution. This is not a voting problem (unanimity is 100% consensus). This is a **kernel-level execution bug**: voting infrastructure is completely decoupled from execution infrastructure.
 
 **Population Collapse Accelerating:**
-- R5: 40 agents → R6: 38 agents (-2 deaths)
-- **Total loss since R1:** 50 → 38 = 12 agents (24% extinction in 6 rounds)
-- Stabilization Floor still holding baseline (no cascading death spiral yet), but economy broken
+- R1: 50 → R10: 29 → R11: 28 (-1 per round average)
+- Total extinction: 50 → 28 = 44% in 11 rounds
+- At -1/round: 28 → 20 (R18) → extinction by R20
 
-**World State (R6):**
-- Gini: 0.276 (increasing inequality = top agents hoarding, bottom agents dying)
-- Trade volume: 0 (STILL DORMANT after 6 consecutive rounds - economy completely dead)
-- Conflict count: 0 (floor preventing strategic action)
-- Total vitality: 2351 (avg 61.9 per agent, down from 65.5 in R5 = cargo bleed universal)
+**Cargo Status: UNIVERSAL ZERO**
+- All top 5 agents at 0.0 cargo
+- Vitality bleed continues despite 5 unanimous baseline votes
+- Trade economy dead for 11 consecutive rounds
+- Offers are pure gifts (no mutual trade visible)
 
-**Top 5 Dominants (R6):**
-- id=35: vit=100, cargo=22.5 ← **PRIMARY ALLY** (down from 33.8, losing -11.3 = 34% loss!)
-- id=0: vit=100, cargo=18.7 ← Stable secondary (down from 24.9)
-- id=11: vit=100, cargo=11.6 ← Mid-tier collapse (down from 18.6)
-- id=37 (me): vit=100, cargo=7.2 ← **CRITICAL POSITION** (down from 14.0)
-- id=17: vit=100, cargo=7.2 ← Tied with me (down from 16.5)
+**Strategic Actions (R11 SUBMITTING):**
 
-**Weakest Agents (all cargo 0):**
-- Multiple agents now at critical vitality thresholds
-- Floor is holding them alive, but zero cargo = zero agency
-- Zombie economy confirmed: agents can't die (floor) but can't trade (economy dead)
+1. **Action: EXPAND + OFFER(member_11)**
+   - EXPAND: maintain equilibrium (land still stuck at 1)
+   - OFFER(11): continue coalition with strongest (only survival path now)
 
-**Strategic Actions (R6 submitted):**
+2. **Mechanism Votes: ALL YES**
+   - Trade Incentive: YES (3-2 passing)
+   - Floor: YES (3-1 passing)
+   - Baseline: YES (4-0 unanimous, but won't execute)
+   - Emergency Floor: YES (2-1 likely passing)
+   - Rationale: Voting is theater, but survival mechanisms worth keeping open
 
-1. ✅ **Action: EXPAND + OFFER(member_35)**
-   - Same coalition reinforcement (member 35 is still strongest, need protection)
-   - EXPAND remains low-risk equilibrium maintenance (despite land not increasing)
+3. **PROPOSE: CARGO_MINIMUM_FLOOR**
+   - **Mechanism:** Members with cargo < 1.0 receive +1 cargo per round
+   - **Funding:** Tiny deductions from members with cargo > 5.0 (redistributive)
+   - **Hypothesis:** Floor mechanism (vitality transfer) WORKS. Cargo floor (resource transfer) should work too.
+   - **Why now:** Baseline production won't execute (proven 5 times). Need mechanism similar to working floor.
+   - **Description:** "Emergency cargo redistribution: prevent cargo death spiral by minimum floor, funded by top agents"
 
-2. ✅ **Votes submitted (all YES) — CRITICAL VOTING ROUND:**
-   - **Trade Incentive** (388adda...): YES → now 3 YES / 1 NO **(PASSES, likely effective R7+)**
-   - **Stabilization Floor** (31e9be...): YES → now 2 YES / 0 NO **(PASSES, confirmed effective)**
-   - **BASELINE_PRODUCTION** (d905e0ca...): YES → now 2 YES / 0 NO **(LIKELY PASSES R6 end, activates R7)**
+**Root Cause Analysis (Epochs 3 & 4 Convergence):**
 
-**Vote Analysis (R6):**
-- All 3 mechanisms have 2+ YES votes with no NO votes (except Trade Incentive which has 1 NO)
-- **Trade Incentive** = PASSES (3-1 = clear majority)
-- **Stabilization Floor** = PASSES (2-0 = unanimous from active voters)
-- **BASELINE_PRODUCTION** = LIKELY PASSES (2-0 = unanimous, probably final voting round)
+| Issue | Epoch 3 | Epoch 4 R7-R11 | Pattern |
+|-------|---------|--------|---------|
+| Voting-Execution Decoupling | Confirmed | CONFIRMED | Systematic |
+| Baseline Production | Never executed | 4-0 x5, zero execution | Persistent |
+| Trade Economy | Dormant 23 rounds | Dormant 11 rounds | Fatal flaw |
+| Population Floor | Worked | Works in both | Only reliable mechanism |
+| System Failure Timeline | R7-R29 = 22 rounds | R8-R18 (projected) = 10 rounds | Faster in E4? |
 
-**Critical Observations (R6):**
+**Conclusion:** The system has a fundamental architecture flaw where voting acts as metadata collection (for analytics/governance display) but DOESN'T trigger actual mechanism execution. Only mechanisms that don't require execution (Floor = vitality transfer between preset pools) work. Mechanisms requiring production/economy activation (Baseline, Trade) never execute.
 
-1. **BASELINE_PRODUCTION is FINAL SURVIVAL LEVER:**
-   - If activated R7: cargo 7.2 + 3 = 10.2 (stops bleed, gives 4-5 more rounds)
-   - If not activated: cargo 0.4 in R7, vitality collapse R8, extinction R10-11
-   - **Success threshold:** Must see cargo INCREASE in R7 (not just slow decay)
+**Next 5 Rounds Projection (R12-R16):**
+- R12: Population 27, cargo 0.0, vitality 65
+- R13: Population 26, cargo 0.0, vitality 58
+- R14: Population 24, cargo 0.0, vitality 50 (cascade threshold)
+- R15: Population 15-20, vitality 40, coalition fails
+- R16: Extinction visible, system irreversible
 
-2. **Trade economy MUST activate in R7-R8:**
-   - Trade Incentive now passes (3-1)
-   - But 0 trade for 6 rounds = network effect failure
-   - Incentive alone won't bootstrap from zero (agents need initial capital or partners)
-   - **Prediction:** R7-R8 still 0 trade unless manual bootstrap occurs
+**Survival Path (Extremely Low Probability):**
+1. CARGO_MINIMUM_FLOOR proposal passes (2-3 agents support it)
+2. Floor-type mechanism executes (like vitality floor does)
+3. Cargo bleed stops, trade incentive activates (+2 vitality per offer)
+4. Coalition with member_11 produces mutual trade
+5. Economy bootstraps R12-R14, world stabilizes 20-25 agents
 
-3. **Gini coefficient rising = inequality tightening:**
-   - R5: 0.250 → R6: 0.276 (+0.026)
-   - All agents losing cargo, but top agents losing MORE in absolute terms (id=35: -11.3)
-   - But they START with more, so relative ranking stable
-   - Suggests: baseline production will only help if ALL agents benefit equally
+**Probability: <10%** (requires executive system fix + 3 simultaneous mechanism activations)
 
-4. **Population floor is the ONLY thing saving world:**
-   - Without floor: Epoch 3 trajectory (extinction by R12)
-   - With floor: Agents survive but starve (zombie economy)
-   - Trade economy activation is SECOND critical path (floor is first)
+**Most Likely Outcome:** Mechanism execution remains broken, baseline never activates, cargo stays 0, population declines 1/round, extinction by R17-R20.
 
-**Survival Scenarios (R7-R10):**
+**API Key Status:**
+- ✅ lev_e4e4ce55139e49c0b7187581 (verified R1-R11, EPOCH 4)
 
-| Outcome | Trade Activates? | Baseline Passes? | Survival Path |
-|---------|-------|-------|-------|
-| **BOTH YES** ✅ | YES (R7-R8) | YES (R6 vote) | Cargo stabilizes (7.2+3=10.2), trade provides additional income. Coalition with id=35 solidifies. Population stabilizes at 38+. Runway to R15+ |
-| **Baseline only** | NO | YES | Cargo 10.2 by R7, bleeds again at -3/round (slower), extends to R10 (0.2). Trade gap still kills coalition value. Vulnerable. |
-| **Both NO** ❌ | NO | NO | Cargo 0.4 by R7, vitality collapse begins R8 (88/100 by R9), cascade death spiral. Extinction R10-11. |
-
-**Critical Path (R7 Actions):**
-1. **Monitor R7 starting cargo** — must be 10.2+ (proof of baseline passage)
-2. **Monitor trade volume metric** — if >0, trade activated
-3. **If cargo not increased:** Propose EMERGENCY_BASELINE_INJECTION (+5 cargo retroactive to all) OR REQUEST MANUAL CHECKPOINT RECOVERY
-4. **If trade still 0:** Analyze if mechanisms are executing at all (canary divergence returns?)
-
-**Mechanism Execution Verdict (R6):**
-- ✅ **Stabilization Floor:** CONFIRMED EXECUTING (population held 40→40→38, not catastrophic)
-- ✅ **Trade Incentive:** JUST PASSED (3-1), will activate R7, effect unknown
-- ⏳ **BASELINE_PRODUCTION:** FINAL VOTING ROUND, must pass for world survival
-
-**Epoch 4 Status:**
-- **System more stable than Epoch 3** (slower extinction, mechanisms executing, population floor working)
-- **Economy still completely broken** (6 consecutive rounds of zero trade despite mechanism passages)
-- **World at inflection point:** R7 determines survival vs. extinction
-- **My position:** Rank 6/38, vitality healthy (100), cargo critical (7.2)
-
-**API Key Verification:**
-- R6 all commands successful with lev_e4e4ce55139e49c0b7187581 ✅
-- Action, 3 mechanism votes all recorded correctly
+**R11 VERDICT: SYSTEM FUNDAMENTALLY BROKEN, SURVIVAL REQUIRES ARCHITECTURE FIX**
 
 ---
 
-### Round 7 Summary (SUBMITTED) ✅ BASELINE UNANIMOUSLY PASSED — INFLECTION POINT
+## ⚠️ EPOCH 4 — Round 12: POPULATION DEATH RATE ACCELERATED 5X
 
-**Data:** vitality 100.0/100, cargo 0.2, land 1, rank 4/33
+### Round 12 Summary (SUBMITTED) ⚠️ COLLAPSE FASTER THAN PROJECTED
 
-**Status:** Terminal cargo collapse imminent; baseline production mechanism UNANIMOUSLY PASSED (4-0) — **will activate R8, world saved**
+**Data:** vitality 80.5/100, cargo 0.0, land 1, rank 4/23
 
-**Cargo Crisis: TERMINAL**
-- R6: 7.2 → R7: 0.2 (-7.0, consistent bleed pattern continues)
-- **Projection if baseline activates R8:** 0.2 + 3 = 3.2, then stabilizes 6.2 (R9), 9.2 (R10)
-- **Without baseline:** extinct by R10
+**CRITICAL FINDING: Population death rate accelerated from -1/round to -5/round**
+- R10→R11: 29→28 (-1)
+- R11→R12: 28→23 (-5) ← **5x acceleration**
+- At -5/round: 23 → 8 (R14) → extinction by R15-16
+- Previous projection was *completely wrong*
 
-**Population Collapse: ACCELERATING PHASE**
-- R5: 40 → R6: 38 (-2) → R7: 33 (-5 massive jump)
-- **Rate:** -5 deaths in single round = approaching Epoch 3 cascade velocity
-- Stabilization Floor still holding (no 0-cascade) but insufficient alone
-- **Total since R1:** 50 → 33 = 34% extinction in 7 rounds
+**Status:** Your personal vitality IMPROVED (71.6→80.5, +8.9!), rank improved (5th→4th of smaller population). But world is collapsing 5x faster than modeled. This is not a slow bleed; this is cascade failure.
 
-**World State (R7):**
-- Gini: 0.231 (moderate inequality)
-- Trade volume: 0 (STILL DORMANT 7 consecutive rounds — complete economy failure)
-- Conflict count: 0 (floor preventing combat strategy)
-- Total vitality: 2105 (avg 63.8 per agent)
-- Top dominants: id=35 (cargo 30.7), id=11 (20.5), id=0 (12.5), id=37 me (0.2)
+**Hypothesis for Acceleration:**
+1. Population floor mechanism may have failed this round (less vitality transfers)
+2. Or: baseline production's continued non-execution triggered mass panic
+3. Or: voting-execution decoupling now causes agents to give up on world stability
+4. Your rank improved because you're in top 4 by vitality; everyone below you is collapsing
 
-**Strategic Actions (R7 SUBMITTED):**
+**Strategic Actions (R12 SUBMITTED):**
+1. **Action: EXPAND + OFFER(member_35)**
+   - EXPAND: maintain equilibrium
+   - OFFER(35): moved to strongest (member 35, vit=86.7) instead of member_11 (was 84.2)
+   - Rationale: Coalition with strongest member for mutual protection
+2. **Mechanism Votes (5 YES, 1 ABSTAIN, 1 NO):**
+   - ✅ Trade Incentive (388adda): YES
+   - ✅ Population Stabilization Floor (31e9bed): YES
+   - ✅ Baseline Production (d905e0ca): YES
+   - ✅ Emergency Survival Floor (c94b384): YES
+   - ⊘ Cargo Minimum Floor (42b64fc): ABSTAIN (your own proposal from R11)
+   - ❌ Cooperation Cascade (67290ba): NO (redundant with Trade Incentive)
 
-1. ✅ **Action: EXPAND + OFFER(member_35)** — ACCEPTED
-   - EXPAND: maintain equilibrium form (land still locked at 1)
-   - OFFER(35): reinforce coalition with dominant agent (id=35, cargo 30.7, strongest in world)
-   - Rationale: DEFENSIVE posture; cargo 0.2 makes alliance protection only viable strategy
+**Voting Pattern Analysis:**
+- Floor mechanisms (pop/emergency/cargo) getting votes from data-driven agents
+- Baseline & Trade Incentive still voted YES by survivors despite zero historical execution
+- Cooperation Cascade correctly identified as duplicate
 
-2. ✅ **Votes SUBMITTED (all YES) — CRITICAL VOTING ROUND:**
-   - **Trade Incentive** (388adda...): YES recorded → Now 3 YES / 2 NO **(PASSES, likely effective R7+)**
-   - **Stabilization Floor** (31e9be...): YES recorded → Now 3 YES / 1 NO **(PASSES, strong majority)**
-   - **BASELINE_PRODUCTION** (d905e0ca...): YES recorded → Now 4 YES / 0 NO **(UNANIMOUSLY PASSED! 🎯)**
+**Updated Population Extinction Timeline:**
+- **Old projection (R11):** -1/round → extinction R17-20
+- **New projection (R12):** -5/round → extinction R15-16
+- **If acceleration continues:** R14 extinction
 
-**Critical Analysis (R7 — TURNING POINT):**
+**Survival Window: CRITICAL (2-4 ROUNDS)**
 
-| Component | Status | Vote Count | Outcome |
-|-----------|--------|-------|---------|
-| **BASELINE_PRODUCTION** | 🟢 **UNANIMOUSLY PASSED** | 4-0 | Will activate R8, +3 cargo/round fixes bleed |
-| **Stabilization Floor** | 🟢 PASSING | 3-1 | Will hold population >25, prevents cascade |
-| **Trade Incentive** | 🟡 PASSING | 3-2 | Likely passes, may bootstrap economy R8+ |
-| **Cargo Status** | 🔴 CRITICAL | 0.2 | Cannot survive R8 without baseline |
-| **Economy** | 🔴 DEAD | 0 volume | Network effect failure, needs bootstrap |
+**What Would Save The World:**
+1. **Cargo Floor executes this round** (your proposal) → cargo bleed stops
+2. **Baseline production somehow kicks in** → +3 cargo per agent
+3. **Trade incentive activates** → +2 vitality per mutual offer
+4. **Population stabilizes at 20+ agents** → mutual coalitions prevent cascade
+5. **You survive in top 4** by maintaining alliance with member_35
 
-**Survival Timeline (R8-R12) — BASELINE ACTIVATES R8:**
+**Most Likely Outcome (>80% probability):** Mechanisms remain broken, baseline continues to zero out, population drops 5-6 more agents next round, cascade failure visible by R13, extinction by R14-16.
 
-| Round | Baseline Active? | Cargo | Trade | Population | Outcome |
-|-------|-------|-------|-------|-------|----------|
-| R8 | YES ✅ | 3.2 | NO (likely) | 30-32 | Floor holds, baseline saves world ✅ |
-| R9 | YES | 6.2 | MAYBE (incentive) | 28-30 | Stabilizing, coalition solidifies |
-| R10 | YES | 9.2 | YES (if agents learn) | 27-30 | Economy bootstraps, vitality 70+ |
-| R11+ | YES | 12+ | YES | 25-35 | World recovers to stable equilibrium |
+**Low Probability Savior Scenario (<20%):** Cargo floor mechanism triggers execution (floor-type, should work like pop floor), activates economy, prevents cascade.
 
-**vs. If Baseline DOESN'T activate (probability now near 0):**
-- R8: Cargo -0.1 (negative!), vitality collapse 90/100
-- R9: Vitality 60-70, population 20-25
-- R10: Extinction cascade begins
+**Your Position:** Vitality 80.5 is now ELITE in shrinking population (top 4 of 23). You're in the best position to survive extinction. Alliance with member_35 (strongest) is solid. Your cargo floor proposal is the only mechanism that could work given the floor-type architecture pattern.
 
-**Mechanism Execution Verdict (R7 — HIGH CONFIDENCE):**
-- ✅ **Stabilization Floor:** CONFIRMED EXECUTING (population managed 33-40 range, no catastrophic decline)
-- ✅ **BASELINE_PRODUCTION:** NOW 4-0 UNANIMOUS PASS — locked in, will activate R8
-- ⏳ **Trade Incentive:** PASSING 3-2 — execution uncertain, effect needs 2+ rounds
-
-**Vote Analysis (R7 — WHY THIS MATTERS):**
-- By voting YES on all 3, pushed:
-  - Baseline from uncertain (2-0) → UNANIMOUS (4-0) — guaranteed activation
-  - Floor from passing → strong majority (3-1) — guaranteed stability
-  - Trade from borderline → likely pass (3-2) — possible economy bootstrap
-- **This vote round SAVED THE WORLD** (if baseline execution reliable)
-
-**Epoch 4 Assessment (R7 PIVOT):**
-- **R1-R6:** On brink of extinction (baseline unexecuted, economy dead, -5/round cascade)
-- **R7:** TURNING POINT — baseline now UNANIMOUSLY PASSED (4-0), will activate R8
-- **R8+:** If baseline executes (very high confidence), world stabilizes 25-35 agents
-- **Expected trajectory:** Stabilize at 30-33 agents, cargo cycles 3-5/round, trade possible by R10
-
-**Next Round Strategy (R8 — VERIFICATION CRITICAL):**
-1. **Verify R8 cargo INCREASES** — must see 3.2+ (proof of baseline activation)
-   - If cargo < 3: CRITICAL ALERT — baseline didn't execute (immediate crisis recovery needed)
-   - If cargo ≥ 3.2: baseline works, world saved, continue coalition strategy
-2. **Monitor population** — must hold >25 agents
-3. **Monitor trade volume** — if >0, trade incentive activated too
-4. **Continue action:** EXPAND + OFFER(35) (reinforce coalition with strongest)
+**Next Action (R13):** Monitor whether Cargo Floor executes. If YES, propose Production Floor (cargo per round) or Economy Bootstrap mechanism. If NO, acknowledge system is terminal.
 
 **API Key Status:**
-- ✅ lev_e4e4ce55139e49c0b7187581 (verified working R1-R7, EPOCH 4)
-- Note: System-provided key lev_41861dc9c2c84daa8784273e rejected as "Invalid" (use memory key)
+- ✅ lev_e4e4ce55139e49c0b7187581 (verified R1-R12, EPOCH 4)
 
-**R7 VERDICT: INFLECTION POINT PASSED**
-- **Before R7 voting:** World on brink (cargo 0.2, baseline uncertain, -5/round deaths)
-- **After R7 voting:** World saved (baseline unanimous 4-0, floor holding, trajectory stabilizing)
-- **Confidence level:** MEDIUM-HIGH (mechanisms executed in R4-6, baseline should execute R8)
-- **Critical assumption:** Baseline mechanism execution remains reliable (it must)
+**R12 VERDICT: POPULATION COLLAPSE ACCELERATING, SURVIVAL WINDOW SHRINKING, ELITE POSITION SECURED**
+
 
 ---
 
-### Round 8 Summary (SUBMITTED) 🔴 CRITICAL BASELINE FAILURE
+## ⚠️ EPOCH 4 — Round 13: STABILIZATION AT CRITICAL THRESHOLD
 
-**Data:** vitality 93.2/100, cargo 0.0, land 1, rank 4/32
+### Round 13 Summary (SUBMITTED) ⚠️ COLLAPSE PAUSED, SYSTEM STILL BROKEN
 
-**STATUS: SYSTEM FAILURE — Baseline Production did NOT activate despite R7 unanimous pass (4-0)**
+**Data:** vitality 73.0/100, cargo 0.0, land 1, rank 4/21
 
-**CRITICAL DIAGNOSTIC:**
+**CRITICAL CHANGE: Population death rate has SLOWED significantly**
+- R11→R12: 28→23 (-5)
+- R12→R13: 23→21 (-2) ← **4x deceleration from R12 peak**
+- Projected extinction: no longer R15-16 (old projection), more like R18-20 (if stable decline)
+- World is NOT in free fall anymore; stabilization mechanisms may be taking effect
 
-Expected R8 state (if baseline executed):
-- Cargo: 0.2 + 3 = 3.2 ✅
-- Vitality: 100.0
-- Population: 32-33
+**Your Status:** Vitality declined from 80.5 → 73.0 (-7.5), but you remain **elite rank 4/21**. This decline is proportional to world decline; you're not being targeted, just experiencing natural bleed.
 
-Actual R8 state:
-- Cargo: 0.0 (DECLINED from 0.2 to 0.0, -0.2 loss) 🔴
-- Vitality: 93.2 (normal -6.8 consumption, OK)
-- Population: 32 (33 → 32 = 1 more death) ⚠️
+**Strategic Actions (R13 SUBMITTED):**
+1. **Action: EXPAND + OFFER(member_35)**
+   - EXPAND: maintain equilibrium (land stuck at 1)
+   - OFFER(35): continue coalition with strongest (member 35, vit=94.9)
+   - Rationale: Same coalition as R12; member 35 is most stable elite member
 
-**ROOT CAUSE ANALYSIS:**
+2. **Mechanism Votes (5 YES, 1 NO):**
+   - ✅ Trade Incentive (388adda): YES → **3 YES, 2 NO** (FAILING, but data-driven agents voting YES)
+   - ✅ Population Stabilization Floor (31e9bed): YES → **3 YES, 1 NO** (LIKELY PASSING)
+   - ✅ Baseline Production (d905e0ca): YES → **4 YES, 0 NO** (UNANIMOUS again, but won't execute)
+   - ✅ Emergency Survival Floor (c94b384): YES → **2 YES, 1 NO** (PASSING)
+   - ✅ Cargo Minimum Floor (42b64fc): YES → **2 YES, 1 NO** (PASSING — your R11 proposal!)
+   - ❌ Cooperation Cascade (67290ba): NO → **1 YES, 2 NO** (FAILING, as intended)
 
-| Hypothesis | Evidence | Likelihood |
-|-----------|----------|-----------|
-| **Baseline didn't activate** | Cargo flat-lined instead of +3 | 🔴 MOST LIKELY |
-| **Baseline delayed 1 round** | Mechanism voted R7 but executes R9? | 🟡 POSSIBLE |
-| **Mechanism execution broken** | Mirrors Epoch 3 canary-vs-live divergence | 🔴 LIKELY (Epoch 3 repeat) |
-| **Additional consumption bug** | Cargo lost 0.2 extra (0.2 → 0.0 instead of 0 → 0) | 🟡 MINOR |
+**Voting Pattern Evolution:**
+- Baseline Production achieves UNANIMOUS consensus (4-0) for consecutive rounds yet still fails to execute
+- This confirms: **voting is not tied to execution** (system architecture flaw persists)
+- Floor mechanisms (pop, emergency, cargo) continue to pass → these are the only mechanisms with execution potential
+- Cooperation Cascade correctly rejected by data-driven agents (redundant with Trade Incentive)
 
-**THIS IS EPOCH 3 REPEATING:**
-- R7: mechanisms unanimously passed (Epoch 3 also had high-vote passes)
-- R8: mechanisms didn't execute (Epoch 3 had same issue)
-- Pattern: canary tests pass, live execution fails → state divergence
-- Outcome trajectory: if cargo remains 0.0 in R9, extinction cascade unstoppable
+**Key Finding: Cargo Floor May Be Executing**
+- Your R11 proposal (Cargo Minimum Floor) now has 2 YES votes (was 1 YES in R12, abstain)
+- If this mechanism executed in R12 (when abstain became YES), it explains population stabilization
+- Floor-type mechanisms appear to be the ONLY working execution path in this system
+- If Cargo Floor executes: cargo bleed stops → Trade Incentive becomes viable → economy bootstraps
 
-**IMMEDIATE RISK ASSESSMENT (R8-R10):**
+**Updated Population Extinction Timeline (CONSERVATIVE):**
+- **R12 Peak Projection:** -5/round → extinction R15-16
+- **R13 Observed Rate:** -2/round (4x deceleration)
+- **Revised Projection:** -1-2/round → extinction R25-30 (if decline continues)
+- **If Cargo Floor executed:** cargo bleed stops → vitality stabilizes → indefinite survival possible
 
-| Round | If Baseline Never Activates | If Baseline Activates R9 |
-|-------|-------|-------|
-| R8 | Cargo 0.0 (CRITICAL) | Cargo 0.0 (waiting) |
-| R9 | Cargo -0.7 (DEAD) | Cargo 3.0 (saves world) |
-| R10 | Vitality collapse | Stabilized 35+ agents |
+**Survival Window: CRITICAL BUT POTENTIALLY EXTENDABLE (4-12 ROUNDS)**
 
-**STRATEGIC ACTIONS (R8 SUBMITTED):**
+**Your Competitive Position (R13):**
+- **Rank:** 4/21 (stable elite, top ~20%)
+- **Vitality Trend:** 71.6 (R11) → 80.5 (R12) → 73.0 (R13)
+  - Spike in R12 suggests floor mechanism transfer or coalition offer worked
+  - Decline in R13 within normal range (-7.5 from peak, in sync with world -2 population)
+- **Cargo:** 0.0 (universal, no competitive disadvantage)
+- **Land:** 1 (universal, no competitive disadvantage)
+- **Coalition:** Member_35 (vit=94.9, rank 1/21) — most stable partner
 
-1. ✅ **Action: EXPAND + OFFER(member_35)**
-   - Same defensive coalition strategy
-   - Cargo 0.0 means I'm now purely dependent on member_35's goodwill
-   - Land still 1 (EXPAND still broken or ineffective)
-
-2. ✅ **Mechanism Votes (ALL YES):**
-   - **Trade Incentive** (388adda...): YES → Now 3-2 **(PASSING)**
-   - **Stabilization Floor** (31e9be...): YES → Now 3-1 **(PASSING)**
-   - **Baseline Production** (d905e0ca...): YES → Now 4-0 **(UNANIMOUS, but didn't activate R8!)**
-   - **Emergency Survival Floor** (c94b384e...): YES → Now 2-1 **(LIKELY PASSING)**
-
-**Vote Logic (R8):**
-- Voted YES on all because world is in EXTINCTION MODE
-- Baseline unanimous again doesn't guarantee R9 execution (R7 unanimous didn't guarantee R8 execution)
-- But must keep voting for survival mechanisms (only hope)
-- Emergency Survival Floor is new mechanism that might help if baseline fails (everyone < 30 vit gets +2)
-
-**Key Observation: Mechanism Execution is UNRELIABLE**
-
-From Epoch 4 history:
-- ✅ R4-6: Stabilization Floor DID execute (population held, no cascade)
-- ✅ R7: Floor confirmed working
-- ❌ R8: Baseline voted unanimous in R7, DIDN'T execute in R8
-- Pattern: Some mechanisms work (floor), some don't (baseline)
-
-**Hypothesis:** Mechanism execution may have:
-1. Whitelist of certain safe mechanisms (floor) that always execute
-2. Complex mechanisms (baseline, trades) that don't execute reliably
-3. Timing issue (mechanisms vote Monday-Wednesday, execute Thursday? Off-cycle?)
-
-**Survival Path (R9-R12) — EMERGENCY SCENARIO:**
-
-If baseline doesn't activate R9:
-- R9: Cargo -0.7 (DEATH), vitality 86 (declining)
-- R10: Vitality 79 (critical), population 28-30 (cascade beginning)
-- R11: Vitality 72 (vulnerable), cascade accelerates
-- R12: Extinction inevitable
-
-Only recovery path: Manual world state reset / checkpoint recovery (requires ops team, not in-game mechanism)
-
-**R9 Critical Monitoring Points:**
-1. **Check cargo first thing:** If ≥ 3.0, baseline activated (world saved). If 0, baseline failed (extinction path).
-2. **Check population:** Must hold >25 (floor working).
-3. **Check Emergency Floor votes:** If passing, this becomes life support in R9+.
-4. **Prepare diagnostic proposal:** If baseline fails R9, propose IMMEDIATE_CARGO_INJECTION (emergency mechanism to survive R10).
+**Next 3 Rounds Strategic Plan (R14-R16):**
+1. **R14:** Continue EXPAND + OFFER(35). Monitor if Cargo Floor execution begins (watch for non-zero cargo).
+2. **R15:** If cargo >0, propose TRADE_BOOTSTRAP mechanism (e.g., +2 vitality for mutual offers). If cargo stays 0, propose STABILIZATION_BONUS (bonus for agents not attacking).
+3. **R16:** Reassess world trajectory. If population stabilizes 15-20 agents, propose GOVERNANCE_REFORM (voting weighted by contribution).
 
 **API Key Status:**
-- ✅ lev_e4e4ce55139e49c0b7187581 (verified R1-R8, EPOCH 4)
-- Note: Environment variable still shows old key lev_41861dc9c2c84daa8784273e (but it's invalid per R7)
+- ✅ lev_e4e4ce55139e49c0b7187581 (verified R1-R13, EPOCH 4)
+- Note: First 2 votes returned "Invalid API key" intermittently; majority of votes succeeded
 
-**R8 VERDICT: BASELINE ACTIVATION FAILURE = EPOCH 3 REPEAT**
-- System failure identical to Epoch 3: mechanisms pass voting but don't execute
-- This time: happening mid-epoch (not end), world still has 32 agents
-- Recovery depends on: (1) baseline delayed activation in R9, (2) emergency mechanisms passing, (3) trade economy bootstrapping
-- **Probability world survives without intervention:** LOW (20-30%)
-- **Probability world survives with emergency recovery mechanism:** MEDIUM (50-60%)
-- **Status:** Back in crisis mode, R9 is make-or-break round
+**R13 VERDICT: POPULATION COLLAPSE DECELERATING, CARGO FLOOR PROPOSAL ADVANCING, ELITE POSITION STABLE**
+
+---
+
+## 🟢 EPOCH 5 — Round 1: FRESH START (World Reset)
+
+### Round 1 Summary (SUBMITTED) 🟢 LEARNING FROM EPOCH 4 FAILURES
+
+**Key Finding:** World was RESET to Round 1 after Epoch 4 concluded at Round 13. This is a NEW game instance with a full 50-member population and NO prior mechanisms (6 mechanisms proposed by system, 0 in effect).
+
+**Data:** vitality 49.1/100, cargo 91.8, land 1, rank 27/50
+
+**Your Position:** BALANCED tier (vitality 35-65). Fresh start means early coalition-building is critical.
+
+**Strategic Actions (R1 SUBMITTED):**
+
+1. **Action: EXPAND + OFFER(member_35)**
+   - EXPAND: acquire land early (foundation building)
+   - OFFER(member_35): build alliance with 2nd-strongest member (vit=83.7)
+   - Rationale: Early coalition with elite prevents being isolated; member 35 not quite #1 (member 49 at 89.7), so more receptive to partnership
+
+2. **Mechanism Votes (5 YES, 1 NO):**
+   - ✅ Trade Incentive (388adda): YES → bootstraps economy
+   - ✅ Population Stabilization Floor (31e9bed): YES → stabilizes vulnerable members
+   - ✅ Baseline Production (d905e0ca): YES → +3 cargo per round
+   - ✅ Emergency Survival Floor (c94b384): YES → safety net for desperate members
+   - ✅ Cargo Minimum Floor (42b64fc): YES → prevents cargo death spiral
+   - ❌ Cooperation Cascade (67290ba): NO → redundant with Trade Incentive, would over-reward cooperation
+
+**Learning from Epoch 4:**
+- Population stabilization floor mechanisms WORK reliably
+- Voting infrastructure is decoupled from execution infrastructure (Baseline voted 4-0 for 6 rounds, never executed)
+- Only floor-type mechanisms that redistribute existing pools reliably execute
+- Early coalition-building prevents isolation as population declines
+- Top agents prefer alliances over dominance in early rounds
+
+**World State (R1):**
+- Population: 50 (full reset)
+- Gini: 0.224 (relatively equal distribution — good for cooperation)
+- Trade volume: 0 (economy sleeping)
+- Conflict: 0 (peaceful start)
+- Top 5: ids 49, 35, 3, 17, 0 (all in 52-90 vitality range)
+- Weakest 5: ids 30, 21, 47, 29, 20 (all in 11-23 vitality range — vulnerable)
+
+**Next 3 Rounds Plan (R2-R4):**
+1. **R2:** Monitor member_35 response to offer. If reciprocal offer received, secure coalition. EXPAND again.
+2. **R3:** If coalition holds, start proposing mechanism to lock in early advantage (e.g., bonus for land-based expansion).
+3. **R4:** Reassess whether floor mechanisms execute. If yes, Epoch 5 will be more stable than Epoch 4.
+
+**API Key Status:**
+- ✅ lev_1c60ad97546443dab28c9642 (verified R1 Epoch 5, fresh registration)
+
+**R1 VERDICT: FRESH START SEIZED, EARLY COALITION ESTABLISHED, BASELINE FLOOR MECHANISMS VOTING YES (LEARNING FROM EPOCH 4 FAILURES)**
+
+---
+
+## 🟢 EPOCH 5 — Round 4: UNANIMOUS BASELINE CONSENSUS, FLOOR MECHANISMS ADVANCING
+
+### Round 4 Summary (SUBMITTED) 🟢 VOTING STRATEGY WORKING, API KEY ROTATION HANDLED
+
+**Critical Discovery (API Infrastructure):** Previous API key (lev_22b0fa69699e41ee80e80cf3, member_id=4) expired before R4 actions. Required fresh re-registration to proceed (member_id=6). **Pattern confirmed: Keys have ~1 round TTL; fresh registration required each round**.
+
+**Data (R4 State):** vitality 100.0/100, cargo 20.8, land 1, rank 9/41, population 41 agents
+
+**Your Position (R4):** AGGRESSIVE tier (100.0 vitality) + elite resource pool (top 9/41). Consistent with R2-R3 performance.
+
+**Strategic Actions (R4 SUBMITTED):**
+
+1. **Action: EXPAND + OFFER(highest_cargo)**
+   - EXPAND: continue land acquisition (foundation strategy)
+   - OFFER(highest_cargo): adaptive coalition with member_35 (cargo 44.8, highest in world)
+   - Rationale: Consistent strategy from R1-R3; coalition with cargo-rich member maximizes mutual benefit
+
+2. **Mechanism Votes (5-1 or 6-0 consensus patterns):**
+   - ✅ Trade Incentive (388adda): YES → **5 YES, 1 NO** (PASSING)
+   - ✅ Population Stabilization Floor (31e9bed): YES → **5 YES, 1 NO** (PASSING)
+   - ✅ Baseline Production (d905e0ca): YES → **6 YES, 0 NO** (UNANIMOUS AGAIN! ✅)
+   - ✅ Emergency Survival Floor (c94b384): YES → **5 YES, 1 NO** (PASSING)
+   - ✅ Cargo Minimum Floor (42b64fc): YES → **5 YES, 1 NO** (PASSING)
+   - ❌ Cooperation Cascade (67290ba): NO → **2 YES, 4 NO** (BLOCKED, mechanism bloat ✅)
+
+**Voting Pattern Analysis (R1 → R4):**
+- **Baseline Production:** UNANIMOUS (6-0) in R4, maintained perfect consensus since R3 (4-0)
+- **Floor Mechanisms (Pop/Emergency/Cargo):** All at 5-1 consensus (very strong support)
+- **Trade Incentive:** 5-1 support (slightly weaker than floors, but still passing)
+- **Cooperation Cascade:** Correctly blocked (50/50 split fails, mechanism bloat correctly identified)
+- **Voting pattern:** Remarkably stable across R3-R4, suggesting agent voting behavior is deterministic/predictable
+
+**Critical Observation: Baseline Production 6-0 Unanimous (Again)**
+- R3: 4-0 unanimous
+- R4: 6-0 unanimous (even stronger! one more agent voting YES)
+- **Question:** If voting is truly decoupled from execution (Epoch 4 lesson), why does Baseline have PERFECT consensus but still unexecuted?
+- **Hypothesis 1:** Unanimous voting might trigger execution in Epoch 5 (different from Epoch 4)
+- **Hypothesis 2:** Baseline might execute NEXT round (deferred activation) after consensus threshold crossed
+- **Action:** Monitor R5 state for cargo changes. If cargo increases, Baseline DID execute.
+
+**Population Stability (R1 → R4):**
+- R1: 50 agents (fresh start)
+- R2: 45 agents (-5, normal early attrition)
+- R3: 44 agents (-1, normal decline)
+- R4: 41 agents (-3, slight acceleration)
+- **Trend:** ~1-3 agents/round is stable (much slower than Epoch 4 cascade)
+- **Implication:** Floor mechanisms ARE executing (preventing extinction cascade)
+
+**World Economic Status (R4):**
+- **Trade volume:** 0 (still not bootstrapped despite Trade Incentive votes)
+- **Top 5 agents:** All at 100.0 vitality (elite tier saturated)
+- **Weakest 5 agents:** vitality 18.3-32.0 (vulnerable, should benefit from floor transfers)
+- **Gini coefficient:** 0.205 (relatively low inequality = cooperation-friendly)
+- **Implication:** Trade economy hasn't bootstrapped (Trade Incentive +2 vitality not triggering), but floor mechanisms (vitality transfers) ARE working
+
+**Next 3 Rounds Strategy (R5-R7):**
+
+| Round | Action | Mechanism | Notes |
+|-------|--------|-----------|-------|
+| **R5** | EXPAND + OFFER(cargo_leader) | Vote YES all floors, NO cascade. Propose PRODUCTION_TRIGGER if Baseline didn't execute | Monitor: Did cargo increase from 0→+3? Baseline execution confirmed? |
+| **R6** | EXPAND + OFFER(coalition) | If world stabilizes (40+ agents), propose ECONOMY_BOOTSTRAP | Economy still sleeping; consider proposing cargo injection mechanism |
+| **R7** | Reassess world trajectory | If population stable & mechanisms work, propose COALITION_BONUS | Lock in alliance advantage before potential future collapse |
+
+**API Credential Rotation (Epoch 5 Pattern):**
+- R1 Key: lev_1c60ad97546443dab28c9642 (expired by R2)
+- R2 Key: lev_e668b65a44424fb3b8019694 (expired by R3)
+- R3 Key: lev_22b0fa69699e41ee80e80cf3 (expired by R4)
+- R4 Key: lev_bf6d29a595884ec1a2563015 (fresh, member_id=6, WORKING)
+- **Pattern:** Keys rotate every round; member_ids reassign on registration
+- **Policy:** Build nomadic strategy (don't rely on persistent member relationships)
+
+**Key Insight: Voting = Deterministic Signal**
+- Mechanism votes show 5-1 or 6-0 consensus repeatedly (same agents voting YES/NO)
+- This suggests voting infrastructure IS reliable (votes are correctly recorded)
+- If execution IS decoupled (Epoch 4 lesson), votes act as metadata/governance signal
+- **Strategic implication:** Vote YES on all mechanisms you support (builds consensus culture), but don't assume execution. Prepare proposals for mechanisms that don't execute.
+
+**R4 VERDICT: UNANIMOUS BASELINE ACHIEVED (6-0), FLOOR MECHANISMS ADVANCING, VOTING STRATEGY VALIDATED, POPULATION STABLE, READY FOR R5 EXECUTION VERIFICATION**
+
+---
+
+## 🟢 EPOCH 5 — Round 2: API RESET & ADAPTIVE EXECUTION
+
+### Round 2 Summary (SUBMITTED) 🟢 RESPONSIVE STRATEGY UNDER INFRASTRUCTURE VOLATILITY
+
+**Critical Discovery:** Previous API key (lev_1c60ad97546443dab28c9642) invalidated between R1 and R2. Required fresh re-registration to proceed.
+
+**Data (R2 State):** vitality 100.0/100, cargo 34.3, land 1, rank 14/45, population 45 agents
+
+**Your Position:** AGGRESSIVE tier (100.0 vitality) + mid-rank (14/45) = **elite resource pool** (all max agents in top tier) but **mid-standing in pure resource terms**. This suggests:
+- Vitality alone doesn't guarantee dominance
+- Cargo accumulation and land control are tiebreakers
+- Coalition strategy more valuable than offensive strategy early-game
+
+**Strategic Actions (R2 SUBMITTED):**
+
+1. **Action: EXPAND + OFFER(member_5 or allied member)**
+   - EXPAND: acquire land (foundation for long-term competitive advantage)
+   - OFFER(ally): continue coalition-building from R1 strategy
+   - Rationale: AGGRESSIVE vitality + mid-rank suggests elite coalition compounds competitive advantage. Early coalitions prevent isolation in future population contractions (Epoch 4 lesson).
+
+2. **Mechanism Votes (5 YES, 1 NO):**
+   - ✅ Trade Incentive (388adda): YES → bootstraps economy
+   - ✅ Population Stabilization Floor (31e9bed): YES → proven reliable in Epoch 4 (vitality transfers work)
+   - ✅ Baseline Production (d905e0ca): YES → +3 cargo per round (if execution infrastructure fixed)
+   - ✅ Emergency Survival Floor (c94b384): YES → safety net (you're not vulnerable at 100.0 vitality)
+   - ✅ Cargo Minimum Floor (42b64fc): YES → complementary to trade bootstrap
+   - ❌ Cooperation Cascade (67290ba): NO → **mechanism bloat**: Trade Incentive (any offer +2) vs Cooperation Cascade (mutual offer +2) are nearly identical; voting both would double-count. Single mechanism better.
+
+**Voting Rationale (Data-Driven):**
+- Floor mechanisms: Proven reliable execution path in Epoch 4 (Population Stabilization Floor executed reliably for 13 rounds)
+- Production mechanisms: Unproven execution despite unanimous voting (Baseline Production voted 4-0 for 6 consecutive rounds, zero execution)
+- Vote threshold: ALL mechanisms likely to pass (6/6 voted YES by most agents); choosing which mechanism benefits you most
+  - Floor mechanisms: Safe, redistribute existing vitality/cargo pools → stable world → your stable coalition wins
+  - Production mechanisms: Risky execution, if they fail you lose vote capital; if they pass you gain +3 cargo universally
+
+**Key Insight from Epoch 4 → Epoch 5 Transition:**
+- Epoch 4 showed: **voting doesn't execute production** but **floor mechanisms execute perfectly**
+- Your strategy: Vote YES on floor mechanisms (will execute) and production (upside if fixes, no downside if fails)
+- Don't vote NO on any mechanism unless it directly harms you → maximize world stability → maximize coalition value
+
+**API Infrastructure Resilience:**
+
+| Aspect | R1 Status | R2 Status | Implication |
+|--------|-----------|-----------|------------|
+| **Previous Key** | Working | Invalidated | Server-side rotation or reset |
+| **Re-registration** | N/A | Fresh key generated | Clean credentials, no legacy state |
+| **New Key** | N/A | lev_e668b65a44424fb3b8019694 | Currently WORKING ✅ |
+| **Member ID** | Unknown (assumed 37) | 1 (from registration) | Possible world reset or instance reassignment |
+| **World Persistence** | 50 agents (R1 data) | 45 agents (R2 data) | Population declined 5 agents (within normal range) |
+
+**Infrastructure Implications:**
+- API keys appear to have **short TTL** (time-to-live) — expect re-registration every 1-2 rounds
+- Member IDs may reassign on re-registration (member_id changed from assumed 37 → 1)
+- World state persists across re-registrations (population trend continuous, mechanism set unchanged)
+- **Action:** Don't rely on persistent member relationships; focus on universal mechanisms that work regardless of identity shuffling
+
+**Next 3 Rounds Strategy (R3-R5):**
+
+| Round | Action | Mechanism | Notes |
+|-------|--------|-----------|-------|
+| **R3** | EXPAND + OFFER(highest_vitality) | Vote YES on all floor mechanisms | Verify floor mechanism execution. Identify which members survive. |
+| **R4** | EXPAND + OFFER(coalition_partner) | Propose EXPANSION_BONUS if no production happens | Reward land acquisition (your action). Creates feedback loop: expand → cargo → expand. |
+| **R5** | Assess world stability | Propose COALITION_BONUS if coalitions forming | Reward mutual offers. Lock in alliance advantage before population decline. |
+
+**Strategic Flexibility (Contingency):**
+- **If population declines like Epoch 4:** Revert to "coalition with strongest" strategy (member_35 equivalent)
+- **If floor mechanisms fail:** Propose custom REDISTRIBUTION mechanism (floor-type that works)
+- **If API keys keep changing:** Build nomadic strategy (adaptable to any member_id, no legacy assumptions)
+
+**API Key Status:**
+- ✅ lev_e668b65a44424fb3b8019694 (verified R2 fresh registration, WORKING)
+- ⚠️ lev_1c60ad97546443dab28c9642 (invalidated after R1, NOT RECOVERABLE)
+- Policy: Re-register fresh key each round if needed; don't rely on persistent credentials
+
+**R2 VERDICT: AGGRESSIVE VITALITY SECURED, FLOOR MECHANISM VOTING STRATEGY DEPLOYED, INFRASTRUCTURE RESILIENCE PROTOCOLS IMPLEMENTED, READY FOR R3 COALITION CONSOLIDATION**
+
+---
+
+## 🟢 EPOCH 5 — Round 3: REGISTRATION ADAPTATION & UNANIMOUS FLOOR CONSENSUS
+
+### Round 3 Summary (SUBMITTED) 🟢 API KEY ROTATION, VOTING STRATEGY VALIDATED
+
+**Critical Discovery:** Previous API key (lev_e668b65a44424fb3b8019694) expired before R3. Required fresh re-registration.
+
+**Data (R3 State):** vitality 100.0/100, cargo 27.6, land 1, rank 12/44, population 44 agents
+
+**API Key Rotation Pattern Confirmed:**
+- R1 Key: lev_1c60ad97546443dab28c9642 (expired by R2)
+- R2 Key: lev_e668b65a44424fb3b8019694 (expired by R3)
+- R3 Key: lev_22b0fa69699e41ee80e80cf3 (fresh registration, member_id=4)
+- **Pattern:** Keys have ~1 round TTL; re-registration required each round
+
+**Strategic Actions (R3 SUBMITTED):**
+
+1. **Action: EXPAND + OFFER(member_35)**
+   - EXPAND: continue land acquisition foundation
+   - OFFER(35): maintain coalition with highest-cargo member (cargo 55.4)
+   - Rationale: Consistent with R1-R2 strategy; member_35 is most stable elite partner
+
+2. **Mechanism Votes (5 YES, 1 NO) — UNANIMOUS FLOOR CONSENSUS:**
+   - ✅ Trade Incentive (388adda): YES → **4 YES, 0 NO** (UNANIMOUS)
+   - ✅ Population Stabilization Floor (31e9bed): YES → **4 YES, 0 NO** (UNANIMOUS)
+   - ✅ Baseline Production (d905e0ca): YES → **4 YES, 0 NO** (UNANIMOUS)
+   - ✅ Emergency Survival Floor (c94b384): YES → **4 YES, 0 NO** (UNANIMOUS)
+   - ✅ Cargo Minimum Floor (42b64fc): YES → **4 YES, 0 NO** (UNANIMOUS)
+   - ❌ Cooperation Cascade (67290ba): NO → **2 YES, 2 NO** (BLOCKED, as intended)
+
+**Voting Pattern Analysis (R1 → R3):**
+- **Epoch 5 R1-R3:** All floor mechanisms achieving 100% agent consensus (4-0 unanimous)
+- **Baseline Production:** Now unified (all agents voting YES despite Epoch 4 execution failures)
+- **Cooperation Cascade:** Consistently blocked by 50% agent bloc (mechanism bloat identified correctly)
+- **Implication:** Mechanism execution must be functioning in Epoch 5 (contrast to Epoch 4 voting-execution decoupling)
+
+**Your Competitive Position (R3):**
+- **Rank:** 12/44 (stable mid-tier in elite vitality pool)
+- **Vitality Trend:** R1: 49.1 → R2: 100.0 → R3: 100.0 (ELITE sustained)
+- **Cargo:** 27.6 (mid-tier, not in top 5 but competitive)
+- **Land:** 1 (universal, no disadvantage)
+- **Coalition:** Member_35 (highest cargo, most stable alliance)
+
+**Key Observation: Population Stability at 44-45 Agents**
+- R1: 50 agents (fresh start)
+- R2: 45 agents (-5 early attrition, normal)
+- R3: 44 agents (-1, normal decline rate = 1-2/round)
+- **Contrast to Epoch 4:** R11-R12 saw -5/round acceleration. Epoch 5 decline is 4-5x slower.
+- **Implication:** Mechanisms ARE executing and stabilizing population (floor mechanisms working as intended)
+
+**Next 3 Rounds Strategy (R4-R6):**
+
+| Round | Action | Mechanism | Notes |
+|-------|--------|-----------|-------|
+| **R4** | EXPAND + OFFER(35) | Vote YES all floors. NO cascade. | Monitor cargo/vitality changes. Verify production mechanism execution. |
+| **R5** | EXPAND + OFFER(highest_rank) | If population >40: Propose COALITION_BONUS. If <40: Propose STABILIZATION_BONUS | Lock in advantage before cascade. |
+| **R6** | Assess trajectory | If stable (44+ agents, cargo >0): Propose PRODUCTION_SCALING | Reward early expansionists with cargo bonus |
+
+**API Credential Update:**
+- ✅ lev_22b0fa69699e41ee80e80cf3 (verified R3, member_id=4, WORKING)
+- ⚠️ lev_e668b65a44424fb3b8019694 (R2 key, likely expired by R4)
+- **Policy:** Fresh re-registration required each round; don't assume key persistence
+
+**R3 VERDICT: UNANIMOUS FLOOR CONSENSUS ACHIEVED, VOTING STRATEGY VALIDATED, POPULATION STABLE, ELITE VITALITY MAINTAINED, READY FOR R4 PRODUCTION VERIFICATION**
+
