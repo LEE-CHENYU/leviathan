@@ -52,6 +52,11 @@ _PREFLIGHT_ENV_KEYS = (
     "E2E_PREFLIGHT",
     "E2E_FALLBACK_TO_OPENAI",
 )
+_RUNTIME_PROFILE_ENV_KEYS = (
+    "METAISLAND_LLM_PROFILE",
+    "LEVIATHAN_LLM_PROFILE",
+    "LLM_RUNTIME_PROFILE",
+)
 _PROXY_ENV_KEYS = (
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -297,6 +302,13 @@ def _select_provider() -> Tuple[str, str]:
 def _configure_e2e_provider() -> Tuple[str, str, str, Optional[str], Optional[str]]:
     if _is_offline():
         return "", "", "", None, None
+    for key in _RUNTIME_PROFILE_ENV_KEYS:
+        profile = os.environ.get(key, "").strip()
+        if profile:
+            e2e_model = os.environ.get("E2E_MODEL") or _load_default_model_id()
+            if not os.environ.get("LLM_MAX_TOKENS"):
+                os.environ["LLM_MAX_TOKENS"] = "1024"
+            return "runtime_profile", e2e_model, f"{key.lower()}={profile}", None, None
     original_openai_key = os.environ.get("OPENAI_API_KEY")
     original_openai_base_url = os.environ.get("OPENAI_BASE_URL")
     provider, provider_reason = _select_provider()
