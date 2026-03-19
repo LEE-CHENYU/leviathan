@@ -1,0 +1,10 @@
+type: codex_cli
+command: codex
+reasoning: high
+timeout: 300
+full_auto: false
+ephemeral: true
+strip_env:
+  - CLAUDECODE
+  - CLAUDE_CODE_SSE_PORT
+  - CLAUDE_CODE_ENTRYPOINT

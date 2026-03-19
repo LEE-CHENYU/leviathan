@@ -1,0 +1,4 @@
+backend: codex_cli_text
+model: gpt-5.4
+timeout: 420
+reasoning: high

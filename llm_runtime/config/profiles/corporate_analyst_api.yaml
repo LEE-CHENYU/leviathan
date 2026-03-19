@@ -1,0 +1,5 @@
+backend: aisuite_api
+model: gpt-5.4
+temperature: 0.3
+max_tokens: 2048
+timeout: 300

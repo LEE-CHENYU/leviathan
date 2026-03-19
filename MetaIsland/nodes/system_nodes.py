@@ -12,6 +12,9 @@ class JudgeNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_judge(execution, context, input_data)
         proposals = input_data.get("proposals", [])
 
         if not proposals:
@@ -59,6 +62,9 @@ class ExecuteMechanismsNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_execute_mechanisms(execution, context, input_data)
         approved = input_data.get("approved", [])
 
         if not approved:
@@ -79,6 +85,9 @@ class ContractNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_contracts(execution, context, input_data)
 
         if not hasattr(execution, 'contracts'):
             return {"contracts_processed": 0}
@@ -118,6 +127,9 @@ class EnvironmentNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_environment(execution, context, input_data)
 
         print("\n[Environment] Applying environmental effects...")
 

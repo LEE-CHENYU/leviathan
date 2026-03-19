@@ -1,0 +1,9 @@
+type: claude_cli
+command: claude
+timeout: 300
+output_format: json
+no_session_persistence: true
+strip_env:
+  - CLAUDECODE
+  - CLAUDE_CODE_SSE_PORT
+  - CLAUDE_CODE_ENTRYPOINT

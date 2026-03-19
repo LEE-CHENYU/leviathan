@@ -13,6 +13,9 @@ class AnalyzeNode(ExecutionNode):
 
     async def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return await world_plugin.run_analyze(execution, context, input_data)
 
         print("\n[Analyze] All agents analyzing game state...")
         tasks = []
@@ -38,6 +41,9 @@ class ProposeMechanismNode(ExecutionNode):
 
     async def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return await world_plugin.run_propose_mechanisms(execution, context, input_data)
 
         print("\n[Propose] All agents proposing mechanisms...")
         tasks = []
@@ -62,6 +68,9 @@ class AgentDecisionNode(ExecutionNode):
 
     async def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return await world_plugin.run_agent_decisions(execution, context, input_data)
 
         print("\n[Decide] All agents making decisions...")
         tasks = []
@@ -86,6 +95,9 @@ class ExecuteActionsNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_execute_actions(execution, context, input_data)
 
         print("\n[Execute] Executing agent actions with conflict resolution...")
         execution.execute_code_actions()

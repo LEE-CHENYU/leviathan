@@ -21,11 +21,7 @@ from MetaIsland.graph_engine import ExecutionGraph
 from MetaIsland.contracts import ContractEngine
 from MetaIsland.physics import PhysicsEngine
 from MetaIsland.judge import Judge
-from MetaIsland.nodes import (
-    NewRoundNode, ProduceNode, ConsumeNode, LogStatusNode,
-    AnalyzeNode, ProposeMechanismNode, AgentDecisionNode, ExecuteActionsNode,
-    JudgeNode, ExecuteMechanismsNode, ContractNode, EnvironmentNode
-)
+from MetaIsland.world_plugin import MetaIslandWorldPlugin
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -36,7 +32,7 @@ client = ai.Client()
 
 from MetaIsland.model_router import model_router
 
-provider, model_id = model_router("gpt-5")
+provider, model_id = model_router("gpt-5.4")
 class IslandExecution(Island):
     def __init__(self, 
         init_member_number: int,
@@ -44,7 +40,8 @@ class IslandExecution(Island):
         save_path: str,
         random_seed: Optional[int] = None,
         action_board: List[List[Tuple[str, int, int]]] = None,
-        agent_modifications: dict = None
+        agent_modifications: dict = None,
+        world_plugin: Optional[MetaIslandWorldPlugin] = None,
     ):
         # Create directories for saving generated code
         self.code_save_path = os.path.join(save_path, 'generated_code')
@@ -104,7 +101,8 @@ class IslandExecution(Island):
         self.graph = ExecutionGraph()
         self.contracts = ContractEngine()
         self.physics = PhysicsEngine()
-        self.judge = Judge(model_name="gpt-5")
+        self.judge = Judge(model_name="gpt-5.4")
+        self.world_plugin = world_plugin or MetaIslandWorldPlugin()
 
         # Setup default execution graph
         self._setup_default_graph()
@@ -889,54 +887,14 @@ class IslandExecution(Island):
 
     def _setup_default_graph(self):
         """Setup the default execution graph with all nodes"""
-        # Create nodes
-        nodes = {
-            'new_round': NewRoundNode(),
-            'analyze': AnalyzeNode(),
-            'propose_mech': ProposeMechanismNode(),
-            'judge_mech': JudgeNode(),
-            'execute_mech': ExecuteMechanismsNode(),
-            'agent_decide': AgentDecisionNode(),
-            'execute_actions': ExecuteActionsNode(),
-            'contracts': ContractNode(),
-            'produce': ProduceNode(),
-            'consume': ConsumeNode(),
-            'environment': EnvironmentNode(),
-            'log_status': LogStatusNode()
-        }
-
-        # Add all nodes to graph
-        for node in nodes.values():
-            self.graph.add_node(node)
-
-        # Connect nodes to define execution flow
-        connections = [
-            ('new_round', 'analyze'),
-            ('analyze', 'propose_mechanisms'),
-            ('propose_mechanisms', 'judge'),
-            ('judge', 'execute_mechanisms'),
-            ('execute_mechanisms', 'agent_decisions'),
-            ('agent_decisions', 'execute_actions'),
-            ('execute_actions', 'contracts'),
-            ('contracts', 'produce'),
-            ('produce', 'consume'),
-            ('consume', 'environment'),
-            ('environment', 'log_status')
-        ]
-
-        for from_name, to_name in connections:
-            self.graph.connect(from_name, to_name)
-
-        print(f"\n[Graph] Initialized with {len(nodes)} nodes")
+        self.world_plugin.build_default_graph(self.graph)
+        print(f"\n[Graph] Initialized with {len(self.graph.nodes)} nodes")
         print(self.graph.visualize())
 
     async def run_round_with_graph(self):
         """Run one complete round using the graph execution engine"""
         self.round_number += 1
-        self.graph.context = {
-            'execution': self,
-            'round': self.round_number
-        }
+        self.graph.context = self.world_plugin.build_graph_context(self, self.round_number)
 
         print(f"\n{'='*60}")
         print(f"=== Round {self.round_number} (Graph Execution) ===")

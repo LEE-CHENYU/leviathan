@@ -12,6 +12,9 @@ class NewRoundNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_new_round(execution, context, input_data)
         execution.new_round()
         execution.get_neighbors()
 
@@ -26,6 +29,9 @@ class ProduceNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_produce(execution, context, input_data)
         execution.produce()
 
         return {"production_complete": True}
@@ -39,6 +45,9 @@ class ConsumeNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_consume(execution, context, input_data)
         execution.consume()
 
         return {"consumption_complete": True}
@@ -52,6 +61,9 @@ class LogStatusNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context['execution']
+        world_plugin = context.get('world_plugin')
+        if world_plugin is not None:
+            return world_plugin.run_log_status(execution, context, input_data)
 
         print("\n=== Round Summary ===")
         execution.log_status(action=True, log_instead_of_print=True)
