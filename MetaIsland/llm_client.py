@@ -14,7 +14,7 @@ _PROFILE_ENV_KEYS = (
     "LEVIATHAN_LLM_PROFILE",
     "LLM_RUNTIME_PROFILE",
 )
-_DEFAULT_PROFILE = "codex_cli_default"
+_DEFAULT_PROFILE = "metaisland_codex"
 
 
 def _env_flag_enabled(keys: Iterable[str]) -> bool:
