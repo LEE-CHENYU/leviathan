@@ -89,6 +89,17 @@ class FakeExecution:
         self.status_logged += 1
 
 
+class StringProposalExecution(FakeExecution):
+    async def agent_mechanism_proposal(self, member_id):
+        proposal = {
+            "member_id": member_id,
+            "proposal_id": f"prop_{member_id}",
+            "code": "def propose_modification(self):\n    return None\n",
+        }
+        self.execution_history["rounds"][-1]["mechanism_modifications"]["attempts"].append(proposal)
+        return proposal["code"]
+
+
 def test_meta_island_world_plugin_runs_one_graph_round():
     graph = ExecutionGraph()
     plugin = MetaIslandWorldPlugin()
@@ -119,3 +130,18 @@ def test_meta_island_world_plugin_runs_one_graph_round():
     review_outputs = graph.nodes["agent_review"].outputs
     assert review_outputs["approved"] == []
     assert graph.nodes["execute_mechanisms"].outputs["mechanisms_executed"] == 0
+
+
+def test_meta_island_world_plugin_uses_history_backed_proposals():
+    graph = ExecutionGraph()
+    plugin = MetaIslandWorldPlugin()
+    plugin.build_default_graph(graph)
+    execution = StringProposalExecution()
+    graph.context = plugin.build_graph_context(execution, 1)
+
+    asyncio.run(graph.execute_round())
+
+    attempts = execution.execution_history["rounds"][-1]["mechanism_modifications"]["attempts"]
+    assert len(attempts) == 2
+    assert all(isinstance(attempt, dict) for attempt in attempts)
+    assert len(graph.nodes["canary"].outputs["canary_reports"]) == 2

@@ -54,8 +54,20 @@ class ProposeMechanismNode(ExecutionNode):
 
         proposals = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter out failures
-        valid_proposals = [p for p in proposals if p is not None and not isinstance(p, Exception)]
+        current_round = execution.execution_history["rounds"][-1] if execution.execution_history["rounds"] else {}
+        attempts = current_round.get("mechanism_modifications", {}).get("attempts", [])
+        valid_proposals = [
+            proposal
+            for proposal in attempts
+            if isinstance(proposal, dict) and proposal.get("code")
+        ]
+
+        if not valid_proposals:
+            valid_proposals = [
+                proposal
+                for proposal in proposals
+                if isinstance(proposal, dict) and proposal.get("code")
+            ]
 
         print(f"[Propose] Complete: {len(valid_proposals)} proposals generated")
 

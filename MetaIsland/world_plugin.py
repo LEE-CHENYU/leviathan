@@ -101,11 +101,19 @@ class MetaIslandWorldPlugin:
             for member_id in range(len(execution.current_members))
         ]
         proposals = await asyncio.gather(*tasks, return_exceptions=True)
+        current_round = execution.execution_history["rounds"][-1] if execution.execution_history["rounds"] else {}
+        attempts = current_round.get("mechanism_modifications", {}).get("attempts", [])
         valid_proposals = [
             proposal
-            for proposal in proposals
-            if proposal is not None and not isinstance(proposal, Exception)
+            for proposal in attempts
+            if isinstance(proposal, dict) and proposal.get("code")
         ]
+        if not valid_proposals:
+            valid_proposals = [
+                proposal
+                for proposal in proposals
+                if isinstance(proposal, dict) and proposal.get("code")
+            ]
         if execution.execution_history["rounds"]:
             execution.execution_history["rounds"][-1]["mechanism_modifications"]["attempts"] = valid_proposals
         print(f"[Propose] Complete: {len(valid_proposals)} proposals generated")

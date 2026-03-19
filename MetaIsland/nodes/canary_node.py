@@ -16,7 +16,8 @@ class CanaryNode(ExecutionNode):
 
     def execute(self, context, input_data):
         execution = context["execution"]
-        proposals = input_data.get("proposals", [])
+        raw_proposals = input_data.get("proposals", [])
+        proposals = [proposal for proposal in raw_proposals if isinstance(proposal, dict)]
 
         if not proposals:
             return {"canary_reports": [], "proposals": []}
