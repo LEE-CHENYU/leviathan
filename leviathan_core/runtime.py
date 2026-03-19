@@ -192,22 +192,61 @@ class SimulationRuntime:
             raise ValueError(f"Action phase '{phase.phase_id}' is missing a builder or parser")
 
         roles = self.plugin.get_roles(state)
-        tasks = [
-            self._run_actor(
-                actor_id=role.role_id,
-                phase=phase,
-                state=state,
-                round_ctx=round_ctx,
-                observation_builder=observation_builder,
-                parser=parser,
-            )
-            for role in roles
-        ]
-        actor_results = await asyncio.gather(*tasks)
+        action_concurrency = self._phase_concurrency_limit(round_ctx, phase.kind)
+        actor_results = await self._run_actor_batch(
+            roles=roles,
+            phase=phase,
+            state=state,
+            round_ctx=round_ctx,
+            observation_builder=observation_builder,
+            parser=parser,
+            concurrency_limit=action_concurrency,
+        )
 
         actions = {actor_id: action for actor_id, _, action in actor_results}
         raw_outputs = {actor_id: raw for actor_id, raw, _ in actor_results}
         return {"actions": actions, "raw_outputs": raw_outputs}
+
+    async def _run_actor_batch(
+        self,
+        *,
+        roles,
+        phase: PhaseSpec,
+        state: Any,
+        round_ctx: RoundContext,
+        observation_builder,
+        parser,
+        concurrency_limit: int | None,
+    ) -> list[tuple[str, str, dict[str, Any]]]:
+        if concurrency_limit is None:
+            tasks = [
+                self._run_actor(
+                    actor_id=role.role_id,
+                    phase=phase,
+                    state=state,
+                    round_ctx=round_ctx,
+                    observation_builder=observation_builder,
+                    parser=parser,
+                )
+                for role in roles
+            ]
+            return await asyncio.gather(*tasks)
+
+        semaphore = asyncio.Semaphore(concurrency_limit)
+
+        async def _bounded_run(role):
+            async with semaphore:
+                return await self._run_actor(
+                    actor_id=role.role_id,
+                    phase=phase,
+                    state=state,
+                    round_ctx=round_ctx,
+                    observation_builder=observation_builder,
+                    parser=parser,
+                )
+
+        tasks = [_bounded_run(role) for role in roles]
+        return await asyncio.gather(*tasks)
 
     async def _run_actor(
         self,
@@ -284,3 +323,13 @@ class SimulationRuntime:
             "Observation:\n"
             f"{json.dumps(observation, indent=2, default=str)}"
         )
+
+    @staticmethod
+    def _phase_concurrency_limit(round_ctx: RoundContext, phase_kind: str) -> int | None:
+        config = round_ctx.config
+        specific_key = f"{phase_kind}_concurrency"
+        value = config.get(specific_key, config.get("max_concurrency"))
+        if value is None:
+            return None
+        limit = int(value)
+        return None if limit <= 0 else limit
