@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "python scripts/run_server.py --members ${{LEVIATHAN_MEMBERS}} --land ${{LEVIATHAN_LAND}} --seed ${{LEVIATHAN_SEED}} --pace ${{LEVIATHAN_PACE}} --rounds ${{LEVIATHAN_ROUNDS}} --port 8000",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 10,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}

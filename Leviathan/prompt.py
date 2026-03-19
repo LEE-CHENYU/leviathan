@@ -89,6 +89,8 @@ Gene Values: These are fixed for each player, ranging from -1 to 1. They determi
 - 'benefit_active': the normalized amount of you offer food to the target
 - 'benefit_land_passive': the normalized amount of you being offered land from the target
 - 'benefit_land_active': the normalized amount of you offer land to the target
+- 'recent_help_received': the normalized recent food/land support you received from the target (short-term memory)
+- 'recent_harm_received': the normalized recent harm you received from the target (short-term memory)
 
 Your task in this turn:
 This is your current decision tuples:
@@ -152,7 +154,7 @@ def decision_using_gpt35(
     try:
 
         completion = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-5.2",
             messages=[
                 {
                     "role": "user",
@@ -186,4 +188,3 @@ rule_of_the_decison = {
   "chain_selection": "Specify the chain number to follow, or indicate 'new' for starting a new sequence.",
   "action_details": "Select the specific action to take, including action type and target agent."
 }
-

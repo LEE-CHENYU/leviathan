@@ -21,7 +21,10 @@ class FakeExecution:
         )
         self.physics = SimpleNamespace(constraints=["scarcity", "conservation"])
         self.judge_calls = []
-        self.judge = SimpleNamespace(judge_proposal=self._judge_proposal)
+        self.judge = SimpleNamespace(
+            judge_proposal=self._judge_proposal,
+            judge_proposal_advisory=lambda code, proposer_id, proposal_type: ("LOW", "ok"),
+        )
         self.new_round_calls = 0
         self.neighbor_calls = 0
         self.actions_executed = 0
@@ -29,6 +32,7 @@ class FakeExecution:
         self.production_calls = 0
         self.consumption_calls = 0
         self.status_logged = 0
+        self.pending_proposals = {}
 
     def _judge_proposal(self, code, proposer_id, proposal_type):
         self.judge_calls.append((proposer_id, proposal_type))
@@ -72,7 +76,7 @@ class FakeExecution:
     def execute_code_actions(self):
         self.actions_executed += 1
 
-    def execute_mechanism_modifications(self):
+    def execute_mechanism_modifications(self, approved=None):
         self.mechanisms_executed += 1
 
     def produce(self):
@@ -96,19 +100,22 @@ def test_meta_island_world_plugin_runs_one_graph_round():
 
     assert graph.get_execution_order()[0] == ["new_round"]
     assert "propose_mechanisms" in graph.nodes
+    assert "canary" in graph.nodes
+    assert "agent_review" in graph.nodes
     assert "agent_decisions" in graph.nodes
 
     assert execution.new_round_calls == 1
     assert execution.neighbor_calls == 1
     assert len(execution.execution_history["rounds"]) == 1
     assert len(execution.execution_history["rounds"][-1]["mechanism_modifications"]["attempts"]) == 2
-    assert len(execution.judge_calls) == 2
-    assert execution.mechanisms_executed == 1
+    assert len(graph.nodes["canary"].outputs["canary_reports"]) == 2
+    assert len(execution.pending_proposals) == 2
+    assert execution.mechanisms_executed == 0
     assert execution.actions_executed == 1
     assert execution.production_calls == 1
     assert execution.consumption_calls == 1
     assert execution.status_logged == 1
 
-    judge_outputs = graph.nodes["judge"].outputs
-    assert len(judge_outputs["approved"]) == 2
-    assert graph.nodes["execute_mechanisms"].outputs["mechanisms_executed"] == 2
+    review_outputs = graph.nodes["agent_review"].outputs
+    assert review_outputs["approved"] == []
+    assert graph.nodes["execute_mechanisms"].outputs["mechanisms_executed"] == 0

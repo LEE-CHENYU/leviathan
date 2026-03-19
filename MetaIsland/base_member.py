@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
@@ -148,6 +149,23 @@ class Member():
         self.cargo = self._rng.uniform(Member._INIT_MIN_CARGO, Member._INIT_MAX_CARGO)
         self.age = int(self._rng.uniform(Member._INIT_MIN_AGE, Member._INIT_MAX_AGE))
 
+        # Per-round action summary (stamped by Island._stamp_member_action_summaries)
+        self.last_round_actions = {"expand": 0, "attack": 0, "offer": 0, "offer_land": 0}
+        self.last_round_attacks_made = {}    # {target_id: damage}
+        self.last_round_attacks_received = {}  # {attacker_id: damage}
+        self.last_round_offers_made = {}     # {target_id: amount}
+        self.last_round_offers_received = {}   # {giver_id: amount}
+
+        # Cumulative interaction memory (decay-weighted)
+        self.interaction_memory = {
+            "attack_received": defaultdict(float),
+            "attack_made": defaultdict(float),
+            "benefit_received": defaultdict(float),
+            "benefit_given": defaultdict(float),
+            "land_received": defaultdict(float),
+            "land_given": defaultdict(float),
+        }
+
     def __str__(self):
         """重载print函数表示"""
         return colored(self._current_color, f"{self.name}({self.id})")
@@ -155,7 +173,11 @@ class Member():
     def __repr__(self):
         """重载其他print形式的表示"""
         return self.__str__()
-        
+
+    def record_interaction(self, kind: str, other_id: int, value: float) -> None:
+        if kind in self.interaction_memory:
+            self.interaction_memory[kind][other_id] += value
+
 # ##############################################################################
 # ##################################### 状态 ####################################
     

@@ -1,0 +1,44 @@
+# arXiv research loop configuration
+query: ""
+keywords:
+  - multi-agent
+  - multiagent
+  - agentic
+  - emergent
+  - open-ended
+  - self-improving
+  - evolutionary
+  - mechanism design
+  - coordination
+  - planning
+  - memory
+  - tool use
+  - llm agents
+  - autonomous agents
+  - collective intelligence
+  - governance
+categories:
+  - cs.AI
+  - cs.LG
+  - cs.MA
+  - cs.SI
+  - cs.GT
+  - cs.CL
+  - cs.RO
+  - stat.ML
+
+# Search and ranking
+max_results: 50
+TopK: 6
+recency_days: 365
+min_score: 3.0
+
+# Loop cadence
+interval_minutes: 360
+
+# Summarization
+summary_model: "minimax/minimax-m2.1"
+summary_max_tokens: 1024
+
+# Output
+output_dir: "research/arxiv"

@@ -124,6 +124,13 @@ class ExecutionGraph:
 
             current_layer = next_layer
 
+        if len(visited) != len(self.nodes):
+            remaining = sorted(name for name in self.nodes if name not in visited)
+            raise ValueError(
+                "Graph contains a cycle or unresolved dependencies; "
+                f"cannot determine execution order for: {remaining}"
+            )
+
         self.execution_layers = layers
 
     def _gather_inputs(self, node: ExecutionNode) -> Dict:

@@ -12,7 +12,9 @@ from typing import Any
 
 from MetaIsland.nodes import (
     AgentDecisionNode,
+    AgentReviewNode,
     AnalyzeNode,
+    CanaryNode,
     ConsumeNode,
     ContractNode,
     EnvironmentNode,
@@ -34,7 +36,8 @@ class MetaIslandWorldPlugin:
             NewRoundNode(),
             AnalyzeNode(),
             ProposeMechanismNode(),
-            JudgeNode(),
+            CanaryNode(),
+            AgentReviewNode(),
             ExecuteMechanismsNode(),
             AgentDecisionNode(),
             ExecuteActionsNode(),
@@ -51,8 +54,9 @@ class MetaIslandWorldPlugin:
         connections = [
             ("new_round", "analyze", "default", "default"),
             ("analyze", "propose_mechanisms", "default", "default"),
-            ("propose_mechanisms", "judge", "proposals", "proposals"),
-            ("judge", "execute_mechanisms", "approved", "approved"),
+            ("propose_mechanisms", "canary", "proposals", "proposals"),
+            ("canary", "agent_review", "proposals", "proposals"),
+            ("agent_review", "execute_mechanisms", "approved", "approved"),
             ("execute_mechanisms", "agent_decisions", "default", "default"),
             ("agent_decisions", "execute_actions", "default", "default"),
             ("execute_actions", "contracts", "default", "default"),
@@ -142,7 +146,7 @@ class MetaIslandWorldPlugin:
             return {"mechanisms_executed": 0}
 
         print(f"\n[Mechanisms] Executing {len(approved)} approved mechanisms...")
-        execution.execute_mechanism_modifications()
+        execution.execute_mechanism_modifications(approved=approved)
         return {"mechanisms_executed": len(approved)}
 
     async def run_agent_decisions(self, execution, context, input_data):
@@ -209,5 +213,16 @@ class MetaIslandWorldPlugin:
         print("\n=== Round Summary ===")
         if hasattr(execution, "log_status"):
             execution.log_status(action=True, log_instead_of_print=True)
+        if hasattr(execution, "_update_round_end_metrics"):
+            execution._update_round_end_metrics()
+        if (
+            execution.execution_history.get("rounds")
+            and hasattr(execution, "contracts")
+            and hasattr(execution.contracts, "get_statistics")
+        ):
+            round_record = execution.execution_history["rounds"][-1]
+            round_record["contract_stats"] = execution.contracts.get_statistics()
+        if hasattr(execution, "save_execution_history"):
+            execution.save_execution_history()
         surviving_members = len(getattr(execution, "current_members", []))
         return {"status_logged": True, "surviving_members": surviving_members}

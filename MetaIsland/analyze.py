@@ -1,17 +1,53 @@
+import json
 import numpy as np
 import openai
 import traceback
 
 from dotenv import load_dotenv
-import aisuite as ai
 
+from MetaIsland.llm_client import get_llm_client
 from MetaIsland.model_router import model_router
+from MetaIsland.llm_utils import (
+    build_chat_kwargs,
+    classify_llm_error,
+    ensure_non_empty_response,
+)
 
 load_dotenv()
 
-client = ai.Client()
+client = get_llm_client()
 
-provider, model_id = model_router("deepseek")
+provider, model_id = model_router("default")
+
+
+def _fallback_analysis_text(member_id: int) -> str:
+    baseline = ["expand"] if member_id % 2 == 0 else ["offer"]
+    variation = ["offer"] if member_id % 2 == 0 else ["expand"]
+    card = {
+        "hypothesis": "Fallback analysis: keep plan tags available when LLM is unavailable.",
+        "baseline_signature": baseline,
+        "variation_signature": variation,
+        "success_metrics": ["delta_survival", "delta_vitality"],
+        "guardrails": ["avoid negative survival deltas"],
+        "coordination": [],
+        "memory_note": f"fallback_stub_{member_id}",
+        "diversity_note": "Rotate tags across members to avoid monoculture.",
+        "confidence": 0.2,
+    }
+    return "\n".join([
+        "Situation summary:",
+        "- Fallback analysis stub (no external LLM call).",
+        "Risks & opportunities:",
+        "- Treat results as pipeline validation only.",
+        "Strategy plan:",
+        f"- Baseline tags: {', '.join(baseline)}",
+        f"- Variation tags: {', '.join(variation)}",
+        "Coordination asks: none.",
+        "Memory note: fallback stub.",
+        "```json",
+        json.dumps(card, indent=2),
+        "```",
+    ])
 
 async def _analyze(self, member_id):
     """
@@ -20,7 +56,7 @@ async def _analyze(self, member_id):
     
     member = self.current_members[member_id]
     
-    data = self.prepare_agent_data(member_id)
+    data = self.prepare_agent_data(member_id, error_context_type="analysis")
     member = data['member']
     relations = data['relations']
     features = data['features']
@@ -29,15 +65,40 @@ async def _analyze(self, member_id):
     past_performance = data['past_performance']
     error_context = data['error_context']
     message_context = data['message_context']
+    communication_summary = data['communication_summary']
+    strategy_profile = data['strategy_profile']
+    population_strategy_profile = data['population_strategy_profile']
+    population_exploration_summary = data['population_exploration_summary']
+    strategy_recommendations = data['strategy_recommendations']
+    experiment_summary = data.get(
+        'experiment_summary',
+        'No experiment outcomes available.'
+    )
+    contextual_strategy_summary = data.get(
+        'contextual_strategy_summary',
+        'No contextual strategy data.'
+    )
+    population_state_summary = data.get(
+        'population_state_summary',
+        'No population state summary available.'
+    )
 
     current_mechanisms = data['current_mechanisms']
-    modification_attempts = data['modification_attempts'][max(data['modification_attempts'].keys())]
+    current_mechanisms_text = self.format_mechanisms_for_prompt(current_mechanisms)
+    modification_attempts = []
+    modification_attempts_map = data.get('modification_attempts') or {}
+    if modification_attempts_map:
+        try:
+            latest_round = max(modification_attempts_map.keys())
+            modification_attempts = modification_attempts_map.get(latest_round, [])
+        except Exception:
+            modification_attempts = []
     report = data['report']
     
     base_code = self.base_class_code
     
     """Analyze member data for strategic insights"""
-    previous_errors = self.execution_history['rounds'][-1]['errors']['analyze_code_errors'].get(member_id, {})
+    previous_errors = error_context
     analysis_prompt = f"""
     {previous_errors}
     
@@ -48,7 +109,7 @@ async def _analyze(self, member_id):
     - Be mindful of version requirements and dependencies
     - Consider how they can be combined strategically
     - Test interactions before relying on them critically
-    {current_mechanisms}
+    {current_mechanisms_text}
     
     [Current task]
     You are member_{member.id} in a society that you can help shape. Use plain text to describe your situation and propose strategies. All your words should be based on concrete facts and data below. You should also think about how to use the mechanisms defined in [Active Mechanisms Modifications] to make your strategies more effective. Strategies should be practical and effective, if you can't find any effective strategies, just say so. If your analysis and strategies are not fact-oriented, you will not be competitive and you will die.
@@ -66,6 +127,27 @@ async def _analyze(self, member_id):
 
     Code Memory and Previous Performance:
     {code_memory}
+
+    Strategy profile:
+    {strategy_profile}
+
+    Population strategy diversity snapshot:
+    {population_strategy_profile}
+
+    Population exploration signals:
+    {population_exploration_summary}
+
+    Strategy recommendations:
+    {strategy_recommendations}
+
+    Experiment outcomes (baseline vs variation):
+    {experiment_summary}
+
+    Contextual strategy cues:
+    {contextual_strategy_summary}
+
+    Population state snapshot:
+    {population_state_summary}
     
     Analysis Memory:
     {analysis_memory}
@@ -75,6 +157,36 @@ async def _analyze(self, member_id):
     
     Previous Analysis of the game state:
     {report} 
+
+    [Communication Summary]
+    {communication_summary}
+
+    [Received Messages]
+    {message_context}
+
+    [Output Format]
+    Use plain text. Be concise and evidence-based.
+    Provide:
+    1) Situation summary (<=5 bullets, cite member IDs/metrics).
+    2) Risks & opportunities (<=5 bullets).
+    3) Strategy plan with two distinct action signatures:
+       - Baseline (safe): include action tags from
+         [attack, offer, offer_land, bear, expand, message, contracts, market, resources, businesses].
+       - Variation (bounded-risk): different tags or combinations.
+       - Use only the exact lowercase tags listed above; no extra words.
+       - If combining tags, list them separately (not "expand+message").
+       - Guardrails / stop conditions.
+       - Success metrics using available deltas (delta_survival, delta_vitality, delta_cargo, delta_relation_balance, delta_land).
+    4) Coordination asks (message drafts with opt-in roles).
+    5) Memory note (<=120 chars).
+    End with a JSON block in a ```json``` fence (required) using keys:
+    hypothesis, baseline_signature, variation_signature, success_metrics,
+    guardrails, coordination, memory_note, diversity_note, confidence.
+    In the JSON block, baseline_signature and variation_signature must be JSON arrays
+    of tag strings, each string exactly one of the allowed tags above (no punctuation,
+    no sentences, no "+" combos). If you want to avoid a tag, omit it and explain
+    in guardrails instead.
+    Keep diversity: avoid monoculture or single-equilibrium recommendations.
     
     [Data-Driven Survival Framework]
     Collect and analyze ALL available game variables:
@@ -210,11 +322,50 @@ async def _analyze(self, member_id):
     # # Append a final instruction to generate the code function
     # final_prompt_command = final_prompt + "\n\nUsing the above comprehensive prompt with all integrated constraints, produce a unique implementation that reflects your individual needs, beliefs and circumstances. The implementation should be tailored to your specific situation rather than following a generic template. Your code should demonstrate a deep understanding of the game mechanics and implement sophisticated strategies to achieve both survival and prosperity. Consider both immediate tactical actions and long-term strategic planning, as well as how to effectively interact with other symmetric agents to achieve both individual and collective goals. Return only the code."
             
-    completion = client.chat.completions.create(
-                model=f'{provider}:{model_id}', 
-                messages=[{"role": "user", "content": analysis_prompt}]
-            )
-    result = completion.choices[0].message.content.strip()
+    stable_id = None
+    try:
+        stable_id = self._resolve_member_stable_id(member_id)
+    except Exception:
+        stable_id = None
+
+    try:
+        completion = client.chat.completions.create(
+            model=f'{provider}:{model_id}',
+            messages=[{"role": "user", "content": analysis_prompt}],
+            **build_chat_kwargs()
+        )
+        result = ensure_non_empty_response(
+            completion.choices[0].message.content,
+            context="analysis",
+        )
+    except Exception as e:
+        fallback_member_id = stable_id if stable_id is not None else member_id
+        try:
+            fallback_member_id = int(fallback_member_id)
+        except (TypeError, ValueError):
+            fallback_member_id = member_id
+        result = _fallback_analysis_text(fallback_member_id)
+        analysis_key = stable_id if stable_id is not None else member_id
+        error_info = {
+            'round': len(self.execution_history['rounds']),
+            'member_id': analysis_key,
+            'member_index': member_id,
+            'type': 'analysis',
+            'error': str(e),
+            'error_category': classify_llm_error(e),
+            'traceback': traceback.format_exc(),
+            'code': "",
+            'fallback_used': True,
+            'fallback_source': 'analysis_stub'
+        }
+        self.execution_history['rounds'][-1]['errors']['analyze_code_errors'][analysis_key] = error_info
+        print(f"Error generating analysis for member {member_id}:")
+        print(traceback.format_exc())
+        if hasattr(self, "_logger"):
+            try:
+                self._logger.error(f"Analysis generation error (member {member_id}): {e}")
+            except Exception:
+                pass
     # analysis_code = self.clean_code_string(analysis_code)
     
     # print(f"\nStrategic Analysis Code:\n{analysis_code}")
@@ -227,8 +378,13 @@ async def _analyze(self, member_id):
     exec_env['np'] = np  # Make numpy available in the environment
 
     # print(f"Analysis result: {result}")
-    # Store analysis in execution history
-    self.execution_history['rounds'][-1]['analysis'][member_id] = result
+    # Store analysis in execution history using stable member id when possible
+    analysis_key = stable_id if stable_id is not None else member_id
+    self.execution_history['rounds'][-1]['analysis'][analysis_key] = result
+    try:
+        self._record_analysis_card(member_id, result)
+    except Exception:
+        pass
     return result
     
     # try:

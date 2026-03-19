@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import pandas as pd
 from Leviathan.Member import Member, colored
@@ -150,6 +151,15 @@ class Island():
             "attack": {},
             "benefit": {},
             "benefit_land": {},
+            "reproduce": {},
+            "clear": {},
+        }
+        self.round_action_dict = {
+            "attack": {},
+            "benefit": {},
+            "benefit_land": {},
+            "reproduce": {},
+            "clear": {},
         }
         self.record_born = []
         self.record_death = []
@@ -157,10 +167,21 @@ class Island():
         # 记录状态 （每Island._RECORD_PERIOD向末尾增append一个0）
         self.record_total_production = [0]
         self.record_total_consumption = [0]
+        self.round_total_production = 0.0
+        self.round_total_consumption = 0.0
         self.record_total_dict = {
             "attack": [0],
             "benefit": [0],
             "benefit_land": [0],
+            "reproduce": [0],
+            "clear": [0],
+        }
+        self.round_total_dict = {
+            "attack": 0.0,
+            "benefit": 0.0,
+            "benefit_land": 0.0,
+            "reproduce": 0.0,
+            "clear": 0.0,
         }
         self.record_historic_ratio_list = np.array([(0,0,0,0)])
         self.record_historic_ranking_list = [(0,0,0)]
@@ -172,6 +193,13 @@ class Island():
 
         # 回合数
         self.current_round = 0
+
+        # 行为学习与环境上下文
+        self.round_context = {}
+        self._round_snapshot = {
+            member.id: (member.vitality, member.cargo, member.land_num)
+            for member in self.current_members
+        }
 
 
     ############################################################################
@@ -479,6 +507,67 @@ class Island():
             if self.land[loc] is None
         ]
 
+    def resolve_member_index(
+        self,
+        member_ref: Union[int, Member],
+        prefer_index: bool = True,
+    ) -> Optional[int]:
+        """
+        Resolve a member reference to the current_members index.
+
+        - If prefer_index is True, integers are treated as current_members indices.
+        - If prefer_index is False, integers are treated as stable member.id values.
+        - Member objects are resolved via survivier_id when available.
+        """
+        if member_ref is None:
+            return None
+
+        if isinstance(member_ref, Member):
+            idx = getattr(member_ref, "surviver_id", None)
+            if isinstance(idx, int) and 0 <= idx < len(self.current_members):
+                return idx
+            member_ref = getattr(member_ref, "id", None)
+            if member_ref is None:
+                return None
+
+        try:
+            ref_int = int(member_ref)
+        except (TypeError, ValueError):
+            return None
+
+        if prefer_index and 0 <= ref_int < len(self.current_members):
+            return ref_int
+
+        for idx, member in enumerate(self.current_members):
+            if getattr(member, "id", None) == ref_int:
+                return idx
+
+        if 0 <= ref_int < len(self.current_members):
+            return ref_int
+        return None
+
+    def resolve_member_index_by_id(self, member_id: Union[int, Member]) -> Optional[int]:
+        """Resolve a stable member.id to the current_members index."""
+        return self.resolve_member_index(member_id, prefer_index=False)
+
+    def resolve_member_id(self, member_ref: Union[int, Member]) -> Optional[int]:
+        """Resolve a member reference to the stable member.id."""
+        if isinstance(member_ref, Member):
+            return getattr(member_ref, "id", None)
+        idx = self.resolve_member_index(member_ref, prefer_index=True)
+        if idx is None:
+            return None
+        if 0 <= idx < len(self.current_members):
+            return getattr(self.current_members[idx], "id", None)
+        return None
+
+    def get_member_by_id(self, member_id: Union[int, Member]) -> Optional[Member]:
+        """Return the current member object by stable member.id, if alive."""
+        idx = self.resolve_member_index_by_id(member_id)
+        if idx is None:
+            return None
+        return self.current_members[idx]
+
     def _find_targets(
         self,
         member: Member,
@@ -567,23 +656,48 @@ class Island():
         value_2: float = None
     ):
         record_dict = self.record_action_dict[record_name]
+        round_record_dict = self.round_action_dict[record_name]
 
         # 记录双方的动作
-        try:
-            record_dict[(member_1.id, member_2.id)] += value_1
-        except KeyError:
-            record_dict[(member_1.id, member_2.id)] = value_1
-        if value_2 is not None:
+        for target_dict in (record_dict, round_record_dict):
             try:
-                record_dict[(member_2.id, member_1.id)] += value_2
+                target_dict[(member_1.id, member_2.id)] += value_1
             except KeyError:
-                record_dict[(member_2.id, member_1.id)] = value_2
+                target_dict[(member_1.id, member_2.id)] = value_1
+        if value_2 is not None:
+            for target_dict in (record_dict, round_record_dict):
+                try:
+                    target_dict[(member_2.id, member_1.id)] += value_2
+                except KeyError:
+                    target_dict[(member_2.id, member_1.id)] = value_2
 
         # 记录总动作
         if value_2 is not None:
             self.record_total_dict[record_name][-1] += value_1 + value_2
+            self.round_total_dict[record_name] += value_1 + value_2
         else:
             self.record_total_dict[record_name][-1] += value_1
+            self.round_total_dict[record_name] += value_1
+
+    def _record_single_action(
+        self,
+        record_name: str,
+        member: Member,
+        value: float = 1.0,
+    ) -> None:
+        """Record a single-actor action without a target member."""
+        record_dict = self.record_action_dict[record_name]
+        round_record_dict = self.round_action_dict[record_name]
+        key = (member.id, -1)
+
+        for target_dict in (record_dict, round_record_dict):
+            try:
+                target_dict[key] += value
+            except KeyError:
+                target_dict[key] = value
+
+        self.record_total_dict[record_name][-1] += value
+        self.round_total_dict[record_name] += value
     
     def generate_decision_history(self) -> None:
         if not hasattr(self, 'decision_history'):
@@ -594,16 +708,16 @@ class Island():
                 self.decision_history[member_1.id] = {}
             self.decision_history[member_1.id][self.current_round] = (0, 0, 0)
         
-        for (member_1, member_2) in self.record_action_dict['attack']: 
+        for (member_1, member_2) in self.round_action_dict['attack']: 
             ## member_1 here is member_1.id
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (1, prev_decisions[1], prev_decisions[2])
         
-        for (member_1, member_2) in self.record_action_dict['benefit']:
+        for (member_1, member_2) in self.round_action_dict['benefit']:
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (prev_decisions[0], 1, prev_decisions[2])
         
-        for (member_1, member_2) in self.record_action_dict['benefit_land']:
+        for (member_1, member_2) in self.round_action_dict['benefit_land']:
             prev_decisions = self.decision_history[member_1][self.current_round]
             self.decision_history[member_1][self.current_round] = (prev_decisions[0], prev_decisions[1], 1)
 
@@ -839,7 +953,9 @@ class Island():
         1. 根据生产力和土地，增加食物存储
         """
         for member in self.current_members:
-            self.record_total_production[-1] += member.produce()
+            produced = member.produce()
+            self.record_total_production[-1] += produced
+            self.round_total_production += produced
 
     def _attack(
         self, 
@@ -1014,6 +1130,7 @@ class Island():
         self._maintain_neighbor_list(member)
         if len(member.current_empty_loc_list) > 0:
             self._acquire_land(member, member.current_empty_loc_list[0])
+            self._record_single_action("clear", member, 1.0)
 
     def colonize(
         self,
@@ -1040,6 +1157,7 @@ class Island():
 
             # 记录
             self.record_total_consumption[-1] += consumption
+            self.round_total_consumption += consumption
 
             if member.autopsy():
                 self.declare_dead(member)
@@ -1206,6 +1324,7 @@ class Island():
         child.recover()
 
         self._logger.info(f"\t{member_1} 和 {member_2} 生育了 {child}")
+        self._record_actions("reproduce", member_1, member_2, 1, 1)
 
     def reproduce(
         self, 
@@ -1262,7 +1381,267 @@ class Island():
         self.record_born = []
         self.record_death = []
 
+    def _reset_round_records(self) -> None:
+        for key in self.round_action_dict.keys():
+            self.round_action_dict[key] = {}
+        for key in self.round_total_dict.keys():
+            self.round_total_dict[key] = 0.0
+        self.round_total_production = 0.0
+        self.round_total_consumption = 0.0
+
+    def _compute_gini(self, values: List[float]) -> float:
+        """Compute Gini coefficient for a list of values."""
+        if not values:
+            return 0.0
+        arr = np.array(values, dtype=float)
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            return 0.0
+        min_val = float(np.min(arr))
+        if min_val < 0:
+            arr = arr - min_val
+        total = float(np.sum(arr))
+        if total <= 0:
+            return 0.0
+        arr = np.sort(arr)
+        n = arr.size
+        cum = np.cumsum(arr)
+        gini = (n + 1 - 2 * float(np.sum(cum)) / total) / n
+        return float(max(0.0, min(1.0, gini)))
+
+    def _compute_round_context(self) -> Dict[str, Any]:
+        total_land = float(np.prod(self.land.shape))
+        empty_land = float(np.sum(self.land.owner == None))
+        land_scarcity = 1.0 - (empty_land / total_land) if total_land > 0 else 0.0
+
+        attack_rate = self.round_total_dict.get("attack", 0.0) / max(1, self.current_member_num)
+        benefit_rate = self.round_total_dict.get("benefit", 0.0) / max(1, self.current_member_num)
+        benefit_land_rate = self.round_total_dict.get("benefit_land", 0.0) / max(1, self.current_member_num)
+
+        production = self.round_total_production
+        consumption = self.round_total_consumption
+        resource_pressure = 0.0 if production <= 0 else (consumption - production) / production
+
+        vitality_vals = [float(m.vitality) for m in self.current_members] if self.current_members else []
+        cargo_vals = [float(m.cargo) for m in self.current_members] if self.current_members else []
+        land_vals = [float(m.land_num) for m in self.current_members] if self.current_members else []
+
+        avg_vitality = float(np.mean(vitality_vals)) if vitality_vals else 0.0
+        avg_cargo = float(np.mean(cargo_vals)) if cargo_vals else 0.0
+        vitality_std = float(np.std(vitality_vals)) if vitality_vals else 0.0
+        cargo_std = float(np.std(cargo_vals)) if cargo_vals else 0.0
+        land_std = float(np.std(land_vals)) if land_vals else 0.0
+        vitality_median = float(np.median(vitality_vals)) if vitality_vals else 0.0
+        cargo_median = float(np.median(cargo_vals)) if cargo_vals else 0.0
+        land_median = float(np.median(land_vals)) if land_vals else 0.0
+
+        gini_vitality = self._compute_gini(vitality_vals)
+        gini_cargo = self._compute_gini(cargo_vals)
+        gini_land = self._compute_gini(land_vals)
+        wealth_vals = [c + l for c, l in zip(cargo_vals, land_vals)]
+        gini_wealth = self._compute_gini(wealth_vals)
+
+        action_map = {
+            "attack": "attack",
+            "benefit": "offer",
+            "benefit_land": "offer_land",
+            "reproduce": "reproduce",
+            "clear": "clear",
+        }
+        action_counts = {name: 0.0 for name in action_map.values()}
+        for action_name, decision_name in action_map.items():
+            for _ in self.round_action_dict.get(action_name, {}).keys():
+                action_counts[decision_name] += 1.0
+        total_actions = float(sum(action_counts.values()))
+        if total_actions > 0:
+            action_shares = {
+                name: count / total_actions for name, count in action_counts.items()
+            }
+            probs = [share for share in action_shares.values() if share > 0.0]
+            entropy = -sum(p * math.log(p) for p in probs) / math.log(len(action_shares))
+            dominant_share = max(action_shares.values()) if action_shares else 0.0
+        else:
+            action_shares = {name: 0.0 for name in action_counts.keys()}
+            entropy = 0.0
+            dominant_share = 0.0
+
+        profile_counts = {name: 0 for name in Member._STRATEGY_PROFILES}
+        for member in self.current_members:
+            profile = getattr(member, "strategy_profile", None)
+            if profile is None:
+                continue
+            if profile not in profile_counts:
+                profile_counts[profile] = 0
+            profile_counts[profile] += 1
+        total_profiles = float(sum(profile_counts.values()))
+        if total_profiles > 0:
+            profile_shares = {
+                name: count / total_profiles for name, count in profile_counts.items()
+            }
+            probs = [share for share in profile_shares.values() if share > 0.0]
+            denom = math.log(len(profile_shares)) if len(profile_shares) > 1 else 0.0
+            profile_entropy = -sum(p * math.log(p) for p in probs) / denom if denom > 0 else 0.0
+            dominant_profile_share = max(profile_shares.values()) if profile_shares else 0.0
+        else:
+            profile_shares = {name: 0.0 for name in profile_counts.keys()}
+            profile_entropy = 0.0
+            dominant_profile_share = 0.0
+
+        return {
+            "attack_rate": attack_rate,
+            "benefit_rate": benefit_rate,
+            "benefit_land_rate": benefit_land_rate,
+            "land_scarcity": land_scarcity,
+            "resource_pressure": resource_pressure,
+            "avg_vitality": avg_vitality,
+            "avg_cargo": avg_cargo,
+            "vitality_std": vitality_std,
+            "cargo_std": cargo_std,
+            "land_std": land_std,
+            "vitality_median": vitality_median,
+            "cargo_median": cargo_median,
+            "land_median": land_median,
+            "gini_vitality": gini_vitality,
+            "gini_cargo": gini_cargo,
+            "gini_land": gini_land,
+            "gini_wealth": gini_wealth,
+            "action_shares": action_shares,
+            "action_entropy": entropy,
+            "dominant_action_share": dominant_share,
+            "profile_shares": profile_shares,
+            "profile_entropy": profile_entropy,
+            "dominant_profile_share": dominant_profile_share,
+        }
+
+    def _update_member_learning_and_memory(self) -> None:
+        self.round_context = self._compute_round_context()
+        rewards: Dict[int, float] = {}
+
+        action_counts = {
+            member.id: {
+                "attack": 0.0,
+                "offer": 0.0,
+                "offer_land": 0.0,
+                "reproduce": 0.0,
+                "clear": 0.0,
+            }
+            for member in self.current_members
+        }
+        action_map = {
+            "attack": "attack",
+            "benefit": "offer",
+            "benefit_land": "offer_land",
+            "reproduce": "reproduce",
+            "clear": "clear",
+        }
+        for action_name, decision_name in action_map.items():
+            for (member_1, _), _ in self.round_action_dict.get(action_name, {}).items():
+                if member_1 in action_counts:
+                    action_counts[member_1][decision_name] += 1.0
+
+        for member in self.current_members:
+            prev = self._round_snapshot.get(
+                member.id,
+                (member.vitality, member.cargo, member.land_num)
+            )
+            delta_vitality = member.vitality - prev[0]
+            delta_cargo = member.cargo - prev[1]
+            delta_land = member.land_num - prev[2]
+            member.decay_interaction_memory()
+            member.update_action_memory(action_counts.get(member.id, {}))
+            rewards[member.id] = member.update_round_memory(
+                delta_vitality,
+                delta_cargo,
+                delta_land,
+                self.round_context,
+                action_counts=action_counts.get(member.id, {}),
+            )
+
+        # 记录交互记忆
+        for (member_1, member_2), value in self.round_action_dict.get("attack", {}).items():
+            actor = self.all_members[member_1]
+            target = self.all_members[member_2]
+            actor.record_interaction("attack_made", member_2, value)
+            target.record_interaction("attack_received", member_1, value)
+
+        for (member_1, member_2), value in self.round_action_dict.get("benefit", {}).items():
+            giver = self.all_members[member_1]
+            receiver = self.all_members[member_2]
+            giver.record_interaction("benefit_given", member_2, value)
+            receiver.record_interaction("benefit_received", member_1, value)
+
+        for (member_1, member_2), value in self.round_action_dict.get("benefit_land", {}).items():
+            giver = self.all_members[member_1]
+            receiver = self.all_members[member_2]
+            giver.record_interaction("land_given", member_2, value)
+            receiver.record_interaction("land_received", member_1, value)
+
+        for (member_1, member_2), value in self.round_action_dict.get("reproduce", {}).items():
+            parent = self.all_members[member_1]
+            partner = self.all_members[member_2]
+            parent.record_interaction("benefit_given", member_2, value * 0.5)
+            partner.record_interaction("benefit_given", member_1, value * 0.5)
+
+        # 奖励驱动的参数更新
+        def _apply_update(action_name: str, decision_name: str):
+            for (member_1, member_2), _ in self.round_action_dict.get(action_name, {}).items():
+                if member_1 not in rewards:
+                    continue
+                actor = self.all_members[member_1]
+                try:
+                    target = None if member_2 == -1 else self.all_members[member_2]
+                    if target is not None and target.autopsy():
+                        continue
+                    inputs = actor._generate_decision_inputs(target, self)
+                    input_vector = [inputs[name] for name in Member._DECISION_INPUT_NAMES]
+                    actor.apply_reward_update(decision_name, input_vector, rewards[member_1])
+                except Exception:
+                    continue
+
+        _apply_update("attack", "attack")
+        _apply_update("benefit", "offer")
+        _apply_update("benefit_land", "offer_land")
+        _apply_update("reproduce", "reproduce")
+        _apply_update("clear", "clear")
+
+        # ── Stamp per-member round summary for mechanism code access ──
+        living_ids = {m.id for m in self.current_members}
+        for member in self.current_members:
+            counts = action_counts.get(member.id, {})
+            member.last_round_actions = {
+                "expand": int(counts.get("clear", 0)),
+                "attack": int(counts.get("attack", 0)),
+                "offer": int(counts.get("offer", 0)),
+                "offer_land": int(counts.get("offer_land", 0)),
+            }
+            member.last_round_attacks_made = {}
+            member.last_round_attacks_received = {}
+            member.last_round_offers_made = {}
+            member.last_round_offers_received = {}
+
+        for (m1, m2), val in self.round_action_dict.get("attack", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_attacks_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_attacks_received[m1] = round(float(val), 2)
+
+        for (m1, m2), val in self.round_action_dict.get("benefit", {}).items():
+            if m1 in living_ids:
+                self.all_members[m1].last_round_offers_made[m2] = round(float(val), 2)
+            if m2 in living_ids:
+                self.all_members[m2].last_round_offers_received[m1] = round(float(val), 2)
+
+        # 更新下一轮快照
+        self._round_snapshot = {
+            member.id: (member.vitality, member.cargo, member.land_num)
+            for member in self.current_members
+        }
+
     def new_round(self, save_file: bool = True, log_status=False):
+        # 行为学习与策略更新
+        self._update_member_learning_and_memory()
+        self._reset_round_records()
+
         # 输出内容
         if self.current_round % Island._RECORD_PERIOD == 0:
             # 保存

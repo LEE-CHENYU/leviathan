@@ -28,9 +28,13 @@ class JudgeNode(ExecutionNode):
         # Get the current round's mechanism proposals
         if execution.execution_history['rounds']:
             current_round = execution.execution_history['rounds'][-1]
+            mods_record = current_round.get('mechanism_modifications')
             attempts = current_round.get('mechanism_modifications', {}).get('attempts', [])
+            judge_results = None
+            if isinstance(mods_record, dict):
+                judge_results = mods_record.setdefault('judge_results', [])
 
-            for proposal in attempts:
+            for idx, proposal in enumerate(attempts):
                 code = proposal.get('code', '')
                 member_id = proposal.get('member_id', -1)
 
@@ -41,6 +45,20 @@ class JudgeNode(ExecutionNode):
                 is_approved, reason = execution.judge.judge_proposal(
                     code, member_id, "mechanism"
                 )
+
+                judge_entry = {
+                    "member_id": member_id,
+                    "proposal_index": idx,
+                    "approved": bool(is_approved),
+                    "reason": reason,
+                }
+                if isinstance(proposal, dict):
+                    proposal["judge"] = {
+                        "approved": bool(is_approved),
+                        "reason": reason,
+                    }
+                if isinstance(judge_results, list):
+                    judge_results.append(judge_entry)
 
                 if is_approved:
                     approved.append(proposal)
@@ -71,8 +89,17 @@ class ExecuteMechanismsNode(ExecutionNode):
             print("\n[Mechanisms] No approved mechanisms to execute")
             return {"mechanisms_executed": 0}
 
+        if execution.execution_history.get('rounds'):
+            round_record = execution.execution_history['rounds'][-1]
+            mods_record = round_record.get('mechanism_modifications')
+            if isinstance(mods_record, dict):
+                mods_record['approved_ids'] = [
+                    mod.get('member_id') for mod in approved if isinstance(mod, dict)
+                ]
+                mods_record['approved_count'] = len(approved)
+
         print(f"\n[Mechanisms] Executing {len(approved)} approved mechanisms...")
-        execution.execute_mechanism_modifications()
+        execution.execute_mechanism_modifications(approved=approved)
 
         return {"mechanisms_executed": len(approved)}
 

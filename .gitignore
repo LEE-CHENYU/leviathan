@@ -1,14 +1,17 @@
 __pycache__
 .DS_Store
-# test.py 
-# test.ipynb
-# \test*
+.playwright-mcp/
 \data*
 **egg-info*
+.env
+*.wav
+archive/
+assets/
+execution_histories/e2e_smoke/
+research/arxiv/pdfs/
+research/arxiv/state.json
 Leviathan/api_key.py
 Leviathan/Finance_gpt_agent_002.py
 Leviathan/decision_mechanism.py
 Leviathan/decision_mechanism_1.py
 Leviathan/local_notes.md
-*.wav
-*.png
