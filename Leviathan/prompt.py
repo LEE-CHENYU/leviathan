@@ -89,6 +89,8 @@ Gene Values: These are fixed for each player, ranging from -1 to 1. They determi
 - 'benefit_active': the normalized amount of you offer food to the target
 - 'benefit_land_passive': the normalized amount of you being offered land from the target
 - 'benefit_land_active': the normalized amount of you offer land to the target
+- 'recent_help_received': the normalized recent food/land support you received from the target (short-term memory)
+- 'recent_harm_received': the normalized recent harm you received from the target (short-term memory)
 
 Your task in this turn:
 This is your current decision tuples:
@@ -152,7 +154,7 @@ def decision_using_gpt35(
     try:
 
         completion = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-5.2",
             messages=[
                 {
                     "role": "user",
@@ -161,7 +163,28 @@ def decision_using_gpt35(
             ],
         )
         output = completion.choices[0].message.content
+        
     except Exception as e:
         return False, "Error: " + str(e)
 
     return parse_decision_output(output)
+
+rule_of_the_game = {
+  "description": "This action board represents the sequence of actions taken by different players in the same round of the game.",
+  "rules": {
+    "ordering": "Agents take turns making decisions in a specified order.",
+    "action_limit": "Each agent may perform only one action per round from the available types {offer, attack, reproduce, offer land}.",
+    "decision_loop": "The decision-making loop continues until each agent has either taken an action or passed (given up) up to three times.",
+    "initial_decision": "Each agent initially decides whether to take an action or pass for that round.",
+    "follow_or_lead": "Agents decide whether to react to the actions already taken on the board (follow) or initiate a new action chain (lead).",
+    "reaction": "Later agents in the turn order make decisions based on earlier actions in the round, choosing to cooperate or counter the earlier decisions.",
+    "action_choice": "Agents specify the action they will take, detailing the type of action and the targets involved."
+  }
+}
+
+rule_of_the_decison = {
+  "initial_decision": "Decide whether to take action or pass.",
+  "action_flow": "Choose whether to follow an existing action chain or initiate a new action sequence.",
+  "chain_selection": "Specify the chain number to follow, or indicate 'new' for starting a new sequence.",
+  "action_details": "Select the specific action to take, including action type and target agent."
+}

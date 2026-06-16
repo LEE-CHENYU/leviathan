@@ -1,0 +1,393 @@
+{
+  "rounds": [
+    {
+      "timestamp": "2025-01-31T16:18:46.540345",
+      "actions": [
+        {
+          "member_id": 0,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Check that the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Strategy: If vitality is low, try to offer help (ally) with another member.\n    if me.vitality < 50.0:\n        # Choose the first member that is not self.\n        for idx, member in enumerate(execution_engine.current_members):\n            if member.id != me.id:\n                execution_engine.offer(me, execution_engine.current_members[idx], True)\n                return\n        return  # no valid target found\n\n    # If vitality is high, try to find an opponent with lower vitality.\n    target_index = None\n    candidate_vitality = float('inf')\n    for idx, member in enumerate(execution_engine.current_members):\n        if member.id == me.id:\n            continue\n        # Check if the target has lower vitality than me.\n        if member.vitality < me.vitality and member.vitality < candidate_vitality:\n            candidate_vitality = member.vitality\n            target_index = idx\n\n    if target_index is not None:\n        execution_engine.attack(me, execution_engine.current_members[target_index])\n    else:\n        # If no attack target was found, and if we have cleared land, try performing bear() on one of our cleared neighbors.\n        if hasattr(me, \"current_clear_list\") and len(me.current_clear_list) > 0:\n            # Use the first neighbor from our clear list (ensure the index is valid)\n            neighbor_idx = int(me.current_clear_list[0])\n            if neighbor_idx < len(execution_engine.current_members) and execution_engine.current_members[neighbor_idx].id != me.id:\n                execution_engine.bear(me, execution_engine.current_members[neighbor_idx])\n        else:\n            # As a fallback, try attacking any other member\n            for idx, member in enumerate(execution_engine.current_members):\n                if member.id != me.id:\n                    execution_engine.attack(me, execution_engine.current_members[idx])\n                    break",
+          "old_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 107.51462527693513
+          },
+          "new_stats": {
+            "vitality": 73.85382847590404,
+            "cargo": 33.660796801031104,
+            "survival_chance": 107.51462527693513
+          },
+          "performance_change": 0.0,
+          "messages_sent": []
+        },
+        {
+          "member_id": 1,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Check if our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # Calculate the total number of times I've been attacked.\n    total_attacks = 0\n    victim_matrix = execution_engine.relationship_dict.get('victim', None)\n    if victim_matrix is not None and me.id < len(victim_matrix):\n        # Sum across all attackers targeting me.\n        for attack_count in victim_matrix[me.id]:\n            total_attacks += attack_count\n\n    # Build a list of potential targets (exclude self)\n    potential_targets = []\n    for idx in range(len(execution_engine.current_members)):\n        if idx != member_id:\n            potential_targets.append(execution_engine.current_members[idx])\n\n    # If there are no other members, do nothing.\n    if not potential_targets:\n        return\n\n    # Decide on action based on my vitality.\n    # If I have low vitality, try to form an alliance (offer help) with a stronger member.\n    if my_vitality < 40.0:\n        # Choose the member with the highest vitality from potential targets.\n        target = max(potential_targets, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)\n    else:\n        # If I've been attacked at least once before, try to use bear() if the target has land.\n        if total_attacks > 0:\n            for target in potential_targets:\n                # Check if target appears to control land.\n                if hasattr(target, \"current_clear_list\") and target.current_clear_list is not None:\n                    if len(target.current_clear_list) > 0:\n                        execution_engine.bear(me, target)\n                        return\n        # Otherwise, attack the member with the lowest vitality.\n        target = min(potential_targets, key=lambda m: m.vitality)\n        execution_engine.attack(me, target)",
+          "old_stats": {
+            "vitality": 33.02781433323713,
+            "cargo": 39.175257494005535,
+            "survival_chance": 72.20307182724267
+          },
+          "new_stats": {
+            "vitality": 33.02781433323713,
+            "cargo": 30.647769048346227,
+            "survival_chance": 63.67558338158336
+          },
+          "performance_change": -8.527488445659309,
+          "messages_sent": []
+        },
+        {
+          "member_id": 2,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Ensure our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # First, check if there is a candidate with land (i.e. non-empty current_clear_list)\n    # that we can 'bear', but only if our vitality is at least as high as theirs.\n    bear_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and hasattr(other, \"current_clear_list\"):\n            if len(other.current_clear_list) > 0 and my_vitality >= other.vitality:\n                bear_target = other\n                break\n    if bear_target:\n        execution_engine.bear(me, bear_target)\n        return\n\n    # If our vitality is low then try to secure an offer (e.g., trading or complementary support)\n    if my_vitality < 50.0:\n        offer_target = None\n        for other in execution_engine.current_members:\n            if other.id != me.id:\n                offer_target = other\n                break\n        if offer_target:\n            execution_engine.offer(me, offer_target, True)\n            return\n\n    # Otherwise, if our vitality is 50 or above, look for a vulnerable opponent to attack.\n    attack_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and other.vitality < my_vitality:\n            attack_target = other\n            break\n    if attack_target:\n        execution_engine.attack(me, attack_target)\n        return\n\n    # If no other valid action, do nothing.\n    return",
+          "old_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 32.2863455020685,
+            "survival_chance": 74.44238831315454
+          },
+          "new_stats": {
+            "vitality": 42.15604281108604,
+            "cargo": 26.000389142382247,
+            "survival_chance": 68.15643195346829
+          },
+          "performance_change": -6.285956359686253,
+          "messages_sent": []
+        },
+        {
+          "member_id": 3,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Check that member_id is within bounds\n    if member_id >= len(execution_engine.current_members):\n        return\n\n    me = execution_engine.current_members[member_id]\n\n    # Our strategy: if our vitality is low, try to secure an alliance via an offer.\n    if me.vitality < 50.0:\n        # Find a candidate with high vitality (but not ourselves)\n        candidate = None\n        best_vitality = -float('inf')\n        for i in range(len(execution_engine.current_members)):\n            if i == member_id:\n                continue\n            # Ensure the index exists; by iterating over indexes we are safe.\n            other = execution_engine.current_members[i]\n            if other.vitality > best_vitality:\n                best_vitality = other.vitality\n                candidate = other\n        if candidate is not None:\n            execution_engine.offer(me, candidate, True)\n        return\n\n    # Otherwise, if our vitality is equal or above 50,\n    # we look for a vulnerable opponent (lowest vitality among others)\n    candidate = None\n    lowest_vitality = float('inf')\n    for i in range(len(execution_engine.current_members)):\n        if i == member_id:\n            continue\n        other = execution_engine.current_members[i]\n        if other.vitality < lowest_vitality:\n            lowest_vitality = other.vitality\n            candidate = other\n\n    # If we found a candidate then attack them\n    if candidate is not None:\n        execution_engine.attack(me, candidate)\n    else:\n        # As a fallback, offer assistance to the first valid other member.\n        for i in range(len(execution_engine.current_members)):\n            if i != member_id:\n                candidate = execution_engine.current_members[i]\n                execution_engine.offer(me, candidate, True)\n                break",
+          "old_stats": {
+            "vitality": 1.8781811778558826,
+            "cargo": 22.215676686444993,
+            "survival_chance": 24.093857864300876
+          },
+          "new_stats": {
+            "vitality": 1.8781811778558826,
+            "cargo": 15.953537085565205,
+            "survival_chance": 17.831718263421088
+          },
+          "performance_change": -6.262139600879788,
+          "messages_sent": []
+        },
+        {
+          "member_id": 4,
+          "code_executed": "def agent_action(execution_engine, member_id):\n    # Ensure the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Choose a target: select the opponent with the lowest vitality (excluding self)\n    target = None\n    min_vitality = float(\"inf\")\n    for index in range(len(execution_engine.current_members)):\n        # Only consider valid indices and avoid targeting self\n        if index < len(execution_engine.current_members):\n            candidate = execution_engine.current_members[index]\n            if candidate.id == me.id:\n                continue\n            if candidate.vitality < min_vitality:\n                min_vitality = candidate.vitality\n                target = candidate\n\n    # If no target found, return (do nothing)\n    if target is None:\n        return\n\n    # Check if the target has \"land\".\n    # For this example, we assume that if the candidate's current_clear_list is non-empty, they have land.\n    if hasattr(target, \"current_clear_list\") and isinstance(target.current_clear_list, list) and len(target.current_clear_list) > 0:\n        # Use bear() action only if the target has land\n        execution_engine.bear(me, target)\n    else:\n        # Otherwise, attack the target\n        execution_engine.attack(me, target)\n\n    # Optionally, send a message to the target to announce the action\n    execution_engine.send_message(me.id, target.id, \"I'm targeting you due to your low vitality!\")",
+          "old_stats": {
+            "vitality": 78.50637096028503,
+            "cargo": 49.46692071231984,
+            "survival_chance": 127.97329167260486
+          },
+          "new_stats": {
+            "vitality": 78.50637096028503,
+            "cargo": 49.46692071231984,
+            "survival_chance": 127.97329167260486
+          },
+          "performance_change": 0.0,
+          "messages_sent": []
+        }
+      ],
+      "performance_changes": {},
+      "survival_changes": {},
+      "messages": {
+        "0": {
+          "received": [],
+          "sent": []
+        },
+        "1": {
+          "received": [],
+          "sent": []
+        },
+        "2": {
+          "received": [],
+          "sent": []
+        },
+        "3": {
+          "received": [],
+          "sent": []
+        },
+        "4": {
+          "received": [],
+          "sent": []
+        }
+      }
+    }
+  ],
+  "generated_code": {
+    "0": {
+      "0": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Check that the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Strategy: If vitality is low, try to offer help (ally) with another member.\n    if me.vitality < 50.0:\n        # Choose the first member that is not self.\n        for idx, member in enumerate(execution_engine.current_members):\n            if member.id != me.id:\n                execution_engine.offer(me, execution_engine.current_members[idx], True)\n                return\n        return  # no valid target found\n\n    # If vitality is high, try to find an opponent with lower vitality.\n    target_index = None\n    candidate_vitality = float('inf')\n    for idx, member in enumerate(execution_engine.current_members):\n        if member.id == me.id:\n            continue\n        # Check if the target has lower vitality than me.\n        if member.vitality < me.vitality and member.vitality < candidate_vitality:\n            candidate_vitality = member.vitality\n            target_index = idx\n\n    if target_index is not None:\n        execution_engine.attack(me, execution_engine.current_members[target_index])\n    else:\n        # If no attack target was found, and if we have cleared land, try performing bear() on one of our cleared neighbors.\n        if hasattr(me, \"current_clear_list\") and len(me.current_clear_list) > 0:\n            # Use the first neighbor from our clear list (ensure the index is valid)\n            neighbor_idx = int(me.current_clear_list[0])\n            if neighbor_idx < len(execution_engine.current_members) and execution_engine.current_members[neighbor_idx].id != me.id:\n                execution_engine.bear(me, execution_engine.current_members[neighbor_idx])\n        else:\n            # As a fallback, try attacking any other member\n            for idx, member in enumerate(execution_engine.current_members):\n                if member.id != me.id:\n                    execution_engine.attack(me, execution_engine.current_members[idx])\n                    break",
+        "features_at_generation": [
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 0,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": []
+      },
+      "1": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Check if our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # Calculate the total number of times I've been attacked.\n    total_attacks = 0\n    victim_matrix = execution_engine.relationship_dict.get('victim', None)\n    if victim_matrix is not None and me.id < len(victim_matrix):\n        # Sum across all attackers targeting me.\n        for attack_count in victim_matrix[me.id]:\n            total_attacks += attack_count\n\n    # Build a list of potential targets (exclude self)\n    potential_targets = []\n    for idx in range(len(execution_engine.current_members)):\n        if idx != member_id:\n            potential_targets.append(execution_engine.current_members[idx])\n\n    # If there are no other members, do nothing.\n    if not potential_targets:\n        return\n\n    # Decide on action based on my vitality.\n    # If I have low vitality, try to form an alliance (offer help) with a stronger member.\n    if my_vitality < 40.0:\n        # Choose the member with the highest vitality from potential targets.\n        target = max(potential_targets, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)\n    else:\n        # If I've been attacked at least once before, try to use bear() if the target has land.\n        if total_attacks > 0:\n            for target in potential_targets:\n                # Check if target appears to control land.\n                if hasattr(target, \"current_clear_list\") and target.current_clear_list is not None:\n                    if len(target.current_clear_list) > 0:\n                        execution_engine.bear(me, target)\n                        return\n        # Otherwise, attack the member with the lowest vitality.\n        target = min(potential_targets, key=lambda m: m.vitality)\n        execution_engine.attack(me, target)",
+        "features_at_generation": [
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 0,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": []
+      },
+      "2": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Ensure our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # First, check if there is a candidate with land (i.e. non-empty current_clear_list)\n    # that we can 'bear', but only if our vitality is at least as high as theirs.\n    bear_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and hasattr(other, \"current_clear_list\"):\n            if len(other.current_clear_list) > 0 and my_vitality >= other.vitality:\n                bear_target = other\n                break\n    if bear_target:\n        execution_engine.bear(me, bear_target)\n        return\n\n    # If our vitality is low then try to secure an offer (e.g., trading or complementary support)\n    if my_vitality < 50.0:\n        offer_target = None\n        for other in execution_engine.current_members:\n            if other.id != me.id:\n                offer_target = other\n                break\n        if offer_target:\n            execution_engine.offer(me, offer_target, True)\n            return\n\n    # Otherwise, if our vitality is 50 or above, look for a vulnerable opponent to attack.\n    attack_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and other.vitality < my_vitality:\n            attack_target = other\n            break\n    if attack_target:\n        execution_engine.attack(me, attack_target)\n        return\n\n    # If no other valid action, do nothing.\n    return",
+        "features_at_generation": [
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 0,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": []
+      },
+      "3": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Check that member_id is within bounds\n    if member_id >= len(execution_engine.current_members):\n        return\n\n    me = execution_engine.current_members[member_id]\n\n    # Our strategy: if our vitality is low, try to secure an alliance via an offer.\n    if me.vitality < 50.0:\n        # Find a candidate with high vitality (but not ourselves)\n        candidate = None\n        best_vitality = -float('inf')\n        for i in range(len(execution_engine.current_members)):\n            if i == member_id:\n                continue\n            # Ensure the index exists; by iterating over indexes we are safe.\n            other = execution_engine.current_members[i]\n            if other.vitality > best_vitality:\n                best_vitality = other.vitality\n                candidate = other\n        if candidate is not None:\n            execution_engine.offer(me, candidate, True)\n        return\n\n    # Otherwise, if our vitality is equal or above 50,\n    # we look for a vulnerable opponent (lowest vitality among others)\n    candidate = None\n    lowest_vitality = float('inf')\n    for i in range(len(execution_engine.current_members)):\n        if i == member_id:\n            continue\n        other = execution_engine.current_members[i]\n        if other.vitality < lowest_vitality:\n            lowest_vitality = other.vitality\n            candidate = other\n\n    # If we found a candidate then attack them\n    if candidate is not None:\n        execution_engine.attack(me, candidate)\n    else:\n        # As a fallback, offer assistance to the first valid other member.\n        for i in range(len(execution_engine.current_members)):\n            if i != member_id:\n                candidate = execution_engine.current_members[i]\n                execution_engine.offer(me, candidate, True)\n                break",
+        "features_at_generation": [
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 0,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": []
+      },
+      "4": {
+        "code": "def agent_action(execution_engine, member_id):\n    # Ensure the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Choose a target: select the opponent with the lowest vitality (excluding self)\n    target = None\n    min_vitality = float(\"inf\")\n    for index in range(len(execution_engine.current_members)):\n        # Only consider valid indices and avoid targeting self\n        if index < len(execution_engine.current_members):\n            candidate = execution_engine.current_members[index]\n            if candidate.id == me.id:\n                continue\n            if candidate.vitality < min_vitality:\n                min_vitality = candidate.vitality\n                target = candidate\n\n    # If no target found, return (do nothing)\n    if target is None:\n        return\n\n    # Check if the target has \"land\".\n    # For this example, we assume that if the candidate's current_clear_list is non-empty, they have land.\n    if hasattr(target, \"current_clear_list\") and isinstance(target.current_clear_list, list) and len(target.current_clear_list) > 0:\n        # Use bear() action only if the target has land\n        execution_engine.bear(me, target)\n    else:\n        # Otherwise, attack the target\n        execution_engine.attack(me, target)\n\n    # Optionally, send a message to the target to announce the action\n    execution_engine.send_message(me.id, target.id, \"I'm targeting you due to your low vitality!\")",
+        "features_at_generation": [
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 73.85382847590404,
+            "self_cargo": 33.660796801031104,
+            "self_age": 90,
+            "self_neighbor": 0,
+            "member_id": 0
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 33.02781433323713,
+            "self_cargo": 39.175257494005535,
+            "self_age": 81,
+            "self_neighbor": 0,
+            "member_id": 1
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 42.15604281108604,
+            "self_cargo": 32.2863455020685,
+            "self_age": 29,
+            "self_neighbor": 0,
+            "member_id": 2
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 18.47747982181767,
+            "self_cargo": 37.4760063897966,
+            "self_age": 24,
+            "self_neighbor": 0,
+            "member_id": 3
+          },
+          {
+            "self_productivity": 0.0,
+            "self_vitality": 78.50637096028503,
+            "self_cargo": 34.67729266578075,
+            "self_age": 92,
+            "self_neighbor": 0,
+            "member_id": 4
+          }
+        ],
+        "relationships_at_generation": []
+      }
+    }
+  },
+  "performance_metrics": {},
+  "errors": [
+    {
+      "round": 0,
+      "member_id": 0,
+      "code": "def agent_action(execution_engine, member_id):\n    # Check that the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Strategy: If vitality is low, try to offer help (ally) with another member.\n    if me.vitality < 50.0:\n        # Choose the first member that is not self.\n        for idx, member in enumerate(execution_engine.current_members):\n            if member.id != me.id:\n                execution_engine.offer(me, execution_engine.current_members[idx], True)\n                return\n        return  # no valid target found\n\n    # If vitality is high, try to find an opponent with lower vitality.\n    target_index = None\n    candidate_vitality = float('inf')\n    for idx, member in enumerate(execution_engine.current_members):\n        if member.id == me.id:\n            continue\n        # Check if the target has lower vitality than me.\n        if member.vitality < me.vitality and member.vitality < candidate_vitality:\n            candidate_vitality = member.vitality\n            target_index = idx\n\n    if target_index is not None:\n        execution_engine.attack(me, execution_engine.current_members[target_index])\n    else:\n        # If no attack target was found, and if we have cleared land, try performing bear() on one of our cleared neighbors.\n        if hasattr(me, \"current_clear_list\") and len(me.current_clear_list) > 0:\n            # Use the first neighbor from our clear list (ensure the index is valid)\n            neighbor_idx = int(me.current_clear_list[0])\n            if neighbor_idx < len(execution_engine.current_members) and execution_engine.current_members[neighbor_idx].id != me.id:\n                execution_engine.bear(me, execution_engine.current_members[neighbor_idx])\n        else:\n            # As a fallback, try attacking any other member\n            for idx, member in enumerate(execution_engine.current_members):\n                if member.id != me.id:\n                    execution_engine.attack(me, execution_engine.current_members[idx])\n                    break",
+      "error": "'victim'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 424, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 28, in agent_action\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 63, in attack\n    super()._attack(member_1, member_2)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 870, in _attack\n    self.relationship_modify(\"victim\", member_2, member_1, strength_1 + steal_1)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 414, in relationship_modify\n    relationship = self.relationship_dict[relationship_name]\n                   ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nKeyError: 'victim'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 1,
+      "code": "def agent_action(execution_engine, member_id):\n    # Check if our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # Calculate the total number of times I've been attacked.\n    total_attacks = 0\n    victim_matrix = execution_engine.relationship_dict.get('victim', None)\n    if victim_matrix is not None and me.id < len(victim_matrix):\n        # Sum across all attackers targeting me.\n        for attack_count in victim_matrix[me.id]:\n            total_attacks += attack_count\n\n    # Build a list of potential targets (exclude self)\n    potential_targets = []\n    for idx in range(len(execution_engine.current_members)):\n        if idx != member_id:\n            potential_targets.append(execution_engine.current_members[idx])\n\n    # If there are no other members, do nothing.\n    if not potential_targets:\n        return\n\n    # Decide on action based on my vitality.\n    # If I have low vitality, try to form an alliance (offer help) with a stronger member.\n    if my_vitality < 40.0:\n        # Choose the member with the highest vitality from potential targets.\n        target = max(potential_targets, key=lambda m: m.vitality)\n        execution_engine.offer(me, target, True)\n    else:\n        # If I've been attacked at least once before, try to use bear() if the target has land.\n        if total_attacks > 0:\n            for target in potential_targets:\n                # Check if target appears to control land.\n                if hasattr(target, \"current_clear_list\") and target.current_clear_list is not None:\n                    if len(target.current_clear_list) > 0:\n                        execution_engine.bear(me, target)\n                        return\n        # Otherwise, attack the member with the lowest vitality.\n        target = min(potential_targets, key=lambda m: m.vitality)\n        execution_engine.attack(me, target)",
+      "error": "'benefit'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 424, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 31, in agent_action\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 60, in offer\n    super()._offer(member_1, member_2, parameter_influence)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 945, in _offer\n    self.relationship_modify(\"benefit\", member_2, member_1, amount)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 414, in relationship_modify\n    relationship = self.relationship_dict[relationship_name]\n                   ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nKeyError: 'benefit'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 2,
+      "code": "def agent_action(execution_engine, member_id):\n    # Ensure our member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n    my_vitality = me.vitality\n\n    # First, check if there is a candidate with land (i.e. non-empty current_clear_list)\n    # that we can 'bear', but only if our vitality is at least as high as theirs.\n    bear_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and hasattr(other, \"current_clear_list\"):\n            if len(other.current_clear_list) > 0 and my_vitality >= other.vitality:\n                bear_target = other\n                break\n    if bear_target:\n        execution_engine.bear(me, bear_target)\n        return\n\n    # If our vitality is low then try to secure an offer (e.g., trading or complementary support)\n    if my_vitality < 50.0:\n        offer_target = None\n        for other in execution_engine.current_members:\n            if other.id != me.id:\n                offer_target = other\n                break\n        if offer_target:\n            execution_engine.offer(me, offer_target, True)\n            return\n\n    # Otherwise, if our vitality is 50 or above, look for a vulnerable opponent to attack.\n    attack_target = None\n    for other in execution_engine.current_members:\n        if other.id != me.id and other.vitality < my_vitality:\n            attack_target = other\n            break\n    if attack_target:\n        execution_engine.attack(me, attack_target)\n        return\n\n    # If no other valid action, do nothing.\n    return",
+      "error": "'benefit'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 424, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 28, in agent_action\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 60, in offer\n    super()._offer(member_1, member_2, parameter_influence)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 945, in _offer\n    self.relationship_modify(\"benefit\", member_2, member_1, amount)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 414, in relationship_modify\n    relationship = self.relationship_dict[relationship_name]\n                   ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nKeyError: 'benefit'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 3,
+      "code": "def agent_action(execution_engine, member_id):\n    # Check that member_id is within bounds\n    if member_id >= len(execution_engine.current_members):\n        return\n\n    me = execution_engine.current_members[member_id]\n\n    # Our strategy: if our vitality is low, try to secure an alliance via an offer.\n    if me.vitality < 50.0:\n        # Find a candidate with high vitality (but not ourselves)\n        candidate = None\n        best_vitality = -float('inf')\n        for i in range(len(execution_engine.current_members)):\n            if i == member_id:\n                continue\n            # Ensure the index exists; by iterating over indexes we are safe.\n            other = execution_engine.current_members[i]\n            if other.vitality > best_vitality:\n                best_vitality = other.vitality\n                candidate = other\n        if candidate is not None:\n            execution_engine.offer(me, candidate, True)\n        return\n\n    # Otherwise, if our vitality is equal or above 50,\n    # we look for a vulnerable opponent (lowest vitality among others)\n    candidate = None\n    lowest_vitality = float('inf')\n    for i in range(len(execution_engine.current_members)):\n        if i == member_id:\n            continue\n        other = execution_engine.current_members[i]\n        if other.vitality < lowest_vitality:\n            lowest_vitality = other.vitality\n            candidate = other\n\n    # If we found a candidate then attack them\n    if candidate is not None:\n        execution_engine.attack(me, candidate)\n    else:\n        # As a fallback, offer assistance to the first valid other member.\n        for i in range(len(execution_engine.current_members)):\n            if i != member_id:\n                candidate = execution_engine.current_members[i]\n                execution_engine.offer(me, candidate, True)\n                break",
+      "error": "'benefit'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 424, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 22, in agent_action\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 60, in offer\n    super()._offer(member_1, member_2, parameter_influence)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 945, in _offer\n    self.relationship_modify(\"benefit\", member_2, member_1, amount)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 414, in relationship_modify\n    relationship = self.relationship_dict[relationship_name]\n                   ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nKeyError: 'benefit'\n"
+    },
+    {
+      "round": 0,
+      "member_id": 4,
+      "code": "def agent_action(execution_engine, member_id):\n    # Ensure the member_id is valid\n    if member_id >= len(execution_engine.current_members):\n        return\n    me = execution_engine.current_members[member_id]\n\n    # Choose a target: select the opponent with the lowest vitality (excluding self)\n    target = None\n    min_vitality = float(\"inf\")\n    for index in range(len(execution_engine.current_members)):\n        # Only consider valid indices and avoid targeting self\n        if index < len(execution_engine.current_members):\n            candidate = execution_engine.current_members[index]\n            if candidate.id == me.id:\n                continue\n            if candidate.vitality < min_vitality:\n                min_vitality = candidate.vitality\n                target = candidate\n\n    # If no target found, return (do nothing)\n    if target is None:\n        return\n\n    # Check if the target has \"land\".\n    # For this example, we assume that if the candidate's current_clear_list is non-empty, they have land.\n    if hasattr(target, \"current_clear_list\") and isinstance(target.current_clear_list, list) and len(target.current_clear_list) > 0:\n        # Use bear() action only if the target has land\n        execution_engine.bear(me, target)\n    else:\n        # Otherwise, attack the target\n        execution_engine.attack(me, target)\n\n    # Optionally, send a message to the target to announce the action\n    execution_engine.send_message(me.id, target.id, \"I'm targeting you due to your low vitality!\")",
+      "error": "'victim'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 424, in execute_code_actions\n    local_env['agent_action'](self, member_id)\n  File \"<string>\", line 31, in agent_action\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/islandExecution_meta_island.py\", line 63, in attack\n    super()._attack(member_1, member_2)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 870, in _attack\n    self.relationship_modify(\"victim\", member_2, member_1, strength_1 + steal_1)\n  File \"/Users/chenyusu/vscode/leviathan/Leviathan/Island.py\", line 414, in relationship_modify\n    relationship = self.relationship_dict[relationship_name]\n                   ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nKeyError: 'victim'\n"
+    }
+  ],
+  "relationships": {
+    "round_0_0": [],
+    "round_0_1": [],
+    "round_0_2": [],
+    "round_0_3": [],
+    "round_0_4": []
+  },
+  "survival_tracking": {}
+}
