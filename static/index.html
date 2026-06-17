@@ -1086,7 +1086,7 @@ footer .footer-links a:hover { color: var(--accent); opacity: 1; }
 // LIVE STATUS
 // ═══════════════════════════════════════════════
 (function() {
-  var BASE = 'https://leviathan.fly.dev';
+  var BASE = window.location.origin;
 
   function fetchStatus() {
     fetch(BASE + '/v1/world')

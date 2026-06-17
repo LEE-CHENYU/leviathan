@@ -145,6 +145,13 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
 
+    def test_dashboard_root(self):
+        client, _ = _make_test_client()
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert b"LEVIATHAN" in response.content
+
 
 # ──────────────────────────────────────────────
 # Task 4 – World info and snapshot endpoints

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leviathan — Live World</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060608;
+      --card: #0c0c10;
+      --border: #1e1e28;
+      --text: #8a8a96;
+      --bright: #d0d0da;
+      --accent: #b8a0d0;
+      --danger: #c87070;
+      --ok: #70c890;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 24px;
+    }
+    h1 {
+      color: var(--bright);
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .sub {
+      color: var(--text);
+      font-size: 11px;
+      margin-bottom: 24px;
+    }
+    .sub a { color: var(--accent); text-decoration: none; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+    }
+    .card .val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--bright);
+      display: block;
+    }
+    .card .lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-pill.ok { background: #70c89022; color: var(--ok); }
+    .status-pill.warn { background: #c8a07022; color: #c8a070; }
+    .status-pill.err { background: #c8707022; color: var(--danger); }
+    section { margin-bottom: 28px; }
+    section h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text);
+      background: #08080c;
+    }
+    tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    #events {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+    #events .line { margin-bottom: 4px; color: var(--bright); }
+    #events .line.dim { color: var(--text); }
+    #error {
+      color: var(--danger);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .footer {
+      margin-top: 32px;
+      font-size: 11px;
+      color: #4a4a58;
+    }
+  </style>
+</head>
+<body>
+  <h1>LEVIATHAN</h1>
+  <p class="sub">
+    Live world observer &mdash;
+    <span id="conn-status" class="status-pill warn">connecting</span>
+    &nbsp;|&nbsp;
+    <a href="/about">About</a>
+    &nbsp;|&nbsp;
+    <a href="/docs" target="_blank">API docs</a>
+  </p>
+  <p id="error"></p>
+
+  <div class="grid" id="stats">
+    <div class="card"><span class="val" id="s-round">&mdash;</span><span class="lbl">Round</span></div>
+    <div class="card"><span class="val" id="s-pop">&mdash;</span><span class="lbl">Population</span></div>
+    <div class="card"><span class="val" id="s-vit">&mdash;</span><span class="lbl">Total vitality</span></div>
+    <div class="card"><span class="val" id="s-gini">&mdash;</span><span class="lbl">Gini</span></div>
+    <div class="card"><span class="val" id="s-trade">&mdash;</span><span class="lbl">Trade volume</span></div>
+    <div class="card"><span class="val" id="s-conflict">&mdash;</span><span class="lbl">Conflicts</span></div>
+    <div class="card"><span class="val" id="s-mech">&mdash;</span><span class="lbl">Mechanisms</span></div>
+    <div class="card"><span class="val" id="s-deadline">&mdash;</span><span class="lbl">Round state</span></div>
+  </div>
+
+  <section>
+    <h2>Members</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th class="num">Vitality</th>
+          <th class="num">Cargo</th>
+          <th class="num">Land</th>
+        </tr>
+      </thead>
+      <tbody id="members"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Recent events</h2>
+    <div id="events"><div class="line dim">Waiting for data&hellip;</div></div>
+  </section>
+
+  <p class="footer">Refreshes every 2s from <code id="api-base"></code></p>
+
+  <script>
+    const BASE = window.location.origin;
+    document.getElementById('api-base').textContent = BASE;
+
+    function setConn(ok, msg) {
+      const el = document.getElementById('conn-status');
+      el.textContent = msg;
+      el.className = 'status-pill ' + (ok ? 'ok' : 'warn');
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      if (msg) {
+        el.textContent = msg;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    async function getJson(path) {
+      const res = await fetch(BASE + path);
+      if (!res.ok) throw new Error(path + ' → ' + res.status);
+      return res.json();
+    }
+
+    function renderMembers(members) {
+      const tbody = document.getElementById('members');
+      if (!members || members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#666">No survivors</td></tr>';
+        return;
+      }
+      const sorted = members.slice().sort((a, b) => (b.vitality || 0) - (a.vitality || 0));
+      tbody.innerHTML = sorted.map(m => `
+        <tr>
+          <td>${m.id}</td>
+          <td>${m.name || '—'}</td>
+          <td class="num">${(m.vitality ?? 0).toFixed(1)}</td>
+          <td class="num">${(m.cargo ?? 0).toFixed(1)}</td>
+          <td class="num">${m.land_num ?? 0}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderEvents(events) {
+      const box = document.getElementById('events');
+      const settled = (events || []).filter(e => e.event_type === 'round_settled').slice(-8);
+      if (settled.length === 0) {
+        box.innerHTML = '<div class="line dim">No rounds settled yet. Register agents to drive the simulation.</div>';
+        return;
+      }
+      box.innerHTML = settled.reverse().map(e => {
+        const m = e.payload && e.payload.round_metrics;
+        const pop = m ? m.population : '?';
+        const vit = m ? m.total_vitality.toFixed(0) : '?';
+        return `<div class="line">Round ${e.round_id} settled — pop ${pop}, vitality ${vit}</div>`;
+      }).join('');
+    }
+
+    async function refresh() {
+      try {
+        const [world, metrics, snapshot, deadline, events] = await Promise.all([
+          getJson('/v1/world'),
+          getJson('/v1/world/metrics'),
+          getJson('/v1/world/snapshot'),
+          getJson('/v1/world/rounds/current/deadline'),
+          getJson('/v1/world/events'),
+        ]);
+
+        document.getElementById('s-round').textContent = world.round_id;
+        document.getElementById('s-pop').textContent = world.member_count;
+        document.getElementById('s-vit').textContent = Math.round(metrics.total_vitality);
+        document.getElementById('s-gini').textContent = metrics.gini_coefficient.toFixed(3);
+        document.getElementById('s-trade').textContent = metrics.trade_volume;
+        document.getElementById('s-conflict').textContent = metrics.conflict_count;
+        document.getElementById('s-mech').textContent = world.active_mechanisms_count;
+        document.getElementById('s-deadline').textContent = deadline.state;
+
+        renderMembers(snapshot.members);
+        renderEvents(events);
+        setConn(true, 'live');
+        showError(null);
+      } catch (err) {
+        setConn(false, 'offline');
+        showError('Could not reach API: ' + err.message);
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
